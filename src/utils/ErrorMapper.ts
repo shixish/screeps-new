@@ -1,5 +1,5 @@
 import { SourceMapConsumer } from "source-map";
-
+declare var _: _.LoDashStatic;
 export class ErrorMapper {
   // Cache consumer
   private static _consumer?: SourceMapConsumer;
