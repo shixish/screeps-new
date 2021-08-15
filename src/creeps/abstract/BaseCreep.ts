@@ -1,3 +1,5 @@
+import { creepHasParts } from "utils/creeps";
+
 export class CreepFactory {
 
 }
@@ -22,28 +24,86 @@ export class BaseCreep extends Creep {
     // }
   }
 
-  canMine(){
-    return Boolean(this.body.find(obj=>obj.type === 'work' && obj.hits > 0));
+  canWork(){
+    // return Boolean(this.body.find(obj=>obj.type === WORK && obj.hits > 0));
+    return creepHasParts(this, [WORK]);
   }
 
-  work(){
-    // this.creep.say(action_name);
-    if (this.store.getCapacity() > 0 && this.store.getFreeCapacity() === 0){
-      const spawn = this.pos.findClosestByRange(FIND_MY_SPAWNS);
-      if (spawn && this.transfer(spawn, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE){
+  startStoring(){
+    const spawn = this.pos.findClosestByRange(FIND_MY_SPAWNS);
+    if (!spawn) return false;
+    if (spawn.store.getUsedCapacity(RESOURCE_ENERGY) !== spawn.store.getCapacity(RESOURCE_ENERGY)){
+      const action = this.transfer(spawn, RESOURCE_ENERGY);
+      if (action === OK){
+        return true;
+      } else if (action === ERR_NOT_IN_RANGE){
+        this.say('Storing');
         this.moveTo(spawn);
+        return true;
+      }else{
+        console.log(`storing error`, action);
       }
-      this.say('Returning');
-    }else if (this.canMine()){
-      const source = this.pos.findClosestByPath(FIND_SOURCES_ACTIVE, {
-        filter: function (source){
-          return source.pos.findInRange(FIND_MY_CREEPS, 2).length < 3;
+    }
+    return false;
+  }
+
+  startMining(){
+    const source = this.pos.findClosestByPath(FIND_SOURCES_ACTIVE, {
+      // filter: function (source){
+      //   return source.pos.findInRange(FIND_MY_CREEPS, 2).length < 3;
+      // }
+    });
+    if (!source) return false; //This happens if there's no path to the source (it's blocked by other workers)
+    const action = this.harvest(source);
+    if (action === OK){
+      return true;
+    } else if (action === ERR_NOT_IN_RANGE) {
+      const moving = this.moveTo(source);
+      if (moving !== OK) console.log(`moving error`, moving);
+      return true;
+    }else{
+      console.log(`mining error`, action);
+    }
+    return false;
+  }
+
+  startBuilding(){
+    const energy = this.store.getUsedCapacity(RESOURCE_ENERGY);
+    if (energy === 0) return false;
+
+    const construction = this.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
+    if (construction){
+      const action = this.build(construction);
+      if (action === OK){
+        return true;
+      } else if (action === ERR_NOT_IN_RANGE){
+        const moving = this.moveTo(construction);
+        if (moving !== OK) console.log(`moving error`, moving);
+        return true;
+      } else{
+        console.log(`building error`, action);
+      }
+      this.say('Constructing');
+    }
+    return false;
+  }
+
+  work():any{
+    if (this.spawning) return;
+
+    // this.creep.say(action_name);
+    if (this.store.getCapacity(RESOURCE_ENERGY) > 0 && this.store.getFreeCapacity(RESOURCE_ENERGY) === 0){
+      if (this.startStoring()) return;
+      if (this.startBuilding()) return;
+      if (this.room.controller){
+        if (this.transfer(this.room.controller, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE){
+          this.moveTo(this.room.controller);
         }
-      });
-      if (source && this.harvest(source) === ERR_NOT_IN_RANGE) {
-        this.moveTo(source);
+        this.say('Leveling');
       }
-      this.say('Mining');
+    } else if (this.canWork()){
+      if (this.startMining()) return;
+      if (this.startBuilding()) return;
     }
   }
 

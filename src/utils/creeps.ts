@@ -9,7 +9,7 @@ export type CreepTier = {
   body: BodyPartConstant[]
 };
 
-export const getHeighestCreepTier = (tiers:CreepTier[], room: Room, currentlyAffordable = false) => {
+export const getHeighestCreepTier = (tiers:CreepTier[], room: Room, currentlyAffordable = false)=>{
   const budget = currentlyAffordable ? room.energyAvailable : room.energyCapacityAvailable;
   return tiers.reduce((heighestTier, currentTier)=>{
     return currentTier.cost <= budget && currentTier || heighestTier;
@@ -19,6 +19,15 @@ export const getHeighestCreepTier = (tiers:CreepTier[], room: Room, currentlyAff
 export const getCreepObject = (creep:Creep)=>{
   // A creep may move between by different roles depending on their body part capabilities and the current need.
 };
+
+export const creepHasParts = (creep:Creep, parts:BodyPartConstant[], activeOnly = true)=>{
+  for (const b in creep.body){
+    const idx = parts.indexOf(creep.body[b].type);
+    if (idx !== -1 && (!activeOnly || creep.body[b].hits > 0)) parts.splice(idx, 1);
+    if (parts.length === 0) return true;
+  }
+  return false;
+}
 
 export const manageCreeps = ()=>{
   for (const name in Game.creeps) {
