@@ -38,7 +38,13 @@ export class BaseCreep extends Creep {
         return true;
       } else if (action === ERR_NOT_IN_RANGE){
         this.say('Storing');
-        this.moveTo(spawn);
+        const moving = this.moveTo(spawn);
+        if (moving === OK) return true;
+        else if (moving === ERR_TIRED){
+          this.say('Tired');
+          return true;
+        }
+        console.log(`moving error`, moving);
         return true;
       }else{
         console.log(`storing error`, action);
@@ -59,8 +65,12 @@ export class BaseCreep extends Creep {
       return true;
     } else if (action === ERR_NOT_IN_RANGE) {
       const moving = this.moveTo(source);
-      if (moving !== OK) console.log(`moving error`, moving);
-      return true;
+      if (moving === OK) return true;
+      else if (moving === ERR_TIRED){
+        this.say('Tired');
+        return true;
+      }
+      console.log(`moving error`, moving);
     }else{
       console.log(`mining error`, action);
     }
@@ -78,8 +88,12 @@ export class BaseCreep extends Creep {
         return true;
       } else if (action === ERR_NOT_IN_RANGE){
         const moving = this.moveTo(construction);
-        if (moving !== OK) console.log(`moving error`, moving);
-        return true;
+        if (moving === OK) return true;
+        else if (moving === ERR_TIRED){
+          this.say('Tired');
+          return true;
+        }
+        console.log(`moving error`, moving);
       } else{
         console.log(`building error`, action);
       }
