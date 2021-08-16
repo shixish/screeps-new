@@ -11,6 +11,7 @@ export const PartCosts = {
   [ATTACK]: 80,
   [RANGED_ATTACK]: 150,
   [HEAL]: 250,
+  [CLAIM]: 600,
   [TOUGH]: 10,
 } as const;
 

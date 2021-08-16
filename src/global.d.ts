@@ -15,11 +15,19 @@ declare global {
   }
 
   interface CreepMemory {
+    targetId?: number;
+    action?: string;
+
     role: string;
     home: string;
     office: string;
-    // working: boolean;
+
+    amountMinedPerTick: number;
   }
+
+  // interface SpawnMemory {
+
+  // }
 
   interface RoomMemory{
     structures:string[]

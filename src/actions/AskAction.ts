@@ -2,26 +2,23 @@
 /// <reference path="BaseAction.ts" />
 /// <reference path="TakeAction.ts" />
 "use strict";
-class AskAction extends TakeAction { //Abstract class
-    public actor;
-    public target;
-    public action_name = 'Ask';//formerly "tenergizing"
+class AskAction extends TakeAction {
+  //Abstract class
+  public actor;
+  public target;
+  public action_name = "Ask"; //formerly "tenergizing"
 
-    constructor(actor) {
-        super(actor);
-    }
+  constructor(actor) {
+    super(actor);
+  }
 
-    getTargets() {
-        let targets = this.actor.room.find(FIND_MY_STRUCTURES, {
-            filter: function(obj: Storage) {
-                return (
-                    obj.structureType == STRUCTURE_STORAGE
-                    && obj.store.energy > obj.storeCapacity * 0.20
-                );
-            }
-        });
-        return targets;
-    }
-
+  getTargets() {
+    let targets = this.actor.room.find(FIND_MY_STRUCTURES, {
+      filter: function (obj: Storage) {
+        return obj.structureType == STRUCTURE_STORAGE && obj.store.energy > obj.storeCapacity * 0.2;
+      }
+    });
+    return targets;
+  }
 }
-CreepActions['Ask'] = AskAction;
+CreepActions["Ask"] = AskAction;

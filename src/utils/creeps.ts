@@ -1,17 +1,25 @@
 import { BaseCreep } from "creeps/abstract/BaseCreep";
+import { PartCosts } from "./constants";
 
 export const getCreepName = ()=>{
   return 'Creep'+Math.random().toString().substr(2);
 };
 
 export type CreepTier = {
-  cost: number,
+  cost?: number,
   body: BodyPartConstant[]
 };
+
+export const getCreepPartsCost = (parts:BodyPartConstant[])=>{
+  return parts.reduce((cost, part:BodyPartConstant)=>{
+    return cost + PartCosts[part];
+  }, 0);
+}
 
 export const getHeighestCreepTier = (tiers:CreepTier[], room: Room, currentlyAffordable = false)=>{
   const budget = currentlyAffordable ? room.energyAvailable : room.energyCapacityAvailable;
   return tiers.reduce((heighestTier, currentTier)=>{
+    if (!currentTier.cost) currentTier.cost = getCreepPartsCost(currentTier.body);
     return currentTier.cost <= budget && currentTier || heighestTier;
   }, tiers[0]);
 }
@@ -27,6 +35,16 @@ export const creepHasParts = (creep:Creep, parts:BodyPartConstant[], activeOnly 
     if (parts.length === 0) return true;
   }
   return false;
+}
+
+export const countCreepParts = (creep:Creep, part:BodyPartConstant)=>{
+  let count = 0;
+  for (const b in creep.body){
+    if (creep.body[b].type === part){
+      count++;
+    }
+  }
+  return count;
 }
 
 export const manageCreeps = ()=>{

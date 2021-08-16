@@ -1,27 +1,39 @@
-import { creepHasParts } from "utils/creeps";
+import { countCreepParts, creepHasParts } from "utils/creeps";
 
-export class CreepFactory {
+const tryStoring = (creep:Creep)=>{
+  const spawn = creep.pos.findClosestByRange(FIND_MY_SPAWNS);
+  if (!spawn) return false;
+  if (spawn.store.getUsedCapacity(RESOURCE_ENERGY) !== spawn.store.getCapacity(RESOURCE_ENERGY)){
+    Game.getObjectById(spawn.id)
+    const action = creep.transfer(spawn, RESOURCE_ENERGY);
+    if (action === OK){
+      return true;
+    } else if (action === ERR_NOT_IN_RANGE){
+      // actor.say('Storing');
+      const moving = creep.moveTo(spawn);
+      if (moving === OK) return true;
+      else if (moving === ERR_TIRED){
+        // actor.say('Tired');
+        return true;
+      }
+      console.log(`moving error`, moving);
+      return true;
+    }else{
+      console.log(`storing error`, action);
+    }
+  }
+  return false;
+};
 
-}
+// class Action{
+//   creep: Creep;
+//   memory: any = {};
+//   target: Creep|StructureConstant;
+// }
 
 export class BaseCreep extends Creep {
-  //Abstract class
-  // public creep: Creep;
-  //Note: this was a bad idea, it needs to find out if the target changed right before doing the work:
-  // protected target;
-  // protected action_name;
-  // protected flag: Flag;
-  // memory:CreepMemory;
-
   constructor(creep:Creep) {
     super(creep.id);
-    // this.memory = memory;
-    /*if (this.creep.memory.office) {
-            this.flag = Game.flags[this.creep.memory.office];
-        }*/
-    // if (this.creep.memory.flag) {
-    //   this.flag = Game.flags[this.creep.memory.flag];
-    // }
   }
 
   canWork(){
@@ -29,31 +41,71 @@ export class BaseCreep extends Creep {
     return creepHasParts(this, [WORK]);
   }
 
-  startStoring(){
-    const spawn = this.pos.findClosestByRange(FIND_MY_SPAWNS);
-    if (!spawn) return false;
-    if (spawn.store.getUsedCapacity(RESOURCE_ENERGY) !== spawn.store.getCapacity(RESOURCE_ENERGY)){
-      const action = this.transfer(spawn, RESOURCE_ENERGY);
-      if (action === OK){
+  canStore(){
+    return this.store.getFreeCapacity() > 0;
+  }
+
+  get amountMinedPerTick(){
+    if (this.memory.amountMinedPerTick === undefined) this.memory.amountMinedPerTick = countCreepParts(this, WORK)*2;
+    return this.memory.amountMinedPerTick;
+  }
+
+  respondToActionCode(action:ScreepsReturnCode, target: RoomPosition | { pos: RoomPosition }){
+    if (action === OK){
+      return true;
+    } else if (action === ERR_NOT_IN_RANGE){
+      // this.say('Storing');
+      const moving = this.moveTo(target);
+      if (moving === OK) return true;
+      else if (moving === ERR_TIRED){
+        // this.say('Tired');
         return true;
-      } else if (action === ERR_NOT_IN_RANGE){
-        this.say('Storing');
-        const moving = this.moveTo(spawn);
-        if (moving === OK) return true;
-        else if (moving === ERR_TIRED){
-          this.say('Tired');
-          return true;
-        }
-        console.log(`moving error`, moving);
-        return true;
-      }else{
-        console.log(`storing error`, action);
       }
+      console.log(`moving error`, moving);
+    }else{
+      console.log(`action error`, action);
     }
     return false;
   }
 
-  startMining(){
+  startPickup():boolean{
+    if (this.store.getFreeCapacity(RESOURCE_ENERGY) == 0) return false;
+    const resource = this.pos.findClosestByRange(FIND_DROPPED_RESOURCES);
+    if (resource){
+      const action = this.pickup(resource);
+      return this.respondToActionCode(action, resource);
+    }
+    const tombstone = this.pos.findClosestByRange(FIND_TOMBSTONES, {
+      filter: ts=>{
+        return ts.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
+      }
+    });
+    if (tombstone){
+      const action = this.withdraw(tombstone, RESOURCE_ENERGY);
+      return this.respondToActionCode(action, tombstone);
+    }
+    return false;
+  }
+
+  startRepairing():boolean{
+    const structure = this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
+      filter: structure=>structure.hits < structure.hitsMax
+    });
+    if (!structure) return false;
+    const action = this.repair(structure);
+    return this.respondToActionCode(action, structure);
+  }
+
+  startStoring():boolean{
+    const spawn = this.pos.findClosestByRange(FIND_MY_SPAWNS);
+    if (!spawn) return false;
+    if (spawn.store.getUsedCapacity(RESOURCE_ENERGY) === spawn.store.getCapacity(RESOURCE_ENERGY)) return false;
+    const action = this.transfer(spawn, RESOURCE_ENERGY);
+    return this.respondToActionCode(action, spawn);
+  }
+
+  startMining():boolean{
+    if (this.store.getFreeCapacity(RESOURCE_ENERGY) < this.amountMinedPerTick) return false;
     const source = this.pos.findClosestByPath(FIND_SOURCES_ACTIVE, {
       // filter: function (source){
       //   return source.pos.findInRange(FIND_MY_CREEPS, 2).length < 3;
@@ -61,43 +113,29 @@ export class BaseCreep extends Creep {
     });
     if (!source) return false; //This happens if there's no path to the source (it's blocked by other workers)
     const action = this.harvest(source);
-    if (action === OK){
-      return true;
-    } else if (action === ERR_NOT_IN_RANGE) {
-      const moving = this.moveTo(source);
-      if (moving === OK) return true;
-      else if (moving === ERR_TIRED){
-        this.say('Tired');
-        return true;
-      }
-      console.log(`moving error`, moving);
-    }else{
-      console.log(`mining error`, action);
-    }
-    return false;
+    return this.respondToActionCode(action, source);
   }
 
-  startBuilding(){
-    const energy = this.store.getUsedCapacity(RESOURCE_ENERGY);
-    if (energy === 0) return false;
-
+  startBuilding():boolean{
+    if (this.store.getUsedCapacity(RESOURCE_ENERGY) === 0) return false;
     const construction = this.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
-    if (construction){
-      const action = this.build(construction);
-      if (action === OK){
-        return true;
-      } else if (action === ERR_NOT_IN_RANGE){
-        const moving = this.moveTo(construction);
-        if (moving === OK) return true;
-        else if (moving === ERR_TIRED){
-          this.say('Tired');
-          return true;
-        }
-        console.log(`moving error`, moving);
-      } else{
-        console.log(`building error`, action);
-      }
-      this.say('Constructing');
+    if (!construction) return false;
+    const action = this.build(construction);
+    return this.respondToActionCode(action, construction);
+  }
+
+  startUpgrading():boolean{
+    if (!this.room.controller) return false;
+    const action = this.transfer(this.room.controller, RESOURCE_ENERGY);
+    return this.respondToActionCode(action, this.room.controller);
+  }
+
+  rememberAction(callback:()=>boolean, actionName:string, overrideActions: string[] = []){
+    if ((!this.memory.action || this.memory.action === actionName || overrideActions.includes(this.memory.action)) && callback.apply(this)){
+      this.memory.action = actionName;
+      return true;
+    }else if (this.memory.action === actionName){
+      delete this.memory.action;
     }
     return false;
   }
@@ -105,97 +143,19 @@ export class BaseCreep extends Creep {
   work():any{
     if (this.spawning) return;
 
-    // this.creep.say(action_name);
-    if (this.store.getCapacity(RESOURCE_ENERGY) > 0 && this.store.getFreeCapacity(RESOURCE_ENERGY) === 0){
-      if (this.startStoring()) return;
-      if (this.startBuilding()) return;
-      if (this.room.controller){
-        if (this.transfer(this.room.controller, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE){
-          this.moveTo(this.room.controller);
-        }
-        this.say('Leveling');
-      }
-    } else if (this.canWork()){
-      if (this.startMining()) return;
-      if (this.startBuilding()) return;
+    // if (this.memory.action) this.say(this.memory.action);
+
+    const canWork = this.canWork();
+    if (this.rememberAction(this.startPickup, 'pickup', ['mining'])) return;
+    if (canWork && this.rememberAction(this.startMining, 'mining')) return;
+
+    if (this.store.getUsedCapacity(RESOURCE_ENERGY) > 0){ //Do something with the energy
+      if (this.rememberAction(this.startStoring, 'storing')) return;
+      if (canWork && this.rememberAction(this.startRepairing, 'repairing')) return;
+      if (canWork && this.rememberAction(this.startBuilding, 'building')) return;
+      if (this.rememberAction(this.startUpgrading, 'upgrading')) return;
     }
+
+    delete this.memory.action; // If nothing was successful reset action state. Necessary since rememberAction isn't always going to do the cleanup.
   }
-
-  // isHome() {
-  //   return this.creep.memory.home == this.creep.pos.roomName;
-  // }
-
-  // is_at_office() {
-  //   return this.creep.memory.office == this.creep.pos.roomName;
-  // }
-
-  // retarget() {
-  //   //Note: This function needs to be extended by child classes
-  //   this.creep.memory.target_id = null;
-  //   this.creep.memory.action_name = null;
-  // }
-
-  // set_target(targets, action?: string) {
-  //   action = action || "Move";
-  //   if (CreepActions[action]) {
-  //     let ctrl = new CreepActions[action](this.creep);
-  //     return ctrl.setTargets(targets);
-  //   } else {
-  //     console.log("couldn't find action", action);
-  //     return false;
-  //   }
-  // }
-
-  // try_to(action: string) {
-  //   if (CreepActions[action]) {
-  //     let ctrl = new CreepActions[action](this.creep);
-  //     return ctrl.try();
-  //   } else {
-  //     console.log("couldn't find action", action);
-  //     return false;
-  //   }
-  // }
-
-  // // try_to(type: string) {
-  // //     let targets = this.find_targets(type);
-  // //     return this.set_target(targets, type);
-  // // }
-
-  // // find_targets(type: string) {
-  // //     if (CreepActions[type]){
-  // //         // console.log('found', type);
-  // //         let ctrl = new CreepActions[type](this.creep);
-  // //         return ctrl.getTargets();
-  // //     }else{
-  // //         console.log('couldn\'t find', type);
-  // //     }
-  // // }
-
-  // work(is_retry?) {
-  //   if (
-  //     this.creep.memory.action_name !== "Renew" &&
-  //     !this.creep.room.memory.under_attack &&
-  //     !this.creep.memory.obsolete &&
-  //     this.creep.ticksToLive < Globals.MIN_TICKS_TO_LIVE
-  //   ) {
-  //     this.try_to("Renew");
-  //   }
-
-  //   //Notice: make sure any targeting happens before this.
-  //   let target = Game.getObjectById(this.creep.memory.target_id),
-  //     action_name = this.creep.memory.action_name;
-
-  //   if (CreepActions[action_name]) {
-  //     if (action_name) this.creep.say(action_name);
-  //     else this.creep.say(this.creep.memory.role + " idle");
-
-  //     let ctrl = new CreepActions[action_name](this.creep);
-  //     let ret = ctrl.perform();
-  //     if (!ret) {
-  //       this.retarget();
-  //     }
-  //   } else {
-  //     this.retarget();
-  //   }
-  // }
 }
