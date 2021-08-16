@@ -1,7 +1,21 @@
-import { countCreepParts, creepHasParts } from "utils/creeps";
-export class BaseCreep extends Creep {
+import { countCreepParts, creepHasParts, getCreepName, getHeighestCreepTier } from "utils/creeps";
+export class BasicCreep extends Creep {
   constructor(creep:Creep) {
     super(creep.id);
+  }
+  static tiers:CreepTier[] = [
+    {
+      cost: 300,
+      body: [WORK, MOVE, CARRY, MOVE, CARRY]
+    },
+  ];
+  static generate(spawn:StructureSpawn){
+    const bestTier = getHeighestCreepTier(this.tiers, spawn.room);
+    spawn.spawnCreep(bestTier.body, getCreepName(), {
+      memory: {
+        role: this.constructor.name
+      }
+    });
   }
 
   canWork(){
@@ -56,20 +70,25 @@ export class BaseCreep extends Creep {
   }
 
   startRepairing():boolean{
-    const structure = this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
-      filter: structure=>structure.hits < structure.hitsMax
+    const road = this.pos.findClosestByRange(FIND_STRUCTURES, {
+      filter: structure=>structure.structureType === STRUCTURE_ROAD && structure.hits < structure.hitsMax
     });
-    if (!structure) return false;
-    const action = this.repair(structure);
-    return this.respondToActionCode(action, structure);
+    if (!road) return false;
+    const action = this.repair(road);
+    return this.respondToActionCode(action, road);
   }
 
   startStoring():boolean{
-    const spawn = this.pos.findClosestByRange(FIND_MY_SPAWNS);
-    if (!spawn) return false;
-    if (spawn.store.getUsedCapacity(RESOURCE_ENERGY) === spawn.store.getCapacity(RESOURCE_ENERGY)) return false;
-    const action = this.transfer(spawn, RESOURCE_ENERGY);
-    return this.respondToActionCode(action, spawn);
+    // const spawn = this.pos.findClosestByRange(FIND_MY_SPAWNS);
+    const storage = this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
+      filter: (structure:StructureSpawn|StructureExtension)=>{
+        return structure.structureType === STRUCTURE_EXTENSION || structure.structureType === STRUCTURE_SPAWN && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+      }
+    });
+    if (!storage) return false;
+    // if (spawn.store.getUsedCapacity(RESOURCE_ENERGY) === spawn.store.getCapacity(RESOURCE_ENERGY)) return false;
+    const action = this.transfer(storage, RESOURCE_ENERGY);
+    return this.respondToActionCode(action, storage);
   }
 
   startMining():boolean{
@@ -115,7 +134,6 @@ export class BaseCreep extends Creep {
 
     const canWork = this.canWork();
     if (this.rememberAction(this.startPickup, 'pickup', ['mining'])) return;
-    if (canWork && this.rememberAction(this.startMining, 'mining')) return;
 
     if (this.store.getUsedCapacity(RESOURCE_ENERGY) > 0){ //Do something with the energy
       if (this.rememberAction(this.startStoring, 'storing')) return;
@@ -123,6 +141,8 @@ export class BaseCreep extends Creep {
       if (canWork && this.rememberAction(this.startBuilding, 'building')) return;
       if (this.rememberAction(this.startUpgrading, 'upgrading')) return;
     }
+
+    if (canWork && this.rememberAction(this.startMining, 'mining')) return;
 
     delete this.memory.action; // If nothing was successful reset action state. Necessary since rememberAction isn't always going to do the cleanup.
   }

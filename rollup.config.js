@@ -28,7 +28,9 @@ export default {
     resolve({ rootDir: "src" }),
     commonjs(),
     typescript({tsconfig: "./tsconfig.json"}),
-    terser(),
+    terser({
+      mangle: false
+    }),
     screeps({config: cfg, dryRun: cfg == null})
   ]
 }

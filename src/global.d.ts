@@ -15,14 +15,20 @@ declare global {
   }
 
   interface CreepMemory {
+    role: string;
+
     targetId?: number;
     action?: string;
 
-    role: string;
-    home: string;
-    office: string;
+    // home: string;
+    // office: string;
 
-    amountMinedPerTick: number;
+    amountMinedPerTick?: number;
+  }
+
+  type CreepTier = {
+    cost?: number,
+    body: BodyPartConstant[]
   }
 
   // interface SpawnMemory {

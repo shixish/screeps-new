@@ -1,14 +1,15 @@
 import { USERNAME } from "utils/constants";
-import { CreepTier, getCreepName, getHeighestCreepTier } from "utils/creeps";
+import { getCreepName, getHeighestCreepTier } from "utils/creeps";
 
+// const minimumMinion = [WORK, MOVE, CARRY];
 const CreepTiers:CreepTier[] = [
-  {
-    cost: 200,
-    body: [WORK, MOVE, CARRY]
-  },
   {
     cost: 300,
     body: [WORK, MOVE, CARRY, MOVE, CARRY]
+  },
+  {
+    cost: 400,
+    body: [WORK, MOVE, CARRY, WORK, MOVE, CARRY]
   },
 ];
 
@@ -58,11 +59,7 @@ export class SpawnController extends StructureSpawn{
 
       const creeps = this.room.find(FIND_CREEPS);
       if (creeps.length < sources.length * 5){
-        if (creeps.length < 3){
-          this.spawnCreep([WORK, MOVE, CARRY], getCreepName()); //Starter creeps
-        }else{
-          this.spawnCreep(this.bestCreep.body, getCreepName());
-        }
+        this.spawnCreep(this.bestCreep.body, getCreepName());
       }
     }
 
