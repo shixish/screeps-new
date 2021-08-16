@@ -1,36 +1,4 @@
 import { countCreepParts, creepHasParts } from "utils/creeps";
-
-const tryStoring = (creep:Creep)=>{
-  const spawn = creep.pos.findClosestByRange(FIND_MY_SPAWNS);
-  if (!spawn) return false;
-  if (spawn.store.getUsedCapacity(RESOURCE_ENERGY) !== spawn.store.getCapacity(RESOURCE_ENERGY)){
-    Game.getObjectById(spawn.id)
-    const action = creep.transfer(spawn, RESOURCE_ENERGY);
-    if (action === OK){
-      return true;
-    } else if (action === ERR_NOT_IN_RANGE){
-      // actor.say('Storing');
-      const moving = creep.moveTo(spawn);
-      if (moving === OK) return true;
-      else if (moving === ERR_TIRED){
-        // actor.say('Tired');
-        return true;
-      }
-      console.log(`moving error`, moving);
-      return true;
-    }else{
-      console.log(`storing error`, action);
-    }
-  }
-  return false;
-};
-
-// class Action{
-//   creep: Creep;
-//   memory: any = {};
-//   target: Creep|StructureConstant;
-// }
-
 export class BaseCreep extends Creep {
   constructor(creep:Creep) {
     super(creep.id);
