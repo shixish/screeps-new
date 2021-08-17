@@ -1,4 +1,4 @@
-import { CreepRoles, CreepTiers, USERNAME } from "utils/constants";
+import { CreepRoles, USERNAME } from "utils/constants";
 import { creepCountParts, getCreepName, getHeighestCreepTier } from "utils/creeps";
 
 export class SpawnController extends StructureSpawn{
@@ -50,30 +50,36 @@ export class SpawnController extends StructureSpawn{
         console.log('TODO: BUILD LINKS');
       }
 
-      const creeps = this.room.find(FIND_CREEPS);
-      const creepCountsByRole = creeps.reduce((out, creep)=>{
-        out[creep.memory.role] = out[creep.memory.role] === undefined ? 1 : out[creep.memory.role] + 1;
+      const creeps = this.room.find(FIND_MY_CREEPS);
+      const creepCountsByRole = creeps.reduce((out, result)=>{
+        const role = Memory.creeps[result.name].role;
+        out[role] = out[role] === undefined ? 1 : out[role] + 1;
         return out;
       }, {} as { -readonly [key in keyof typeof CreepRoles]: number } );
-
-      console.log(`creepCountsByRole`, JSON.stringify(creepCountsByRole));
 
       // this.spawnCreep([WORK, MOVE, CARRY], getCreepName());
       for (const roleName in CreepRoles){
         const role = CreepRoles[roleName];
         if (creepCountsByRole[roleName] < role.max(this.sourceCount)){
-          this.spawnCreep(getHeighestCreepTier(role.tiers, this.room).body);
+          const body = getHeighestCreepTier(role.tiers, this.room).body;
+          const name = getCreepName();
+          this.spawnCreep(body, name, {
+            memory: {
+              role: roleName,
+              counts: creepCountParts(body)
+            }
+          });
         }
       }
     }
   }
 
-  spawnCreep(body: BodyPartConstant[], name:string = getCreepName(), opts: SpawnOptions = {}){
-    opts.memory = {
-      role: 'basic',
-      counts: creepCountParts(body),
-      ... opts?.memory
-    }
-    return super.spawnCreep(body, name, opts);
-  }
+  // spawnCreep(body: BodyPartConstant[], name:string = getCreepName(), opts: SpawnOptions = {}){
+  //   opts.memory = {
+  //     role: 'basic',
+  //     counts: creepCountParts(body),
+  //     ... opts?.memory
+  //   }
+  //   return super.spawnCreep(body, name, opts);
+  // }
 }

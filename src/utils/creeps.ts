@@ -55,8 +55,12 @@ export const creepCountParts = (parts:BodyPartConstant[])=>{
 
 export const manageCreeps = ()=>{
   for (const name in Game.creeps) {
-    const creep = new BasicCreep(Game.creeps[name]);
-    creep.work();
+    try{
+      const creep = new BasicCreep(Game.creeps[name]);
+      creep.work();
+    }catch(e){
+      console.error('creep error', e);
+    }
 
     // var creepDiag = debug.diag("creeps." + role);
     // Cache.add(creep);
