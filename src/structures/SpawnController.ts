@@ -2,11 +2,9 @@ import { CreepRoles, CreepTiers, USERNAME } from "utils/constants";
 import { creepCountParts, getCreepName, getHeighestCreepTier } from "utils/creeps";
 
 export class SpawnController extends StructureSpawn{
-  bestCreep:CreepTier;
-
   constructor(spawn:StructureSpawn){
     super(spawn.id);
-    this.bestCreep = getHeighestCreepTier(CreepTiers, this.room);
+    // this.bestCreep = getHeighestCreepTier(CreepTiers, this.room);
   }
 
   getRepairableCreeps(){

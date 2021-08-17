@@ -1,6 +1,6 @@
 import { USERNAME } from "utils/constants";
 
-class TowerController extends StructureTower {
+export class TowerController extends StructureTower {
   private maxRepairTiers:{ [key:number]: number } = {
     3: 25000, //tower starts at 3
     4: 50000,
@@ -11,6 +11,10 @@ class TowerController extends StructureTower {
   };
   //Don't repair walls more this amount, based on control level
   private maxRepair = this.room.controller && this.maxRepairTiers[this.room.controller.level];
+
+  constructor(tower:StructureTower){
+    super(tower.id);
+  }
 
   respondToActionCode(action:ScreepsReturnCode, target: RoomPosition | { pos: RoomPosition }){
     if (action === OK){

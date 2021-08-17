@@ -1,4 +1,5 @@
 import { SpawnController } from "structures/SpawnController";
+import { TowerController } from "structures/TowerController";
 
 export const manageStructures = ()=>{
   for (const id in Game.structures) {
