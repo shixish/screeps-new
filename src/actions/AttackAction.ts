@@ -1,7 +1,3 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="BaseAction.ts" />
-/// <reference path="FightAction.ts" />
-"use strict";
 class AttackAction extends FightAction {
     public actor;
     public target;
@@ -11,7 +7,7 @@ class AttackAction extends FightAction {
         super(actor);
     }
 
-    
+
     //This isn't working: It stops ranged attack creeps from finding a target...
     // getTargetRange(){
     //     return 3;
@@ -88,7 +84,7 @@ class AttackAction extends FightAction {
         //     if (ramparts.length) {
         //         target = ramparst[0];
         //     }
-        
+
         if (target && this.actor && !this.actor.pos.inRangeTo(target, this.getTargetRange(target))) {
             let move = this.actor.moveTo(target);
             // console.log(move);

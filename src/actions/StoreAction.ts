@@ -1,6 +1,3 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="BaseAction.ts" />
-"use strict";
 class StoreAction extends BaseAction {
     public actor;
     public target;
@@ -13,7 +10,7 @@ class StoreAction extends BaseAction {
     getTargets() {
         // let storage = <Storage>Game.getObjectById(room.memory['structures']['storage'][0]);
         // if (_.sum(storage.store) - storage.store[RESOURCE_ENERGY] < storage.storeCapacity * Globals.MAX_MINERALS_IN_STORE) {
-        //    
+        //
         // }
         //notice: can't use "my" structures to find containers, as they are neutral...
         let targets = this.actor.room.find(FIND_STRUCTURES, {

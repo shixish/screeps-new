@@ -1,5 +1,3 @@
-/// <reference path="../vars/Globals.ts" />
-"use strict";
 class BaseAction {
   //Abstract class
   public actor;

@@ -1,7 +1,3 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="BaseAction.ts" />
-/// <reference path="UpgradeAction.ts" />
-"use strict";
 class SustainAction extends UpgradeAction {
     public actor;
     public target;

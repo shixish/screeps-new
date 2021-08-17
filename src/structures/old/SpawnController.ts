@@ -1,6 +1,3 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="../utils/Inventory.ts" />
-"use strict";
 
 class SpawnController {
   structure: Spawn;

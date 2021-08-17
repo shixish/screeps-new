@@ -1,4 +1,3 @@
-"use strict";
 class debug {
   static log(...args: any[]);
   static log() {

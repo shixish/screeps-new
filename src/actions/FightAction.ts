@@ -1,6 +1,3 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="BaseAction.ts" />
-"use strict";
 class FightAction extends BaseAction {
     public actor;
     public target;
@@ -46,7 +43,7 @@ class FightAction extends BaseAction {
         // if (is_ranged && hostiles.length) {
         //     // return this.actor.moveTo(getReverseDirection());
         //     console.log('kite');
-        // } else 
+        // } else
         if (action == ERR_NOT_IN_RANGE) {
             this.move();
         } else if (action == ERR_BUSY) {//The creep is still being spawned.

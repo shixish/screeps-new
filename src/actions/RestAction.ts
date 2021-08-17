@@ -1,6 +1,3 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="BaseAction.ts" />
-"use strict";
 class RestAction extends BaseAction {
     public actor;
     public target;

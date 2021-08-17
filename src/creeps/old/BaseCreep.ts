@@ -1,22 +1,4 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="../actions/BaseAction.ts" />
-/// <reference path="../actions/AskAction.ts" />
-/// <reference path="../actions/AttackAction.ts" />
-/// <reference path="../actions/BuildAction.ts" />
-/// <reference path="../actions/ClaimAction.ts" />
-/// <reference path="../actions/ExtractAction.ts" />
-/// <reference path="../actions/FightAction.ts" />
-/// <reference path="../actions/GiveAction.ts" />
-/// <reference path="../actions/HarvestAction.ts" />
-/// <reference path="../actions/HealAction.ts" />
-/// <reference path="../actions/MineAction.ts" />
-/// <reference path="../actions/PickupAction.ts" />
-/// <reference path="../actions/RenewAction.ts" />
-/// <reference path="../actions/StoreAction.ts" />
-/// <reference path="../actions/TakeAction.ts" />
-/// <reference path="../actions/UpgradeAction.ts" />
 
-"use strict";
 class BaseCreepOld { //Abstract class
     public creep: Creep;
         //Note: this was a bad idea, it needs to find out if the target changed right before doing the work:

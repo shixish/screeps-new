@@ -1,7 +1,3 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="BaseAction.ts" />
-/// <reference path="TakeAction.ts" />
-"use strict";
 class AskAction extends TakeAction {
   //Abstract class
   public actor;

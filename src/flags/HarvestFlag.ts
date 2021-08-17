@@ -1,7 +1,3 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="../utils/Inventory.ts" />
-/// <reference path="BaseFlag.ts" />
-"use strict";
 class HarvestFlag extends BaseFlag {
     public flag_name = 'Harvest';
     public flag: Flag;

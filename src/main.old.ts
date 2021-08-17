@@ -1,8 +1,3 @@
-/// <reference path="vars/Globals.ts" />
-/// <reference path="utils/Inventory.ts" />
-/// <reference path="vars/StructureInfo.ts" />
-/// <reference path="utils/Debug.ts" />
-"use strict";
 
 declare var module: any;
 module.exports.loop = function () {

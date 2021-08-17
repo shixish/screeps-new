@@ -1,7 +1,3 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="BaseAction.ts" />
-/// <reference path="HarvestAction.ts" />
-"use strict";
 class MineAction extends HarvestAction {
     public actor;
     public target;

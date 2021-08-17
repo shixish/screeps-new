@@ -1,6 +1,3 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="BaseAction.ts" />
-"use strict";
 class RepairAction extends BaseAction {
     public actor;
     public target;
@@ -14,7 +11,7 @@ class RepairAction extends BaseAction {
         let targets = this.actor.room.find(FIND_STRUCTURES, {
             filter: obj => (
                 (
-                    obj.structureType == STRUCTURE_ROAD || 
+                    obj.structureType == STRUCTURE_ROAD ||
                     obj.structureType == STRUCTURE_CONTAINER ||
                     (obj.owner && obj.owner.username == Globals.USERNAME)
                 ) && obj.hits < obj.hitsMax && obj.hits < obj.hitsMax

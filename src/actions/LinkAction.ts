@@ -1,7 +1,3 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="BaseAction.ts" />
-/// <reference path="GiveAction.ts" />
-"use strict";
 class LinkAction extends GiveAction {
     public actor;
     public target;

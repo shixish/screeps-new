@@ -1,7 +1,3 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="BaseAction.ts" />
-/// <reference path="ExtractAction.ts" />
-"use strict";
 class HarvestAction extends BaseAction { //Abstract class
     public actor;
     public target;
@@ -21,7 +17,7 @@ class HarvestAction extends BaseAction { //Abstract class
 
     perform() {
         super.perform();
-        
+
         let total_carrying = _.sum(this.actor.carry);
         if (total_carrying == this.actor.carryCapacity) {
             // this.actor.say('Harvested');

@@ -1,6 +1,3 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="./BaseCreep.ts" />
-"use strict";
 
 class HealerCreep extends BaseCreepOld {
     public creep: Creep;

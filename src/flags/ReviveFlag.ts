@@ -1,7 +1,3 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="../utils/Inventory.ts" />
-/// <reference path="BaseFlag.ts" />
-"use strict";
 class ReviveFlag extends BaseFlag {
     public flag_name = 'Revive';
     public flag: Flag;
@@ -18,7 +14,7 @@ class ReviveFlag extends BaseFlag {
         if (this.flag.room) {
             let room = this.flag.room;
             let sources = Inventory.room_sources(room);
-            
+
             if (room.controller && (!room.controller.reservation && !room.controller.owner) || room.controller.ticksToDowngrade < 5000) {
                 flag_creeps['Claim'] = 1;
             }

@@ -1,7 +1,3 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="./BaseCreep.ts" />
-/// <reference path="../utils/Inventory.ts" />
-"use strict";
 
 class LinkerCreep extends BaseCreepOld {
     public creep: Creep;

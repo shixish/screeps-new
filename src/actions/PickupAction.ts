@@ -1,6 +1,3 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="BaseAction.ts" />
-"use strict";
 class PickupAction extends BaseAction {
     public actor;
     public target;
@@ -38,7 +35,7 @@ class PickupAction extends BaseAction {
                 // return false;
             }
             return true;
-        } else { 
+        } else {
             return false;
         }
     }

@@ -1,7 +1,3 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="../utils/Inventory.ts" />
-/// <reference path="../creeps/HarvesterCreep.ts" />
-"use strict";
 
 class SourceController {
   public source: Source;

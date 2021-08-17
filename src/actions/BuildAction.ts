@@ -1,6 +1,3 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="BaseAction.ts" />
-"use strict";
 class BuildAction extends BaseAction {
     public actor;
     public target;
@@ -12,7 +9,7 @@ class BuildAction extends BaseAction {
 
     getTargets() {
         let targets = this.actor.room.find(FIND_CONSTRUCTION_SITES/*, {
-            filter: (obj:ConstructionSite) => { 
+            filter: (obj:ConstructionSite) => {
                 return obj.structureType == STRUCTURE_RAMPART;
             }
         }*/);

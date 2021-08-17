@@ -1,6 +1,3 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="BaseFlag.ts" />
-"use strict";
 class AttackFlag extends BaseFlag {
     public flag_name = 'Attack';
     public flag: Flag;

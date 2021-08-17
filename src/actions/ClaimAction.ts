@@ -1,7 +1,3 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="BaseAction.ts" />
-/// <reference path="ReserveAction.ts" />
-"use strict";
 class ClaimAction extends ReserveAction {
     public actor;
     public target;
