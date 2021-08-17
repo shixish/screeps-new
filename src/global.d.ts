@@ -1,3 +1,4 @@
+import { CreepRoles } from 'utils/constants';
 declare global {
 //   /*
 //     Example types, expand on these or remove them and add your own.
@@ -15,13 +16,17 @@ declare global {
   }
 
   interface CreepMemory {
-    role: string;
+    role: keyof typeof CreepRoles;
 
     targetId?: number;
     action?: string;
 
     // home: string;
     // office: string;
+
+    counts: {
+      [key in BodyPartConstant]?: number
+    }
 
     amountMinedPerTick?: number;
   }
@@ -31,9 +36,9 @@ declare global {
     body: BodyPartConstant[]
   }
 
-  // interface SpawnMemory {
-
-  // }
+  interface SpawnMemory {
+    sourceCount?: number;
+  }
 
   interface RoomMemory{
     structures:string[]

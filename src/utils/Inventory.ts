@@ -1,6 +1,6 @@
 /// <reference path="../vars/Globals.ts" />
 /// <reference path="./debug.ts" />
-/// <reference path="../structures/SpawnController.ts" />
+/// <reference path="../structures/old/SpawnController.ts" />
 "use strict";
 
 class Inventory {

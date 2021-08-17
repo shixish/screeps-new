@@ -32,7 +32,7 @@ export const creepHasParts = (creep:Creep, parts:BodyPartConstant[], activeOnly 
   return false;
 };
 
-export const countCreepParts = (creep:Creep, part:BodyPartConstant)=>{
+export const creepCountPart = (creep:Creep, part:BodyPartConstant)=>{
   let count = 0;
   for (const b in creep.body){
     if (creep.body[b].type === part){
@@ -41,6 +41,13 @@ export const countCreepParts = (creep:Creep, part:BodyPartConstant)=>{
   }
   return count;
 };
+
+export const creepCountParts = (parts:BodyPartConstant[])=>{
+  return parts.reduce((out, part)=>{
+    out[part] = out[part] === undefined ? 1 : (out[part] as number) + 1;
+    return out;
+  }, {} as CreepMemory["counts"]);
+}
 
 // export const makeCreep(spawn:StructureSpawn, role){
 

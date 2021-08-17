@@ -1,4 +1,4 @@
-import { SpawnController } from "structures/Spawn";
+import { SpawnController } from "structures/SpawnController";
 
 export const manageStructures = ()=>{
   for (const id in Game.structures) {
@@ -6,8 +6,11 @@ export const manageStructures = ()=>{
     // "extension" | "rampart" | "road" | "spawn" | "link" | "constructedWall" | "storage" | "tower" | "observer" | "powerSpawn" | "extractor" | "lab" | "terminal" | "container" | "nuker" | "factory" | "keeperLair" | "controller" | "powerBank" | "portal" | "invaderCore"
     // console.log('structure', Object.keys(structure));
     if (structure instanceof StructureSpawn){
-      const spawn = new SpawnController(structure)
+      const spawn = new SpawnController(structure);
       spawn.work();
+    }else if (structure instanceof StructureTower){
+      const tower = new TowerController(structure);
+      tower.work();
     }
     // if (structure_controllers[type]) {
     //   let structures = memory.structures[type];

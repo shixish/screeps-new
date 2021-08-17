@@ -1,10 +1,7 @@
-/// <reference path="../vars/Globals.ts" />
-/// <reference path="../utils/Inventory.ts" />
-"use strict";
+import { USERNAME } from "utils/constants";
 
-class TowerController {
-  private structure: Tower;
-  private max_repair_tiers = {
+class TowerController extends StructureTower {
+  private maxRepairTiers:{ [key:number]: number } = {
     3: 25000, //tower starts at 3
     4: 50000,
     5: 250000,
@@ -12,50 +9,50 @@ class TowerController {
     7: 1000000,
     8: 1500000
   };
-  private max_repair;
+  //Don't repair walls more this amount, based on control level
+  private maxRepair = this.room.controller && this.maxRepairTiers[this.room.controller.level];
 
-  constructor(structure_id) {
-    this.structure = <Tower>Game.getObjectById(structure_id);
-    if (!this.structure) {
-      console.log("Unable to find Tower with ID", structure_id);
-      throw "Invalid Object ID";
+  respondToActionCode(action:ScreepsReturnCode, target: RoomPosition | { pos: RoomPosition }){
+    if (action === OK){
+      return true;
+    } else {
+      console.log(`action error`, action);
     }
-    let control_level = this.structure.room.controller.level;
-    this.max_repair = this.max_repair_tiers[control_level];
-    // console.log(this.structure.room, this.structure);
-    this.work();
+    return false;
+  }
+
+  startAttacking(){
+    const target = this.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
+    if (!target) return false;
+    const action = this.attack(target);
+    return this.respondToActionCode(action, target);
+  }
+
+  startRepairing():boolean{
+    const repairable = this.pos.findClosestByRange(FIND_STRUCTURES, {
+      filter: (structure)=>{
+        const owner = (structure as any).owner;
+        return structure.hits < (this.maxRepair ? Math.min(structure.hitsMax, this.maxRepair) : structure.hitsMax) && (!owner || owner == USERNAME)
+      }
+    });
+    if (!repairable) return false;
+    const action = this.repair(repairable);
+    return this.respondToActionCode(action, repairable);
+  }
+
+  startHealing():boolean{
+    const healable = this.pos.findClosestByRange(FIND_MY_CREEPS, {
+      filter: (creep)=>creep.hits < creep.hitsMax
+    });
+    if (!healable) return false;
+    const action = this.heal(healable);
+    return this.respondToActionCode(action, healable);
   }
 
   work() {
-    var target;
-    if (this.structure.energy > 0) {
-      target = this.structure.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
-      if (target) {
-        var action = this.structure.attack(target);
-      } else {
-        target = this.structure.pos.findClosestByRange(FIND_MY_CREEPS, {
-          filter: function (obj) {
-            return obj.hits < obj.hitsMax;
-          }
-        });
-        if (target) {
-          var action = this.structure.heal(target);
-        } else if (this.structure.room.memory.storage.energy > 20000) {
-          //don't sap the place dry repairing walls...
-          //notice: towers don't repair walls until we have a storage tank
-          target = this.structure.pos.findClosestByRange(FIND_STRUCTURES, {
-            filter: obj =>
-              (obj.structureType == STRUCTURE_ROAD ||
-                obj.structureType == STRUCTURE_WALL ||
-                (obj.owner && obj.owner.username == Globals.USERNAME)) &&
-              obj.hits < obj.hitsMax &&
-              obj.hits < this.max_repair //Globals.MAX_HITS_REPAIR
-          });
-          if (target) {
-            var action = this.structure.repair(target);
-          }
-        }
-      }
-    }
+    if (this.store.energy === 0) return;
+    if (this.startAttacking()) return;
+    if (this.startHealing()) return;
+    if (this.startRepairing()) return;
   }
 }

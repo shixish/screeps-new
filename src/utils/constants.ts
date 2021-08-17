@@ -15,6 +15,46 @@ export const PartCosts = {
   [TOUGH]: 10,
 } as const;
 
+export const CreepTiers:CreepTier[] = [
+  {
+    cost: 300,
+    body: [WORK, MOVE, CARRY, MOVE, CARRY]
+  },
+  {
+    cost: 400,
+    body: [WORK, MOVE, CARRY, WORK, MOVE, CARRY]
+  },
+  {
+    cost: 550,
+    body: [WORK, MOVE, CARRY, WORK, MOVE, CARRY, WORK, CARRY]
+  }
+];
+
+export type CreepRole = {
+  max: (sourceCount:number)=>number,
+  tiers: CreepTier[]
+};
+
+export const CreepRoles:{ [role:string]: CreepRole } = {
+  basic: {
+    max: (sourceCount:number)=>sourceCount * 5,
+    tiers: [
+      {
+        cost: 300,
+        body: [WORK, MOVE, CARRY, MOVE, CARRY]
+      },
+      {
+        cost: 400,
+        body: [WORK, MOVE, CARRY, WORK, MOVE, CARRY]
+      },
+      {
+        cost: 550,
+        body: [WORK, MOVE, CARRY, WORK, MOVE, CARRY, WORK, CARRY]
+      }
+    ]
+  },
+};
+
 // export const Roles = [];
 
 export const USERNAME = 'ShiXish';

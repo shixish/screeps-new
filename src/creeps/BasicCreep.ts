@@ -1,4 +1,4 @@
-import { countCreepParts, creepHasParts, getCreepName, getHeighestCreepTier } from "utils/creeps";
+import { creepCountPart, creepHasParts, getCreepName, getHeighestCreepTier } from "utils/creeps";
 export class BasicCreep extends Creep {
   constructor(creep:Creep) {
     super(creep.id);
@@ -9,26 +9,27 @@ export class BasicCreep extends Creep {
       body: [WORK, MOVE, CARRY, MOVE, CARRY]
     },
   ];
-  static generate(spawn:StructureSpawn){
-    const bestTier = getHeighestCreepTier(this.tiers, spawn.room);
-    spawn.spawnCreep(bestTier.body, getCreepName(), {
-      memory: {
-        role: this.constructor.name
-      }
-    });
-  }
+  // static generate(spawn:StructureSpawn){
+  //   const bestTier = getHeighestCreepTier(this.tiers, spawn.room);
+  //   spawn.spawnCreep(bestTier.body, getCreepName(), {
+  //     memory: {
+  //       role: this.constructor.name
+  //     }
+  //   });
+  // }
 
   canWork(){
-    // return Boolean(this.body.find(obj=>obj.type === WORK && obj.hits > 0));
-    return creepHasParts(this, [WORK]);
+    return Boolean(this.memory.counts.work);
   }
-
-  canStore(){
-    return this.store.getFreeCapacity() > 0;
+  canCarry(){
+    return Boolean(this.memory.counts.carry);
   }
+  // canStore(){
+  //   return this.store.getFreeCapacity() > 0;
+  // }
 
   get amountMinedPerTick(){
-    if (this.memory.amountMinedPerTick === undefined) this.memory.amountMinedPerTick = countCreepParts(this, WORK)*2;
+    if (this.memory.amountMinedPerTick === undefined) this.memory.amountMinedPerTick = creepCountPart(this, WORK)*2;
     return this.memory.amountMinedPerTick;
   }
 
@@ -44,7 +45,7 @@ export class BasicCreep extends Creep {
         return true;
       }
       console.log(`moving error`, moving);
-    }else{
+    } else {
       console.log(`action error`, action);
     }
     return false;
@@ -70,23 +71,34 @@ export class BasicCreep extends Creep {
   }
 
   startRepairing():boolean{
-    const road = this.pos.findClosestByRange(FIND_STRUCTURES, {
+    const repairable = this.pos.findClosestByRange(FIND_STRUCTURES, {
       filter: structure=>structure.structureType === STRUCTURE_ROAD && structure.hits < structure.hitsMax
     });
-    if (!road) return false;
-    const action = this.repair(road);
-    return this.respondToActionCode(action, road);
+    if (!repairable) return false;
+    const action = this.repair(repairable);
+    return this.respondToActionCode(action, repairable);
+  }
+
+  startEnergizing():boolean{
+    // const spawn = this.pos.findClosestByRange(FIND_MY_SPAWNS);
+    const storage = this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
+      filter: (structure:StructureTower)=>{
+        return structure.structureType === STRUCTURE_TOWER && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+      }
+    });
+    if (!storage) return false;
+    const action = this.transfer(storage, RESOURCE_ENERGY);
+    return this.respondToActionCode(action, storage);
   }
 
   startStoring():boolean{
     // const spawn = this.pos.findClosestByRange(FIND_MY_SPAWNS);
     const storage = this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
       filter: (structure:StructureSpawn|StructureExtension)=>{
-        return structure.structureType === STRUCTURE_EXTENSION || structure.structureType === STRUCTURE_SPAWN && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+        return (structure.structureType === STRUCTURE_EXTENSION || structure.structureType === STRUCTURE_SPAWN) && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
       }
     });
     if (!storage) return false;
-    // if (spawn.store.getUsedCapacity(RESOURCE_ENERGY) === spawn.store.getCapacity(RESOURCE_ENERGY)) return false;
     const action = this.transfer(storage, RESOURCE_ENERGY);
     return this.respondToActionCode(action, storage);
   }
@@ -129,17 +141,17 @@ export class BasicCreep extends Creep {
 
   work():any{
     if (this.spawning) return;
-
     // if (this.memory.action) this.say(this.memory.action);
 
     const canWork = this.canWork();
     if (this.rememberAction(this.startPickup, 'pickup', ['mining'])) return;
 
     if (this.store.getUsedCapacity(RESOURCE_ENERGY) > 0){ //Do something with the energy
-      if (this.rememberAction(this.startStoring, 'storing')) return;
+      if (this.rememberAction(this.startStoring, 'storing', ['upgrading'])) return;
+      if (this.rememberAction(this.startEnergizing, 'energizing', ['upgrading'])) return;
       if (canWork && this.rememberAction(this.startRepairing, 'repairing')) return;
       if (canWork && this.rememberAction(this.startBuilding, 'building')) return;
-      if (this.rememberAction(this.startUpgrading, 'upgrading')) return;
+      if (canWork && this.rememberAction(this.startUpgrading, 'upgrading')) return;
     }
 
     if (canWork && this.rememberAction(this.startMining, 'mining')) return;
