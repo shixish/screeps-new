@@ -1,4 +1,4 @@
-import { CreepRoles, USERNAME } from "utils/constants";
+import { CreepRoles, SpawnerCounts, USERNAME } from "utils/constants";
 import { creepCountParts, getCreepName, getHeighestCreepTier } from "utils/creeps";
 
 export class SpawnController extends StructureSpawn{
@@ -22,6 +22,13 @@ export class SpawnController extends StructureSpawn{
       this.memory.sourceCount = sources.length;
     }
     return this.memory.sourceCount;
+  }
+
+  get counts():SpawnerCounts{
+    return {
+      controllerLevel: this.room.controller?.level || 0,
+      sources: this.sourceCount,
+    }
   }
 
   work(){
@@ -57,12 +64,14 @@ export class SpawnController extends StructureSpawn{
         return out;
       }, {} as { -readonly [key in keyof typeof CreepRoles]: number } );
 
+      // console.log(`creepCountsByRole`, JSON.stringify(creepCountsByRole));
+
       // this.spawnCreep([WORK, MOVE, CARRY], getCreepName());
       for (const roleName in CreepRoles){
         const role = CreepRoles[roleName];
-        if (creepCountsByRole[roleName] < role.max(this.sourceCount)){
+        if ((creepCountsByRole[roleName] || 0) < role.max(this.counts)){
           const body = getHeighestCreepTier(role.tiers, this.room).body;
-          const name = getCreepName();
+          const name = getCreepName(roleName);
           this.spawnCreep(body, name, {
             memory: {
               role: roleName,

@@ -1,8 +1,8 @@
 import { BasicCreep } from "creeps/BasicCreep";
 import { PartCosts } from "./constants";
 
-export const getCreepName = ()=>{
-  return 'Creep'+Math.random().toString().substr(2);
+export const getCreepName = (roleName = 'Creep')=>{
+  return roleName+Math.random().toString().substr(2);
 };
 
 export const getCreepPartsCost = (parts:BodyPartConstant[])=>{

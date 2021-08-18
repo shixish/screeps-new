@@ -15,14 +15,28 @@ export const PartCosts = {
   [TOUGH]: 10,
 } as const;
 
+export type SpawnerCounts = {
+  controllerLevel: number;
+  sources: number;
+};
 export type CreepRole = {
-  max: (sourceCount:number)=>number,
+  max: (counts:SpawnerCounts)=>number,
   tiers: CreepTier[]
 };
 
 export const CreepRoles:{ [role:string]: CreepRole } = {
   basic: {
-    max: (sourceCount:number)=>sourceCount * 5,
+    max: (counts)=>{
+      switch(counts.controllerLevel){
+        case 1:
+        case 2:
+          return counts.sources * 5;
+        // case 3:
+        //   return counts.sources;
+        default:
+          return 4;
+      }
+    },
     tiers: [
       {
         cost: 300,
@@ -38,6 +52,41 @@ export const CreepRoles:{ [role:string]: CreepRole } = {
       }
     ]
   },
+  miner: {
+    max: (counts)=>counts.sources,
+    tiers: [
+      {
+        cost: 550,
+        body: [WORK, WORK, WORK, WORK, WORK, MOVE]
+      }
+    ]
+  },
+  courier: {
+    max: (counts)=>counts.sources,
+    tiers: [
+      {
+        cost: 250,
+        body: [
+          CARRY, MOVE,
+          CARRY, MOVE,
+          MOVE
+        ]
+      }
+    ],
+    // tiers: [
+    //   {
+    //     cost: 550,
+    //     body: [
+    //       CARRY, MOVE,
+    //       CARRY, MOVE,
+    //       CARRY, MOVE,
+    //       CARRY, MOVE,
+    //       CARRY, MOVE,
+    //       CARRY
+    //     ]
+    //   }
+    // ]
+  }
 };
 
 // export const Roles = [];

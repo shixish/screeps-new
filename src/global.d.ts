@@ -27,8 +27,6 @@ declare global {
     counts: {
       [key in BodyPartConstant]?: number
     }
-
-    amountMinedPerTick?: number;
   }
 
   type CreepTier = {
