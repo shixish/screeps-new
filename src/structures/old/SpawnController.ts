@@ -1,4 +1,3 @@
-
 class SpawnController {
   structure: Spawn;
   controller_level: number;

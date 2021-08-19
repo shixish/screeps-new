@@ -1,5 +1,5 @@
 
-class CourierCreep extends BaseCreepOld {
+class CourierCreepOld extends BaseCreepOld {
     public creep: Creep;
 
     constructor(creep: Creep) {

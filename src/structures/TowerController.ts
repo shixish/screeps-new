@@ -16,11 +16,11 @@ export class TowerController extends StructureTower {
     super(tower.id);
   }
 
-  respondToActionCode(action:ScreepsReturnCode, target: RoomPosition | { pos: RoomPosition }){
+  respondToActionCode(action:ScreepsReturnCode){
     if (action === OK){
       return true;
     } else {
-      console.log(`action error`, action);
+      console.log(`Tower action error`, action);
     }
     return false;
   }
@@ -29,19 +29,19 @@ export class TowerController extends StructureTower {
     const target = this.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
     if (!target) return false;
     const action = this.attack(target);
-    return this.respondToActionCode(action, target);
+    return this.respondToActionCode(action);
   }
 
   startRepairing():boolean{
     const repairable = this.pos.findClosestByRange(FIND_STRUCTURES, {
       filter: (structure)=>{
-        const owner = (structure as any).owner;
-        return structure.hits < (this.maxRepair ? Math.min(structure.hitsMax, this.maxRepair) : structure.hitsMax) && (!owner || owner == USERNAME)
+        const mine = (structure as any).my || !(structure as any).owner;
+        return structure.hits < (this.maxRepair ? Math.min(structure.hitsMax, this.maxRepair) : structure.hitsMax) && mine;
       }
     });
     if (!repairable) return false;
     const action = this.repair(repairable);
-    return this.respondToActionCode(action, repairable);
+    return this.respondToActionCode(action);
   }
 
   startHealing():boolean{
@@ -50,11 +50,18 @@ export class TowerController extends StructureTower {
     });
     if (!healable) return false;
     const action = this.heal(healable);
-    return this.respondToActionCode(action, healable);
+    return this.respondToActionCode(action);
   }
 
   work() {
-    if (this.store.energy === 0) return;
+    this.pos.findClosestByRange(FIND_STRUCTURES, {
+      filter: (structure)=>{
+        const mine = (structure as any).my || !(structure as any).owner;
+        return structure.hits < (this.maxRepair ? Math.min(structure.hitsMax, this.maxRepair) : structure.hitsMax) && mine;
+      }
+    });
+
+    if (this.store.energy < 10) return; //Actions take 10 energy
     if (this.startAttacking()) return;
     if (this.startHealing()) return;
     if (this.startRepairing()) return;

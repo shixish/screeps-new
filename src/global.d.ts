@@ -1,4 +1,3 @@
-import { CreepRoles } from 'utils/constants';
 declare global {
 //   /*
 //     Example types, expand on these or remove them and add your own.
@@ -9,16 +8,37 @@ declare global {
 //     Interfaces matching on name from @types/screeps will be merged. This is how you can extend the 'built-in' interfaces from @types/screeps.
 //   */
 //   // Memory extension samples
+
+  type MandateProps<T extends {}, K extends keyof T> = Omit<T, K> & {
+    [MK in K]-?: NonNullable<T[MK]>
+  }
+
   interface Memory {
     // uuid: number;
     // log: any;
     paths: any;
   }
 
-  interface CreepMemory {
-    role: keyof typeof CreepRoles;
+  type SpawnerCounts = {
+    controllerLevel: number;
+    sources: number;
+  };
 
-    targetId?: number;
+  type CreepRole = {
+    max: (counts:SpawnerCounts)=>number,
+    tiers: CreepTier[],
+    modSpawnOptions?:(spawner:StructureSpawn, options:MandateProps<SpawnOptions, 'memory'>)=>void,
+  };
+  // interface CreepRoles{
+  //   basic: CreepRole;
+  //   miner: CreepRole;
+  //   courier: CreepRole;
+  // }
+  type CreepRoleName = 'basic'|'miner'|'courier';
+  interface CreepMemory {
+    role: CreepRoleName;
+
+    targetId?: string;
     action?: string;
 
     // home: string;
@@ -30,8 +50,8 @@ declare global {
   }
 
   type CreepTier = {
-    cost?: number,
-    body: BodyPartConstant[]
+    cost: number,
+    body: BodyPartConstant[];
   }
 
   interface SpawnMemory {
@@ -39,7 +59,10 @@ declare global {
   }
 
   interface RoomMemory{
-    structures:string[]
+    // structures:string[];
+    sources:{
+      [id:string]:any
+    }
   }
 
 //   // Syntax for adding proprties to `global` (ex "global.log")

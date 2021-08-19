@@ -1,5 +1,14 @@
-import { CreepRoles, SpawnerCounts, USERNAME } from "utils/constants";
+import { BasicCreep } from "creeps/BasicCreep";
+import { CourierCreep } from "creeps/CourierCreep";
+import { MinerCreep } from "creeps/MinerCreep";
+import { USERNAME } from "utils/constants";
 import { creepCountParts, getCreepName, getHeighestCreepTier } from "utils/creeps";
+
+export const CreepRoles:Record<CreepRoleName, typeof BasicCreep> = {
+  basic: BasicCreep,
+  miner: MinerCreep,
+  courier: CourierCreep,
+};
 
 export class SpawnController extends StructureSpawn{
   constructor(spawn:StructureSpawn){
@@ -62,23 +71,40 @@ export class SpawnController extends StructureSpawn{
         const role = Memory.creeps[result.name].role;
         out[role] = out[role] === undefined ? 1 : out[role] + 1;
         return out;
-      }, {} as { -readonly [key in keyof typeof CreepRoles]: number } );
+      }, {} as { [key in CreepRoleName]: number } );
 
       // console.log(`creepCountsByRole`, JSON.stringify(creepCountsByRole));
 
       // this.spawnCreep([WORK, MOVE, CARRY], getCreepName());
-      for (const roleName in CreepRoles){
-        const role = CreepRoles[roleName];
-        if ((creepCountsByRole[roleName] || 0) < role.max(this.counts)){
-          const body = getHeighestCreepTier(role.tiers, this.room).body;
-          const name = getCreepName(roleName);
-          this.spawnCreep(body, name, {
-            memory: {
-              role: roleName,
-              counts: creepCountParts(body)
-            }
-          });
+      let roleToSpawn, lowestPercentage;
+      for (const rn in CreepRoles){
+        const roleName = rn as CreepRoleName;
+        const config = CreepRoles[roleName].config;
+        const count = creepCountsByRole[roleName] || 0;
+        const max = config.max(this.counts);
+        const percentage = count/max;
+        if (count < max){
+          if (!roleToSpawn || percentage < (lowestPercentage as number)){
+            roleToSpawn = roleName;
+            lowestPercentage = percentage;
+          }
         }
+      }
+
+      if (roleToSpawn){
+        const config = CreepRoles[roleToSpawn].config;
+        const tier = getHeighestCreepTier(config.tiers, this.room);
+        const name = getCreepName(roleToSpawn);
+        const options:MandateProps<SpawnOptions, 'memory'> = {
+          memory: {
+            role: roleToSpawn,
+            counts: creepCountParts(tier.body),
+          }
+        };
+        if (config.modSpawnOptions) config.modSpawnOptions(this, options);
+        if (tier.cost > this.room.energyAvailable) return;
+        console.log(`Spawning creep with memory:`, JSON.stringify(options, null, 2));
+        this.spawnCreep(tier.body, name, options);
       }
     }
   }

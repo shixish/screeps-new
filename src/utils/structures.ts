@@ -15,7 +15,7 @@ export const manageStructures = ()=>{
         tower.work();
       }
     }catch(e){
-      console.error('structure error', e);
+      console.log('structure error', e);
     }
     // if (structure_controllers[type]) {
     //   let structures = memory.structures[type];

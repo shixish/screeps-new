@@ -1,19 +1,54 @@
+import { DEBUG } from "utils/constants";
 import { claimAmount, getClaimedAmount, tickCache } from "utils/tickCache";
-
 export class BasicCreep extends Creep {
   canWork:boolean = Boolean(this.memory.counts.work);
   canCarry:boolean = Boolean(this.memory.counts.carry);
   biteSize:number = (this.memory.counts.work || 0)*2;
 
+  static config:CreepRole = {
+    max: (counts)=>{
+      switch(counts.controllerLevel){
+        case 1:
+        case 2:
+          return counts.sources * 5;
+        // case 3:
+        //   return counts.sources;
+        default:
+          return 4;
+      }
+    },
+    tiers: [
+      {
+        cost: 300,
+        body: [WORK, MOVE, CARRY, MOVE, CARRY]
+      },
+      // {
+      //   cost: 400,
+      //   body: [
+      //     WORK, MOVE, CARRY,
+      //     WORK, MOVE, CARRY
+      //   ]
+      // },
+      // {
+      //   cost: 550,
+      //   body: [
+      //     WORK, MOVE, CARRY,
+      //     WORK, MOVE, CARRY,
+      //     WORK, CARRY
+      //   ]
+      // }
+    ]
+  };
+  // static tiers:CreepTier[] = [
+  //   {
+  //     cost: 300,
+  //     body: [WORK, MOVE, CARRY, MOVE, CARRY]
+  //   },
+  // ];
+
   constructor(creep:Creep) {
     super(creep.id);
   }
-  static tiers:CreepTier[] = [
-    {
-      cost: 300,
-      body: [WORK, MOVE, CARRY, MOVE, CARRY]
-    },
-  ];
   // static generate(spawn:StructureSpawn){
   //   const bestTier = getHeighestCreepTier(this.tiers, spawn.room);
   //   spawn.spawnCreep(bestTier.body, getCreepName(), {
@@ -32,7 +67,10 @@ export class BasicCreep extends Creep {
   }
 
   set currentAction(action:string|undefined){
-    if (action && action !== this.memory.action) this.say(action);
+    if (action && action !== this.memory.action){
+      if (DEBUG) console.log(`${this.name} started ${action}`);
+      this.say(action);
+    }
     this.memory.action = action;
   }
 
@@ -51,9 +89,10 @@ export class BasicCreep extends Creep {
         // this.say('Tired');
         return true;
       }
-      console.log(`moving error`, moving);
+      console.log(`Creep moving error`, moving, this.name);
     } else {
-      console.log(`action error`, action);
+      console.log(`Creep action error`, action, this.name);
+      // throw action;
     }
     return false;
   }
@@ -82,7 +121,7 @@ export class BasicCreep extends Creep {
         return tombstone.store[resourceType] > 0 && getClaimedAmount(tombstone.id, resourceType) < tombstone.store[resourceType];
       });
       if (!resourceType){
-        console.error('Invalid resource type in tombstone:', JSON.stringify(tombstone.store));
+        console.log('Invalid resource type in tombstone:', JSON.stringify(tombstone.store));
         return false;
       }
       const action = this.withdraw(tombstone, resourceType);
@@ -95,9 +134,9 @@ export class BasicCreep extends Creep {
   }
 
   startTaking(){
-    if (!this.canCarry) return false;
-    if (this.room.energyCapacityAvailable === this.room.energyAvailable) return false;
     const resourceType = RESOURCE_ENERGY;
+    if (!this.canCarry) return false;
+    // if (this.room.energyCapacityAvailable === this.room.energyAvailable) return false;
     const freeCapacity = this.store.getFreeCapacity(resourceType);
     if (freeCapacity === 0) return false;
     const container = this.pos.findClosestByRange(FIND_STRUCTURES, {
@@ -105,6 +144,7 @@ export class BasicCreep extends Creep {
         return container.structureType === STRUCTURE_CONTAINER && getClaimedAmount(container.id, resourceType) < container.store[resourceType]
       }
     });
+    // console.log(`container`, container);
     if (container instanceof StructureContainer){
       const action = this.withdraw(container, resourceType);
       if (action === OK){
@@ -117,7 +157,8 @@ export class BasicCreep extends Creep {
 
   startSpreading(){
     const resourceType = RESOURCE_ENERGY;
-    if (this.canWork) return false; //If it's a worker don't bother giving away your resources
+    if (this.canWork) return false; //If this is a worker don't bother giving away your resources
+    if (this.store[resourceType] === 0) return false;
     const target = this.pos.findClosestByRange(FIND_MY_CREEPS, {
       filter: creep=>{
         return creep.store.getUsedCapacity(resourceType) + getClaimedAmount(creep.id, resourceType) < creep.store.getCapacity(resourceType)
@@ -134,7 +175,7 @@ export class BasicCreep extends Creep {
   startRepairing():boolean{
     if (!this.canWork) return false;
     const repairable = this.pos.findClosestByRange(FIND_STRUCTURES, {
-      filter: structure=>structure.structureType === STRUCTURE_ROAD && structure.hits < structure.hitsMax
+      filter: structure=>(structure.structureType === STRUCTURE_ROAD) && structure.hits < structure.hitsMax
     });
     if (!repairable) return false;
     const action = this.repair(repairable);
@@ -142,41 +183,68 @@ export class BasicCreep extends Creep {
   }
 
   startEnergizing():boolean{
-    // const spawn = this.pos.findClosestByRange(FIND_MY_SPAWNS);
-    const storage = this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
+    const resourceType = RESOURCE_ENERGY;
+    const tower = this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
       filter: (structure:StructureTower)=>{
-        return structure.structureType === STRUCTURE_TOWER && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+        return structure.structureType === STRUCTURE_TOWER && structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
       }
     });
-    if (!storage) return false;
-    const action = this.transfer(storage, RESOURCE_ENERGY);
-    return this.respondToActionCode(action, storage);
+    if (tower instanceof StructureTower){
+      const action = this.transfer(tower, resourceType);
+      if (action === OK){
+        claimAmount(tower.id, resourceType, Math.min(tower.store.getFreeCapacity(resourceType), this.store[resourceType]));
+      }
+      return this.respondToActionCode(action, tower);
+    }
+    return false;
   }
 
   startStoring():boolean{
+    const resourceType = RESOURCE_ENERGY;
     // const spawn = this.pos.findClosestByRange(FIND_MY_SPAWNS);
     const storage = this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
       filter: (structure:StructureSpawn|StructureExtension)=>{
-        return (structure.structureType === STRUCTURE_EXTENSION || structure.structureType === STRUCTURE_SPAWN) && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+        return (structure.structureType === STRUCTURE_EXTENSION || structure.structureType === STRUCTURE_SPAWN) && structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
       }
     });
-    if (!storage) return false;
-    const action = this.transfer(storage, RESOURCE_ENERGY);
-    return this.respondToActionCode(action, storage);
+    if (storage instanceof StructureSpawn || storage instanceof StructureExtension){
+      const action = this.transfer(storage, resourceType);
+      if (action === OK){
+        claimAmount(storage.id, resourceType, Math.min(storage.store.getFreeCapacity(resourceType), this.store[resourceType]));
+      }
+      return this.respondToActionCode(action, storage);
+    }
+    return false;
   }
 
   startMining():boolean{
+    const resourceType = RESOURCE_ENERGY;
     if (!this.canWork) return false;
-    const canCarry = this.canCarry;
-    if (canCarry && this.store.getFreeCapacity(RESOURCE_ENERGY) < this.biteSize) return false;
-    const source = this.pos.findClosestByPath(FIND_SOURCES_ACTIVE, {
-      // filter: function (source){
-      //   return source.pos.findInRange(FIND_MY_CREEPS, 2).length < 3;
-      // }
-    });
+    let source;
+    if (this.canCarry && this.store.getFreeCapacity(resourceType) < this.biteSize) return false;
+    source = this.pos.findClosestByPath(FIND_SOURCES_ACTIVE);
+    // if (this.canCarry){
+    // }else{
+    //   const sources = this.room.find(FIND_SOURCES_ACTIVE, {
+    //     filter: (source:Source)=>{
+    //       console.log(`source.energy - getClaimedAmount(source.id, resourceType) > 0`, source.energy - getClaimedAmount(source.id, resourceType) > 0);
+    //       return source.energy - getClaimedAmount(source.id, resourceType) > 0;
+    //     }
+    //   });
+    //   if (!sources.length) return false;
+
+    //   sources.reduce((leastClaimed:number, thisSource:Source)=>{
+    //     const claimedAmount = getClaimedAmount(thisSource.id, resourceType);
+    //     if (!leastClaimed || claimedAmount < leastClaimed){
+    //       source = thisSource;
+    //       return claimedAmount as number;
+    //     }
+    //     return leastClaimed;
+    //   }, 0);
+    // }
     if (!source) return false; //This happens if there's no path to the source (it's blocked by other workers)
     const action = this.harvest(source);
-    if (action === OK && !canCarry){
+    if (action === OK && !this.canCarry){
       // const containers = source.pos.findInRange(FIND_STRUCTURES, 1, {
       //   filter: (structure)=>structure.structureType === STRUCTURE_CONTAINER,
       // });
@@ -202,6 +270,10 @@ export class BasicCreep extends Creep {
     return this.respondToActionCode(action, this.room.controller);
   }
 
+  debug(...args:any[]){
+    if (DEBUG) console.log(...args);
+  }
+
   rememberAction(callback:()=>boolean, actionName:string, overrideActions: string[] = []){
     if ((!this.currentAction || this.currentAction === actionName || overrideActions.includes(this.currentAction)) && callback.apply(this)){
       this.currentAction = actionName;
@@ -215,8 +287,12 @@ export class BasicCreep extends Creep {
   work():any{
     if (this.spawning) return;
 
-    // if (this.role === 'basic'){
-    //   if (this.currentAction) this.say(this.currentAction);
+    if (this.role === 'miner'){
+      if (this.currentAction) this.say(this.currentAction);
+    }
+
+    // if (this.role === 'courier'){
+    //   console.log(`freeCapacity`, this.store.getFreeCapacity(RESOURCE_ENERGY));
     // }
 
     if (this.rememberAction(this.startPickup, 'pickup', ['mining'])) return;

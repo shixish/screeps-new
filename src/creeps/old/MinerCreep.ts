@@ -1,5 +1,5 @@
 
-class MinerCreep extends BaseCreepOld {
+class MinerCreepOld extends BaseCreepOld {
     public creep: Creep;
 
     constructor(creep: Creep) {

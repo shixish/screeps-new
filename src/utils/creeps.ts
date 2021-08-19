@@ -1,5 +1,5 @@
 import { BasicCreep } from "creeps/BasicCreep";
-import { PartCosts } from "./constants";
+import { PART_COST } from "./constants";
 
 export const getCreepName = (roleName = 'Creep')=>{
   return roleName+Math.random().toString().substr(2);
@@ -7,7 +7,7 @@ export const getCreepName = (roleName = 'Creep')=>{
 
 export const getCreepPartsCost = (parts:BodyPartConstant[])=>{
   return parts.reduce((cost, part:BodyPartConstant)=>{
-    return cost + PartCosts[part];
+    return cost + PART_COST[part];
   }, 0);
 };
 
@@ -59,7 +59,7 @@ export const manageCreeps = ()=>{
       const creep = new BasicCreep(Game.creeps[name]);
       creep.work();
     }catch(e){
-      console.error('creep error', e);
+      console.log('creep error', e);
     }
 
     // var creepDiag = debug.diag("creeps." + role);
