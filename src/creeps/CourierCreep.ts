@@ -5,9 +5,33 @@ export class CourierCreep extends BasicCreep {
     max: (counts)=>counts.sources,
     tiers: [
       {
-        cost: 550,
-        body: [WORK, WORK, WORK, WORK, WORK, MOVE]
-      }
+        cost: 250,
+        body: [
+          CARRY, MOVE,
+          CARRY, MOVE,
+          MOVE
+        ]
+      },
+      // {
+      //   cost: 400,
+      //   body: [
+      //     CARRY, MOVE,
+      //     CARRY, MOVE,
+      //     CARRY, MOVE,
+      //     MOVE, MOVE
+      //   ]
+      // },
+      // {
+      //   cost: 550,
+      //   body: [
+      //     CARRY, MOVE,
+      //     CARRY, MOVE,
+      //     CARRY, MOVE,
+      //     CARRY, MOVE,
+      //     CARRY, MOVE,
+      //     CARRY
+      //   ]
+      // },
     ],
     modSpawnOptions: (spawner:StructureSpawn)=>{
       const miners = spawner.room.find(FIND_MY_CREEPS, {

@@ -1,5 +1,3 @@
-import { USERNAME } from "utils/constants";
-
 export class TowerController extends StructureTower {
   private maxRepairTiers:{ [key:number]: number } = {
     3: 25000, //tower starts at 3
@@ -33,6 +31,7 @@ export class TowerController extends StructureTower {
   }
 
   startRepairing():boolean{
+    if (this.store.energy < 200) return false; //Leave energy to attack scouts that are stomping my construction sites (what fucking cunts)
     const repairable = this.pos.findClosestByRange(FIND_STRUCTURES, {
       filter: (structure)=>{
         const mine = (structure as any).my || !(structure as any).owner;

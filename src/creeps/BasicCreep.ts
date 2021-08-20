@@ -22,13 +22,13 @@ export class BasicCreep extends Creep {
         cost: 300,
         body: [WORK, MOVE, CARRY, MOVE, CARRY]
       },
-      // {
-      //   cost: 400,
-      //   body: [
-      //     WORK, MOVE, CARRY,
-      //     WORK, MOVE, CARRY
-      //   ]
-      // },
+      {
+        cost: 400,
+        body: [
+          WORK, MOVE, CARRY,
+          WORK, MOVE, CARRY
+        ]
+      },
       // {
       //   cost: 550,
       //   body: [
