@@ -13,6 +13,7 @@ export const getCreepPartsCost = (parts:BodyPartConstant[])=>{
 
 export const getHeighestCreepTier = (tiers:CreepTier[], room: Room, currentlyAffordable = false)=>{
   const budget = currentlyAffordable ? room.energyAvailable : room.energyCapacityAvailable;
+  if (tiers[0].cost > budget) return null;
   return tiers.reduce((heighestTier, currentTier)=>{
     if (!currentTier.cost) currentTier.cost = getCreepPartsCost(currentTier.body);
     return currentTier.cost <= budget && currentTier || heighestTier;
