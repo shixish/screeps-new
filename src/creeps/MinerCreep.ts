@@ -22,7 +22,7 @@ export class MinerCreep extends BasicCreep {
           return Boolean(miners.find(miner=>miner.memory.targetId === source.id));
         }
       });
-      console.log(`sources`, sources);
+      // console.log(`sources`, sources);
       if (!sources.length) return;
       options.memory.targetId = sources[0].id;
     },
