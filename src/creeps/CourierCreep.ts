@@ -3,7 +3,10 @@ import { BasicCreep } from "./BasicCreep";
 export class CourierCreep extends BasicCreep {
   static role:CreepRoleName = 'courier';
   static config:CreepRole = {
-    max: (roomAudit)=>roomAudit.sourceCount*2,
+    max: (roomAudit)=>{
+      //We only need couriers if we have miners available, otherwise the resources should go to basic creeps that can do both
+      return Math.min(roomAudit.creepCountsByRole.miner, roomAudit.sourceCount*2);
+    },
     tiers: [
       {
         cost: 250,
