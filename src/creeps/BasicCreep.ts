@@ -194,6 +194,10 @@ export class BasicCreep extends Creep {
       filter: ts=>{
         return ts.store.getUsedCapacity() > 0;
       }
+    }) || this.pos.findClosestByRange(FIND_RUINS, {
+      filter: ruin=>{
+        return ruin.store.getUsedCapacity() > 0;
+      }
     });
     if (tombstone){
       const resourceType = RESOURCES_ALL.find(resourceType=>{
