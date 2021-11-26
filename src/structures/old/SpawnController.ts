@@ -1,4 +1,4 @@
-class SpawnController {
+class SpawnControllerOld {
   structure: Spawn;
   controller_level: number;
 

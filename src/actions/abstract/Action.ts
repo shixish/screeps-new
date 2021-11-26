@@ -1,14 +1,14 @@
 export abstract class Action {
   //Abstract class
-  public actor;
-  public target;
+  public actor:Creep;
+  public target?:RoomObject;
   public action_name = "Unknown";
   protected cache_targeting = true;
 
-  constructor(actor) {
+  constructor(actor:Creep) {
     this.actor = actor;
     // console.log(this.actor);
-    if (this.actor.memory.target_id) this.target = Game.getObjectById(this.actor.memory.target_id);
+    if (this.actor.memory.targetId) this.target = Game.getObjectById(this.actor.memory.targetId) || undefined;
     // this.action_name = this.actor.memory.action_name;
   }
 
@@ -39,7 +39,7 @@ export abstract class Action {
     this.move();
   }
 
-  getTargetRange(obj) {
+  getActionRange(obj) {
     // if (obj.structureType && obj.structureType == STRUCTURE_CONTAINER) range = 0;
     return 1;
   }
@@ -52,9 +52,9 @@ export abstract class Action {
     // debug.log(targets);
 
     if (targets && targets.length > 0) {
-      let target_obj = BaseAction.getClosestByPath(this.actor, targets, this.getTargetRange);
+      let target_obj = BaseAction.getClosestByPath(this.actor, targets, this.getActionRange);
       if (target_obj.target) {
-        this.actor.memory.target_id = target_obj.target.id;
+        this.actor.memory.targetId = target_obj.target.id;
         this.actor.memory.target_path = Room.serializePath(target_obj.path);
         this.actor.memory.action_name = this.action_name;
         this.actor.memory.target_x = target_obj.target.pos.x;
@@ -103,12 +103,12 @@ export abstract class Action {
   //     // return false;
   // }
 
-  move(_target?) {
-    let target = _target || this.target;
+  move(_target?:RoomObject) {
+    const target = _target || this.target;
     // if (this.actor.name == 'Katherine')
     //     console.log(this.actor.name, this.actor.memory.role, this.actor.pos.x, this.actor.memory.target_x, ', ', this.actor.pos.y, this.actor.memory.target_y);
-    if (target && this.actor && !this.actor.pos.inRangeTo(target, this.getTargetRange(target))) {
-      let move = this.actor.moveTo(target);
+    if (target && this.actor && !this.actor.pos.inRangeTo(target, this.getActionRange(target))) {
+      const move = this.actor.moveTo(target);
       // console.log(move);
       return move;
     }
@@ -124,7 +124,7 @@ export abstract class Action {
     // }
 
     //As long as the stored target object is the right target, and we have the stored target_path, try to use it.
-    // if (target.id != this.actor.memory.target_id) {
+    // if (target.id != this.actor.memory.targetId) {
     //     console.log('weirdo movement!?');
     //     this.retarget();
     // }

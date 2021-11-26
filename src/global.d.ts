@@ -1,3 +1,5 @@
+import { SpawnController } from "structures/SpawnController";
+
 declare global {
 //   /*
 //     Example types, expand on these or remove them and add your own.
@@ -25,9 +27,9 @@ declare global {
   };
 
   type CreepRole = {
-    max: (counts:SpawnerCounts)=>number,
+    max: (roomAudit:RoomAudit)=>number,
     tiers: CreepTier[],
-    modSpawnOptions?:(spawner:StructureSpawn, options:MandateProps<SpawnOptions, 'memory'>)=>void,
+    modSpawnOptions?:(options:MandateProps<SpawnOptions, 'memory'>, spawner:SpawnController)=>void,
   };
   // interface CreepRoles{
   //   basic: CreepRole;
@@ -38,7 +40,7 @@ declare global {
   interface CreepMemory {
     role: CreepRoleName;
 
-    targetId?: string;
+    targetId?: Id<RoomObject>;
     action?: string;
 
     // home: string;
@@ -58,11 +60,19 @@ declare global {
     sourceCount?: number;
   }
 
+  interface RoomAudit{
+    controllerLevel: number,
+    sourceCount: number,
+    creeps: Creep[],
+    creepCountsByRole: Record<CreepRoleName, number>
+  }
+
   interface RoomMemory{
     // structures:string[];
-    sources:{
-      [id:string]:any
-    }
+    sourceCount: number,
+    // sources: {
+    //   [id:string]:any
+    // }
   }
 
 //   // Syntax for adding proprties to `global` (ex "global.log")

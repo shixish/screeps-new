@@ -3,6 +3,7 @@ import { CourierCreep } from "creeps/CourierCreep";
 import { MinerCreep } from "creeps/MinerCreep";
 import { USERNAME } from "utils/constants";
 import { creepCountParts, getCreepName, getHeighestCreepTier } from "utils/creeps";
+import { getRoomAudit } from "utils/room";
 
 export const CreepRoles:Record<CreepRoleName, typeof BasicCreep> = {
   basic: BasicCreep,
@@ -66,12 +67,7 @@ export class SpawnController extends StructureSpawn{
         console.log('TODO: BUILD LINKS');
       }
 
-      const creeps = this.room.find(FIND_MY_CREEPS);
-      const creepCountsByRole = creeps.reduce((out, result)=>{
-        const role = Memory.creeps[result.name].role;
-        out[role] = out[role] === undefined ? 1 : out[role] + 1;
-        return out;
-      }, {} as { [key in CreepRoleName]: number } );
+      const roomAudit = getRoomAudit(this.room);
 
       // console.log(`creepCountsByRole`, JSON.stringify(creepCountsByRole));
 
@@ -80,8 +76,8 @@ export class SpawnController extends StructureSpawn{
       for (const rn in CreepRoles){
         const roleName = rn as CreepRoleName;
         const config = CreepRoles[roleName].config;
-        const count = creepCountsByRole[roleName] || 0;
-        const max = config.max(this.counts);
+        const count = roomAudit.creepCountsByRole[roleName] || 0;
+        const max = config.max(roomAudit);
         const percentage = count/max;
         if (count < max){
           if (!roleToSpawn || percentage < (lowestPercentage as number)){
@@ -92,6 +88,7 @@ export class SpawnController extends StructureSpawn{
       }
 
       if (roleToSpawn){
+        // console.log(`roleToSpawn`, roleToSpawn);
         const config = CreepRoles[roleToSpawn].config;
         const tier = getHeighestCreepTier(config.tiers, this.room);
         const name = getCreepName(roleToSpawn);
@@ -101,7 +98,7 @@ export class SpawnController extends StructureSpawn{
             counts: creepCountParts(tier.body),
           }
         };
-        if (config.modSpawnOptions) config.modSpawnOptions(this, options);
+        if (config.modSpawnOptions) config.modSpawnOptions(options, this);
         if (tier.cost > this.room.energyAvailable) return;
         console.log(`Spawning creep with memory:`, JSON.stringify(options, null, 2));
         this.spawnCreep(tier.body, name, options);

@@ -1,22 +1,72 @@
 import { DEBUG } from "utils/constants";
-import { claimAmount, getClaimedAmount, tickCache } from "utils/tickCache";
+import { claimAmount, getClaimedAmount } from "utils/tickCache";
+
+export class BasicCreepFactory{
+  role:CreepRoleName = 'basic';
+  tiers:CreepTier[] = [
+    {
+      cost: 300,
+      body: [WORK, MOVE, CARRY, MOVE, CARRY]
+    },
+    {
+      cost: 400,
+      body: [
+        WORK, MOVE, CARRY,
+        WORK, MOVE, CARRY
+      ]
+    },
+    // {
+    //   cost: 550,
+    //   body: [
+    //     WORK, MOVE, CARRY,
+    //     WORK, MOVE, CARRY,
+    //     WORK, CARRY
+    //   ]
+    // }
+  ];
+  roomAudit: RoomAudit;
+
+  constructor(roomAudit:RoomAudit){
+    this.roomAudit = roomAudit;
+  }
+
+  getCurrentWeight(roomAudit:RoomAudit){
+    const currentCount = roomAudit.creepCountsByRole[this.role] || 0;
+    let desiredAmount:number = 0;
+    desiredAmount = 4;
+    // switch(roomAudit.controllerLevel){
+    //   case 1:
+    //   case 2:
+    //     return roomAudit.sourceCount * 5;
+    //   // case 3:
+    //   //   return roomAudit.sourceCount;
+    //   default:
+    //     return 4;
+    // }
+    return currentCount/desiredAmount;
+  }
+}
 export class BasicCreep extends Creep {
   canWork:boolean = Boolean(this.memory.counts.work);
   canCarry:boolean = Boolean(this.memory.counts.carry);
   biteSize:number = (this.memory.counts.work || 0)*2;
 
+  // static role:CreepRoleName = 'basic';
   static config:CreepRole = {
-    max: (counts)=>{
-      switch(counts.controllerLevel){
+    max: (roomAudit)=>{
+      switch(roomAudit.controllerLevel){
         case 1:
         case 2:
-          return counts.sources * 5;
+          return roomAudit.sourceCount * 5;
         // case 3:
-        //   return counts.sources;
+        //   return roomAudit.sourceCount;
         default:
           return 4;
       }
     },
+    // shouldBuild: ()=>{
+
+    // },
     tiers: [
       {
         cost: 300,
@@ -44,7 +94,37 @@ export class BasicCreep extends Creep {
   //     cost: 300,
   //     body: [WORK, MOVE, CARRY, MOVE, CARRY]
   //   },
+  //   {
+  //     cost: 400,
+  //     body: [
+  //       WORK, MOVE, CARRY,
+  //       WORK, MOVE, CARRY
+  //     ]
+  //   },
+  //   // {
+  //   //   cost: 550,
+  //   //   body: [
+  //   //     WORK, MOVE, CARRY,
+  //   //     WORK, MOVE, CARRY,
+  //   //     WORK, CARRY
+  //   //   ]
+  //   // }
   // ];
+  // static getCurrentWeight(roomAudit:RoomAudit){
+  //   const currentCount = roomAudit.creepCountsByRole[this.role] || 0;
+  //   let desiredAmount:number = 0;
+  //   desiredAmount = 4;
+  //   // switch(roomAudit.controllerLevel){
+  //   //   case 1:
+  //   //   case 2:
+  //   //     return roomAudit.sourceCount * 5;
+  //   //   // case 3:
+  //   //   //   return roomAudit.sourceCount;
+  //   //   default:
+  //   //     return 4;
+  //   // }
+  //   return currentCount/desiredAmount;
+  // }
 
   constructor(creep:Creep) {
     super(creep.id);
@@ -68,7 +148,7 @@ export class BasicCreep extends Creep {
 
   set currentAction(action:string|undefined){
     if (action && action !== this.memory.action){
-      if (DEBUG) console.log(`${this.name} started ${action}`);
+      this.debug(`started ${action}`);
       this.say(action);
     }
     this.memory.action = action;
@@ -106,10 +186,9 @@ export class BasicCreep extends Creep {
     });
     if (resource){
       const action = this.pickup(resource);
-      if (action === OK){
-        claimAmount(resource.id, resource.resourceType, Math.min(freeCapacity, resource.amount));
-      }
-      return this.respondToActionCode(action, resource);
+      const ok = this.respondToActionCode(action, resource);
+      if (ok) claimAmount(resource.id, resource.resourceType, Math.min(freeCapacity, resource.amount));
+      return ok;
     }
     const tombstone = this.pos.findClosestByRange(FIND_TOMBSTONES, {
       filter: ts=>{
@@ -121,14 +200,16 @@ export class BasicCreep extends Creep {
         return tombstone.store[resourceType] > 0 && getClaimedAmount(tombstone.id, resourceType) < tombstone.store[resourceType];
       });
       if (!resourceType){
-        console.log('Invalid resource type in tombstone:', JSON.stringify(tombstone.store));
+        // console.log('Invalid resource type in tombstone:', JSON.stringify(tombstone.store));
         return false;
       }
       const action = this.withdraw(tombstone, resourceType);
-      if (action === OK){
-        claimAmount(tombstone.id, resourceType, Math.min(freeCapacity, tombstone.store[resourceType]));
+      const ok = this.respondToActionCode(action, tombstone);
+      if (ok){
+        const amount = Math.min(freeCapacity, tombstone.store[resourceType]);
+        claimAmount(tombstone.id, resourceType, amount);
       }
-      return this.respondToActionCode(action, tombstone);
+      return ok;
     }
     return false;
   }
@@ -147,10 +228,9 @@ export class BasicCreep extends Creep {
     // console.log(`container`, container);
     if (container instanceof StructureContainer){
       const action = this.withdraw(container, resourceType);
-      if (action === OK){
-        claimAmount(container.id, resourceType, Math.min(freeCapacity, container.store[resourceType]));
-      }
-      return this.respondToActionCode(action, container);
+      const ok = this.respondToActionCode(action, container);
+      if (ok) claimAmount(container.id, resourceType, Math.min(freeCapacity, container.store[resourceType]));
+      return ok;
     }
     return false;
   }
@@ -166,10 +246,9 @@ export class BasicCreep extends Creep {
     });
     if (!target) return false;
     const action = this.transfer(target, resourceType);
-    if (action === OK){
-      claimAmount(target.id, resourceType, Math.min(target.store.getFreeCapacity(resourceType), this.store[resourceType]));
-    }
-    return this.respondToActionCode(action, target);
+    const ok = this.respondToActionCode(action, target);
+    if (ok) claimAmount(target.id, resourceType, Math.min(target.store.getFreeCapacity(resourceType), this.store[resourceType]));
+    return ok;
   }
 
   startRepairing():boolean{
@@ -191,10 +270,13 @@ export class BasicCreep extends Creep {
     });
     if (tower instanceof StructureTower){
       const action = this.transfer(tower, resourceType);
-      if (action === OK){
-        claimAmount(tower.id, resourceType, Math.min(tower.store.getFreeCapacity(resourceType), this.store[resourceType]));
+      const ok = this.respondToActionCode(action, tower);
+      if (ok){
+        const amount = Math.min(tower.store.getFreeCapacity(resourceType), this.store[resourceType]);
+        // this.debug(`claiming amount`, amount, tower);
+        claimAmount(tower.id, resourceType, amount);
       }
-      return this.respondToActionCode(action, tower);
+      return ok;
     }
     return false;
   }
@@ -204,15 +286,22 @@ export class BasicCreep extends Creep {
     // const spawn = this.pos.findClosestByRange(FIND_MY_SPAWNS);
     const storage = this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
       filter: (structure:StructureSpawn|StructureExtension)=>{
-        return (structure.structureType === STRUCTURE_EXTENSION || structure.structureType === STRUCTURE_SPAWN) && structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
+        if (!(structure.structureType === STRUCTURE_EXTENSION || structure.structureType === STRUCTURE_SPAWN)) return false;
+        // console.log(structure, `claimedAmount`, getClaimedAmount(structure.id, resourceType));
+        // console.log(`structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType)`, structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType));
+        return structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
       }
     });
     if (storage instanceof StructureSpawn || storage instanceof StructureExtension){
+      // console.log(`storage`, storage);
       const action = this.transfer(storage, resourceType);
-      if (action === OK){
-        claimAmount(storage.id, resourceType, Math.min(storage.store.getFreeCapacity(resourceType), this.store[resourceType]));
+      const ok = this.respondToActionCode(action, storage);
+      if (ok){
+        const amount = Math.min(storage.store.getFreeCapacity(resourceType), this.store[resourceType]);
+        this.debug(`claiming amount`, amount, storage);
+        claimAmount(storage.id, resourceType, amount);
       }
-      return this.respondToActionCode(action, storage);
+      return ok;
     }
     return false;
   }
@@ -271,7 +360,7 @@ export class BasicCreep extends Creep {
   }
 
   debug(...args:any[]){
-    if (DEBUG) console.log(...args);
+    if (DEBUG) console.log(this.id, this.role, ...args);
   }
 
   rememberAction(callback:()=>boolean, actionName:string, overrideActions: string[] = []){
@@ -287,20 +376,20 @@ export class BasicCreep extends Creep {
   work():any{
     if (this.spawning) return;
 
-    if (this.role === 'miner'){
+    if (this.role === 'courier'){
       if (this.currentAction) this.say(this.currentAction);
     }
 
     // if (this.role === 'courier'){
-    //   console.log(`freeCapacity`, this.store.getFreeCapacity(RESOURCE_ENERGY));
+
     // }
 
     if (this.rememberAction(this.startPickup, 'pickup', ['mining'])) return;
     if (this.rememberAction(this.startTaking, 'taking', ['mining'])) return;
 
     if (this.store.getUsedCapacity(RESOURCE_ENERGY) > 0){ //Do something with the energy
-      if (this.rememberAction(this.startStoring, 'storing', ['upgrading'])) return;
-      if (this.rememberAction(this.startEnergizing, 'energizing', ['upgrading'])) return;
+      if (this.rememberAction(this.startStoring, 'storing', ['upgrading', 'building', 'repairing'])) return;
+      if (this.rememberAction(this.startEnergizing, 'energizing', ['upgrading', 'building'])) return;
       if (this.rememberAction(this.startSpreading, 'spreading')) return;
       if (this.rememberAction(this.startRepairing, 'repairing')) return;
       if (this.rememberAction(this.startBuilding, 'building')) return;

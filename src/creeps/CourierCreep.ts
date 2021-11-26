@@ -1,8 +1,9 @@
 import { BasicCreep } from "./BasicCreep";
 
 export class CourierCreep extends BasicCreep {
+  static role:CreepRoleName = 'courier';
   static config:CreepRole = {
-    max: (counts)=>counts.sources,
+    max: (roomAudit)=>roomAudit.sourceCount*2,
     tiers: [
       {
         cost: 250,
@@ -32,24 +33,7 @@ export class CourierCreep extends BasicCreep {
       //     CARRY
       //   ]
       // },
-    ],
-    modSpawnOptions: (spawner:StructureSpawn)=>{
-      const miners = spawner.room.find(FIND_MY_CREEPS, {
-        filter: (creep:Creep)=>{
-          creep.memory.role === 'miner';
-        }
-      });
-      miners.map(miner=>miner.memory.targetId);
-      const sources = spawner.room.find(FIND_SOURCES, {
-        filter: (source:Source)=>{
-          return miners.find(miner=>miner.memory.targetId === source.id);
-        }
-      });
-      if (!sources.length) return;
-      return {
-        targetId: sources[0].id,
-      };
-    },
+    ]
   }
 
   work(){
