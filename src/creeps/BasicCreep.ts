@@ -1,51 +1,51 @@
 import { DEBUG } from "utils/constants";
 import { claimAmount, getClaimedAmount } from "utils/tickCache";
 
-export class BasicCreepFactory{
-  role:CreepRoleName = 'basic';
-  tiers:CreepTier[] = [
-    {
-      cost: 300,
-      body: [WORK, MOVE, CARRY, MOVE, CARRY]
-    },
-    {
-      cost: 400,
-      body: [
-        WORK, MOVE, CARRY,
-        WORK, MOVE, CARRY
-      ]
-    },
-    // {
-    //   cost: 550,
-    //   body: [
-    //     WORK, MOVE, CARRY,
-    //     WORK, MOVE, CARRY,
-    //     WORK, CARRY
-    //   ]
-    // }
-  ];
-  roomAudit: RoomAudit;
+// export class BasicCreepFactory{
+//   role:CreepRoleName = 'basic';
+//   tiers:CreepTier[] = [
+//     {
+//       cost: 300,
+//       body: [WORK, MOVE, CARRY, MOVE, CARRY]
+//     },
+//     {
+//       cost: 400,
+//       body: [
+//         WORK, MOVE, CARRY,
+//         WORK, MOVE, CARRY
+//       ]
+//     },
+//     // {
+//     //   cost: 550,
+//     //   body: [
+//     //     WORK, MOVE, CARRY,
+//     //     WORK, MOVE, CARRY,
+//     //     WORK, CARRY
+//     //   ]
+//     // }
+//   ];
+//   roomAudit: RoomAudit;
 
-  constructor(roomAudit:RoomAudit){
-    this.roomAudit = roomAudit;
-  }
+//   constructor(roomAudit:RoomAudit){
+//     this.roomAudit = roomAudit;
+//   }
 
-  getCurrentWeight(roomAudit:RoomAudit){
-    const currentCount = roomAudit.creepCountsByRole[this.role] || 0;
-    let desiredAmount:number = 0;
-    desiredAmount = 4;
-    // switch(roomAudit.controllerLevel){
-    //   case 1:
-    //   case 2:
-    //     return roomAudit.sourceCount * 5;
-    //   // case 3:
-    //   //   return roomAudit.sourceCount;
-    //   default:
-    //     return 4;
-    // }
-    return currentCount/desiredAmount;
-  }
-}
+//   getCurrentWeight(roomAudit:RoomAudit){
+//     const currentCount = roomAudit.creepCountsByRole[this.role] || 0;
+//     let desiredAmount:number = 0;
+//     desiredAmount = 4;
+//     // switch(roomAudit.controllerLevel){
+//     //   case 1:
+//     //   case 2:
+//     //     return roomAudit.sourceCount * 5;
+//     //   // case 3:
+//     //   //   return roomAudit.sourceCount;
+//     //   default:
+//     //     return 4;
+//     // }
+//     return currentCount/desiredAmount;
+//   }
+// }
 export class BasicCreep extends Creep {
   canWork:boolean = Boolean(this.memory.counts.work);
   canCarry:boolean = Boolean(this.memory.counts.carry);
@@ -57,7 +57,7 @@ export class BasicCreep extends Creep {
       switch(roomAudit.controllerLevel){
         case 1:
         case 2:
-          return roomAudit.sourceCount * 5;
+          return 2 + (roomAudit.sourceCount - roomAudit.creepCountsByRole.miner);
         // case 3:
         //   return roomAudit.sourceCount;
         default:
@@ -302,7 +302,7 @@ export class BasicCreep extends Creep {
       const ok = this.respondToActionCode(action, storage);
       if (ok){
         const amount = Math.min(storage.store.getFreeCapacity(resourceType), this.store[resourceType]);
-        this.debug(`claiming amount`, amount, storage);
+        // this.debug(`claiming amount`, amount, storage);
         claimAmount(storage.id, resourceType, amount);
       }
       return ok;
@@ -383,10 +383,6 @@ export class BasicCreep extends Creep {
     if (this.role === 'courier'){
       if (this.currentAction) this.say(this.currentAction);
     }
-
-    // if (this.role === 'courier'){
-
-    // }
 
     if (this.rememberAction(this.startPickup, 'pickup', ['mining'])) return;
     if (this.rememberAction(this.startTaking, 'taking', ['mining'])) return;

@@ -6,6 +6,10 @@ export class MinerCreep extends BasicCreep {
     max: (roomAudit)=>roomAudit.sourceCount,
     tiers: [
       {
+        cost: 250,
+        body: [WORK, WORK, MOVE]
+      },
+      {
         cost: 550,
         body: [WORK, WORK, WORK, WORK, WORK, MOVE]
       }

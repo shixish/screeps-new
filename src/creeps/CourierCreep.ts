@@ -41,5 +41,6 @@ export class CourierCreep extends BasicCreep {
 
   work(){
     // if (this.rememberAction(this.startMining, 'mining')) return;
+
   }
 }
