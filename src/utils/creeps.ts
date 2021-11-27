@@ -1,5 +1,13 @@
 import { BasicCreep } from "creeps/BasicCreep";
+import { CourierCreep } from "creeps/CourierCreep";
+import { MinerCreep } from "creeps/MinerCreep";
 import { PART_COST } from "./constants";
+
+export const CreepRoles:Record<CreepRoleName, typeof BasicCreep> = {
+  basic: BasicCreep,
+  miner: MinerCreep,
+  courier: CourierCreep,
+};
 
 export const getCreepName = (roleName = 'Creep')=>{
   return roleName+Math.random().toString().substr(2);
@@ -54,8 +62,15 @@ export const creepCountParts = (parts:BodyPartConstant[])=>{
 
 // }
 
+export const getCreepConfig = (creep:Creep)=>{
+  return CreepRoles[creep.memory.role].config;
+}
+
 export const manageCreeps = ()=>{
-  for (const name in Game.creeps) {
+  const creepNamesByAuthority = Object.keys(Game.creeps).sort((a,b)=>{
+    return getCreepConfig(Game.creeps[b]).authority - getCreepConfig(Game.creeps[a]).authority;
+  });
+  for (const name of creepNamesByAuthority) {
     try{
       const creep = new BasicCreep(Game.creeps[name]);
       creep.work();

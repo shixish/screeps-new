@@ -1,15 +1,6 @@
-import { BasicCreep } from "creeps/BasicCreep";
-import { CourierCreep } from "creeps/CourierCreep";
-import { MinerCreep } from "creeps/MinerCreep";
 import { USERNAME } from "utils/constants";
-import { creepCountParts, getCreepName, getHeighestCreepTier } from "utils/creeps";
+import { creepCountParts, CreepRoles, getCreepName, getHeighestCreepTier } from "utils/creeps";
 import { getRoomAudit } from "utils/room";
-
-export const CreepRoles:Record<CreepRoleName, typeof BasicCreep> = {
-  basic: BasicCreep,
-  miner: MinerCreep,
-  courier: CourierCreep,
-};
 
 export class SpawnController extends StructureSpawn{
   constructor(spawn:StructureSpawn){
@@ -77,7 +68,7 @@ export class SpawnController extends StructureSpawn{
       for (const rn in CreepRoles){
         const roleName = rn as CreepRoleName;
         const config = CreepRoles[roleName].config;
-        const tier = getHeighestCreepTier(config.tiers, this.room);
+        const tier = getHeighestCreepTier(config.tiers, this.room, roomAudit.creeps.length === 0);
         if (tier){ //Creep type doesn't count if we can't yet afford to produce the lowest tier
           const count = roomAudit.creepCountsByRole[roleName] || 0;
           const max = config.max(roomAudit);

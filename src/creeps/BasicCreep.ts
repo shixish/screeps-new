@@ -53,6 +53,7 @@ export class BasicCreep extends Creep {
 
   // static role:CreepRoleName = 'basic';
   static config:CreepRole = {
+    authority: 0,
     max: (roomAudit)=>{
       switch(roomAudit.controllerLevel){
         case 1:
@@ -245,7 +246,7 @@ export class BasicCreep extends Creep {
     if (this.store[resourceType] === 0) return false;
     const target = this.pos.findClosestByRange(FIND_MY_CREEPS, {
       filter: creep=>{
-        return creep.store.getUsedCapacity(resourceType) + getClaimedAmount(creep.id, resourceType) < creep.store.getCapacity(resourceType)
+        return creep.id !== this.id && creep.memory.counts.work && creep.store.getUsedCapacity(resourceType) + getClaimedAmount(creep.id, resourceType) < creep.store.getCapacity(resourceType)
       }
     });
     if (!target) return false;
@@ -377,6 +378,48 @@ export class BasicCreep extends Creep {
     return false;
   }
 
+  checkIfBadIdleLocation(x:number = this.pos.x, y:number = this.pos.y){
+    const objects = this.room.lookAt(x, y);
+    // console.log(`objects`, JSON.stringify(objects));
+    for (let object of objects){
+      if (object.type === LOOK_STRUCTURES && object.structure!.structureType === 'road'){
+        return true;
+      }else if (object.type === LOOK_TERRAIN && object.terrain !== "plain"){
+        return true;
+      }
+    }
+    return false;
+  }
+
+  idle(){
+    if (this.checkIfBadIdleLocation()){
+      for (let coord of [[-1,-1], [0,-1], [1,-1], [-1,0], [1,0], [-1,1], [0,1], [1,1]]){
+        const newX = this.pos.x + coord[0], newY = this.pos.y + coord[1];
+        if (!this.checkIfBadIdleLocation(newX, newY)){
+          this.moveTo(newX, newY);
+          return;
+        };
+      }
+      this.move(Math.floor(1+Math.random()*8) as DirectionConstant);
+    }
+    // const objects = this.room.lookAt(this.pos);
+    // for (let object of objects){
+    //   if (object.type === LOOK_STRUCTURES && object.structure!.structureType === 'road'){
+    //     this.move(Math.floor(1+Math.random()*8) as DirectionConstant);
+    //     return;
+    //   }
+    // }
+    // const roads = this.pos.findInRange(FIND_STRUCTURES, 0, {
+    //   filter: structure=>{
+    //     return structure.structureType === "road";
+    //   }
+    // });
+    // if (roads.length){
+    //   //Move in a random direction to hopefully get off of the road, letting other creeps use the highway.
+    //   this.move(Math.floor(1+Math.random()*7) as DirectionConstant);
+    // }
+  }
+
   work():any{
     if (this.spawning) return;
 
@@ -397,6 +440,8 @@ export class BasicCreep extends Creep {
     }
 
     if (this.rememberAction(this.startMining, 'mining')) return;
+
+    this.idle();
 
     this.currentAction = undefined; // If nothing was successful reset action state. Necessary since rememberAction isn't always going to do the cleanup.
   }

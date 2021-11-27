@@ -27,6 +27,7 @@ declare global {
   };
 
   type CreepRole = {
+    authority:number,
     max: (roomAudit:RoomAudit)=>number,
     tiers: CreepTier[],
     modSpawnOptions?:(options:MandateProps<SpawnOptions, 'memory'>, spawner:SpawnController)=>void,

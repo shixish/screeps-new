@@ -3,7 +3,10 @@ import { BasicCreep } from "./BasicCreep";
 export class MinerCreep extends BasicCreep {
   static role:CreepRoleName = 'miner';
   static config:CreepRole = {
-    max: (roomAudit)=>roomAudit.sourceCount,
+    authority: 1,
+    max: (roomAudit)=>{
+      return roomAudit.creepCountsByRole.basic > 0 ? roomAudit.sourceCount : 0;
+    },
     tiers: [
       {
         cost: 250,
