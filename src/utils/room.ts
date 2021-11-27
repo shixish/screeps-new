@@ -4,6 +4,8 @@
 //   return room.memory.sources[source.id] || (room.memory.sources[source.id] = {});
 // };
 
+import { CreepRoles } from "./creeps";
+
 const roomAudits:Record<Room["name"], RoomAudit> = {};
 export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
   if (roomAudits[room.name]) return roomAudits[room.name];
@@ -15,11 +17,14 @@ export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
     }
     const sourceCount = room.memory.sourceCount;
     const creeps = room.find(FIND_MY_CREEPS);
-    const creepCountsByRole = creeps.reduce((out, result)=>{
-      const role = Memory.creeps[result.name].role;
-      out[role] = out[role] === undefined ? 1 : out[role] + 1;
+    const creepCountsByRole = Object.keys(CreepRoles).reduce((out, roleName)=>{
+      out[roleName] = 0;
       return out;
-    }, {} as RoomAudit['creepCountsByRole'] );
+    }, {} as any) as RoomAudit['creepCountsByRole'];
+    creeps.forEach(creep=>{
+      const role = Memory.creeps[creep.name].role;
+      creepCountsByRole[role]++;
+    });
     return roomAudits[room.name] = {
       controllerLevel,
       creeps,

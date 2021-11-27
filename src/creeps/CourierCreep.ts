@@ -6,7 +6,7 @@ export class CourierCreep extends BasicCreep {
     authority: 1,
     max: (roomAudit)=>{
       //We only need couriers if we have miners available, otherwise the resources should go to basic creeps that can do both
-      return roomAudit.creepCountsByRole.miner*2;
+      return Math.min(roomAudit.creepCountsByRole.miner*2, roomAudit.sourceCount*2);
     },
     tiers: [
       {

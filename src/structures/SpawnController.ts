@@ -59,8 +59,9 @@ export class SpawnController extends StructureSpawn{
       }
 
       const roomAudit = getRoomAudit(this.room);
+      // console.log(`roomAudit`, JSON.stringify(roomAudit, null, 2));
 
-      // console.log(`creepCountsByRole`, JSON.stringify(creepCountsByRole));
+      // console.log(`creepCountsByRole`, JSON.stringify(roomAudit.creepCountsByRole));
 
       // this.spawnCreep([WORK, MOVE, CARRY], getCreepName());
       let roleToSpawn, creepTierToSpawn, lowestPercentage;
@@ -73,6 +74,7 @@ export class SpawnController extends StructureSpawn{
           const count = roomAudit.creepCountsByRole[roleName] || 0;
           const max = config.max(roomAudit);
           const percentage = count/max;
+          console.log(roleName, count, '<',  max);
           if (count < max){
             if (!roleToSpawn || percentage < (lowestPercentage as number)){
               roleToSpawn = roleName;
