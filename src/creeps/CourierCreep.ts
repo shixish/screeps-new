@@ -1,13 +1,14 @@
 import { BasicCreep } from "./BasicCreep";
 
+const genericMax = (roomAudit: RoomAudit)=>{
+  //We only need couriers if we have miners available, otherwise the resources should go to basic creeps that can do both
+  return Math.min(roomAudit.creepCountsByRole.miner*2, roomAudit.sourceCount*2);
+};
+
 export class CourierCreep extends BasicCreep {
   static role:CreepRoleName = 'courier';
   static config:CreepRole = {
     authority: 1,
-    max: (roomAudit)=>{
-      //We only need couriers if we have miners available, otherwise the resources should go to basic creeps that can do both
-      return Math.min(roomAudit.creepCountsByRole.miner*2, roomAudit.sourceCount*2);
-    },
     tiers: [
       {
         cost: 300,
@@ -15,7 +16,8 @@ export class CourierCreep extends BasicCreep {
           CARRY, MOVE,
           CARRY, MOVE,
           MOVE
-        ]
+        ],
+        max: genericMax,
       },
       {
         cost: 400,
@@ -24,19 +26,21 @@ export class CourierCreep extends BasicCreep {
           CARRY, MOVE,
           CARRY, MOVE,
           MOVE, MOVE
-        ]
+        ],
+        max: genericMax,
       },
-      {
-        cost: 550,
-        body: [
-          CARRY, MOVE,
-          CARRY, MOVE,
-          CARRY, MOVE,
-          CARRY, MOVE,
-          CARRY, MOVE,
-          CARRY
-        ]
-      },
+      // {
+      //   cost: 550,
+      //   body: [
+      //     CARRY, MOVE,
+      //     CARRY, MOVE,
+      //     CARRY, MOVE,
+      //     CARRY, MOVE,
+      //     CARRY, MOVE,
+      //     CARRY
+      //   ],
+      //   max: genericMax,
+      // },
     ]
   }
 

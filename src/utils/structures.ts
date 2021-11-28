@@ -17,23 +17,5 @@ export const manageStructures = ()=>{
     }catch(e){
       console.log('structure error', e);
     }
-    // if (structure_controllers[type]) {
-    //   let structures = memory.structures[type];
-    //   let StructureController = structure_controllers[type];
-    //   for (let s in structures) {
-    //     let id = structures[s];
-    //     let structureDiag = debug.diag(["structure." + type, room.name + "." + type]);
-    //     try {
-    //       let controller = new StructureController(id);
-    //     } catch (e) {
-    //       if (e === "Invalid Object ID") {
-    //         delete memory.structures[type][id];
-    //       } else {
-    //         console.log(e);
-    //       }
-    //     }
-    //     structureDiag.stop();
-    //   }
-    // }
   }
 }

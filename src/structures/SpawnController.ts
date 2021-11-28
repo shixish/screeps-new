@@ -35,11 +35,11 @@ export class SpawnController extends StructureSpawn{
   work(){
     if (!(this.room.controller?.owner?.username === USERNAME)) return; //Not sure if this is necessary
 
-    const repairable = this.getRepairableCreeps();
-    if (repairable.length){
-      //TODO: Repair the lowest creep
-      // this.renewCreep
-    }
+    // const repairable = this.getRepairableCreeps();
+    // if (repairable.length){
+    //   //TODO: Repair the lowest creep
+    //   // this.renewCreep
+    // }
     if (!this.spawning){
       // const sources = this.room.find(FIND_SOURCES);
       // sources.forEach(source=>{
@@ -71,12 +71,12 @@ export class SpawnController extends StructureSpawn{
         const config = CreepRoles[roleName].config;
         const tier = getHeighestCreepTier(config.tiers, this.room, roomAudit.creeps.length === 0);
         if (tier){ //Creep type doesn't count if we can't yet afford to produce the lowest tier
-          const count = roomAudit.creepCountsByRole[roleName] || 0;
-          const max = config.max(roomAudit);
+          const count = roomAudit.creepCountsByRole[roleName];
+          const max = tier.max(roomAudit);
           const percentage = count/max;
-          // console.log(roleName, count, '<',  max);
           if (count < max){
             if (!roleToSpawn || percentage < (lowestPercentage as number)){
+              // console.log(roleName, count, '<',  max);
               roleToSpawn = roleName;
               creepTierToSpawn = tier;
               lowestPercentage = percentage;
@@ -98,7 +98,8 @@ export class SpawnController extends StructureSpawn{
         };
         if (config.modSpawnOptions) config.modSpawnOptions(options, this);
         if (tier.cost > this.room.energyAvailable) return;
-        console.log(`Spawning ${roleToSpawn} creep (cost:${tier.cost}) with memory:`, JSON.stringify(options, null, 2));
+        console.log(`Creep Counts:`, JSON.stringify(roomAudit.creepCountsByRole, null, 2));
+        console.log(`Spawning ${roleToSpawn} creep (cost:${tier.cost}).`);// with memory:`, JSON.stringify(options, null, 2));
         this.spawnCreep(tier.body, name, options);
       }
     }

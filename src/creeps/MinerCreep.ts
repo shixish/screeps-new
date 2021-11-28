@@ -4,17 +4,20 @@ export class MinerCreep extends BasicCreep {
   static role:CreepRoleName = 'miner';
   static config:CreepRole = {
     authority: 1,
-    max: (roomAudit)=>{
-      return roomAudit.creepCountsByRole.basic > 0 ? roomAudit.sourceCount : 0;
-    },
     tiers: [
       {
         cost: 250,
-        body: [WORK, WORK, MOVE]
+        body: [WORK, WORK, MOVE],
+        max: (roomAudit)=>{
+          return Math.min(roomAudit.sourceSeats, roomAudit.sourceCount*3);
+        },
       },
       {
         cost: 550,
-        body: [WORK, WORK, WORK, WORK, WORK, MOVE]
+        body: [WORK, WORK, WORK, WORK, WORK, MOVE],
+        max: (roomAudit)=>{
+          return roomAudit.sourceCount;
+        },
       }
     ],
     modSpawnOptions: (options, spawner)=>{

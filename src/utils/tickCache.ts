@@ -3,17 +3,23 @@ type TickCache = {
     [type in ResourceConstant]?: number
   },
 }
-export const tickCache = new Map<string, TickCache>();
+export const objectCache = new Map<string, TickCache>();
+export const roomAuditCache = new Map<Room["name"], RoomAudit>();
 
 export const getClaimedAmount = (objectId:string, resourceType:ResourceConstant)=>{
-  const cache = tickCache.get(objectId);
+  const cache = objectCache.get(objectId);
   if (!cache || !cache.claimedResources) return 0;
   return cache.claimedResources[resourceType] || 0;
 };
 
 export const claimAmount = (objectId:string, resourceType:ResourceConstant, amount:number)=>{
-  const cache = tickCache.get(objectId) || {};
+  const cache = objectCache.get(objectId) || {};
   if (!cache.claimedResources) cache.claimedResources = {};
   cache.claimedResources[resourceType] = getClaimedAmount(objectId, resourceType) + amount;
-  tickCache.set(objectId, cache);
+  objectCache.set(objectId, cache);
+};
+
+export const clearTickCache = ()=>{
+  objectCache.clear();
+  roomAuditCache.clear();
 };

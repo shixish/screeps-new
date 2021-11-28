@@ -28,7 +28,7 @@ declare global {
 
   type CreepRole = {
     authority:number,
-    max: (roomAudit:RoomAudit)=>number,
+    // max: (roomAudit:RoomAudit)=>number,
     tiers: CreepTier[],
     modSpawnOptions?:(options:MandateProps<SpawnOptions, 'memory'>, spawner:SpawnController)=>void,
   };
@@ -55,6 +55,7 @@ declare global {
   type CreepTier = {
     cost: number,
     body: BodyPartConstant[];
+    max: (roomAudit:RoomAudit)=>number,
   }
 
   interface SpawnMemory {
@@ -64,6 +65,7 @@ declare global {
   interface RoomAudit{
     controllerLevel: number,
     sourceCount: number,
+    sourceSeats: number,
     creeps: Creep[],
     creepCountsByRole: Record<CreepRoleName, number>
   }
@@ -71,6 +73,7 @@ declare global {
   interface RoomMemory{
     // structures:string[];
     sourceCount: number,
+    sourceSeats: number, //How many standing locations around sources within the room
     // sources: {
     //   [id:string]:any
     // }

@@ -54,31 +54,27 @@ export class BasicCreep extends Creep {
   // static role:CreepRoleName = 'basic';
   static config:CreepRole = {
     authority: 0,
-    max: (roomAudit)=>{
-      switch(roomAudit.controllerLevel){
-        case 1:
-        case 2:
-          return 2 + (roomAudit.sourceCount - roomAudit.creepCountsByRole.miner);
-        // case 3:
-        //   return roomAudit.sourceCount;
-        default:
-          return 4;
-      }
-    },
-    // shouldBuild: ()=>{
-
-    // },
     tiers: [
       {
         cost: 300,
-        body: [WORK, MOVE, CARRY, MOVE, CARRY]
+        body: [
+          WORK, MOVE,
+          CARRY, MOVE,
+          CARRY
+        ],
+        max: (roomAudit)=>{
+          return roomAudit.sourceCount * 2;
+        }
       },
       {
         cost: 400,
         body: [
           WORK, MOVE, CARRY,
           WORK, MOVE, CARRY
-        ]
+        ],
+        max: (roomAudit)=>{
+          return 4;
+        }
       },
       // {
       //   cost: 550,
