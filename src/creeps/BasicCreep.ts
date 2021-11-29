@@ -155,7 +155,7 @@ export class BasicCreep extends Creep {
 
   set currentAction(action:string|undefined){
     if (action && action !== this.memory.action){
-      this.debug(`started ${action}`);
+      // this.debug(`started ${action}`);
       this.say(action);
     }
     this.memory.action = action;
