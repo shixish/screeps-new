@@ -46,6 +46,13 @@ import { claimAmount, getClaimedAmount } from "utils/tickCache";
 //     return currentCount/desiredAmount;
 //   }
 // }
+
+/*
+  breakpoints
+  300
+  300+250=550
+  300+250*2=800
+*/
 export class BasicCreep extends Creep {
   canWork:boolean = Boolean(this.memory.counts.work);
   canCarry:boolean = Boolean(this.memory.counts.carry);
@@ -58,9 +65,9 @@ export class BasicCreep extends Creep {
       {
         cost: 300,
         body: [
-          WORK, MOVE,
+          WORK,
           CARRY, MOVE,
-          CARRY
+          CARRY, MOVE,
         ],
         max: (roomAudit)=>{
           return roomAudit.sourceCount * 2;
@@ -70,20 +77,23 @@ export class BasicCreep extends Creep {
         cost: 400,
         body: [
           WORK, MOVE, CARRY,
-          WORK, MOVE, CARRY
+          WORK, MOVE, CARRY,
         ],
         max: (roomAudit)=>{
-          return 4;
+          return roomAudit.sourceCount * 3;
         }
       },
-      // {
-      //   cost: 550,
-      //   body: [
-      //     WORK, MOVE, CARRY,
-      //     WORK, MOVE, CARRY,
-      //     WORK, CARRY
-      //   ]
-      // }
+      {
+        cost: 550,
+        body: [
+          WORK, MOVE,
+          WORK, MOVE, CARRY,
+          WORK, MOVE, CARRY,
+        ],
+        max: (roomAudit)=>{
+          return roomAudit.sourceCount * 3;
+        }
+      }
     ]
   };
   // static tiers:CreepTier[] = [
@@ -253,13 +263,18 @@ export class BasicCreep extends Creep {
   }
 
   startRepairing():boolean{
+    const resourceType = 'repair';
     if (!this.canWork) return false;
-    const repairable = this.pos.findClosestByRange(FIND_STRUCTURES, {
-      filter: structure=>(structure.structureType === STRUCTURE_ROAD) && structure.hits < structure.hitsMax
+    const structure = this.pos.findClosestByRange(FIND_STRUCTURES, {
+      filter: structure=>(structure.structureType === STRUCTURE_ROAD) && structure.hits + getClaimedAmount(structure.id, resourceType) < structure.hitsMax
     });
-    if (!repairable) return false;
-    const action = this.repair(repairable);
-    return this.respondToActionCode(action, repairable);
+    if (!structure) return false;
+    const action = this.repair(structure);
+    const ok = this.respondToActionCode(action, structure);
+    //A creep can restore 100 points/tick to a target structure, spending 0.01 energy per hit point repaired, per WORK module equipped.
+    //Ref: https://screeps.fandom.com/wiki/Creep
+    if (ok) claimAmount(structure.id, resourceType, Math.min(structure.hitsMax-structure.hits, 100));
+    return ok;
   }
 
   startEnergizing():boolean{
@@ -268,18 +283,16 @@ export class BasicCreep extends Creep {
       filter: (structure:StructureTower)=>{
         return structure.structureType === STRUCTURE_TOWER && structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
       }
-    });
-    if (tower instanceof StructureTower){
-      const action = this.transfer(tower, resourceType);
-      const ok = this.respondToActionCode(action, tower);
-      if (ok){
-        const amount = Math.min(tower.store.getFreeCapacity(resourceType), this.store[resourceType]);
-        // this.debug(`claiming amount`, amount, tower);
-        claimAmount(tower.id, resourceType, amount);
-      }
-      return ok;
+    }) as StructureTower;
+    if (!tower) return false;
+    const action = this.transfer(tower, resourceType);
+    const ok = this.respondToActionCode(action, tower);
+    if (ok){
+      const amount = Math.min(tower.store.getFreeCapacity(resourceType), this.store[resourceType]);
+      // this.debug(`claiming amount`, amount, tower);
+      claimAmount(tower.id, resourceType, amount);
     }
-    return false;
+    return ok;
   }
 
   startStoring():boolean{
@@ -419,9 +432,9 @@ export class BasicCreep extends Creep {
   work():any{
     if (this.spawning) return;
 
-    if (this.role === 'courier'){
-      if (this.currentAction) this.say(this.currentAction);
-    }
+    // if (this.role === 'courier'){
+    //   if (this.currentAction) this.say(this.currentAction);
+    // }
 
     if (this.rememberAction(this.startPickup, 'pickup', ['mining'])) return;
     if (this.rememberAction(this.startTaking, 'taking', ['mining'])) return;
@@ -429,9 +442,9 @@ export class BasicCreep extends Creep {
     if (this.store.getUsedCapacity(RESOURCE_ENERGY) > 0){ //Do something with the energy
       if (this.rememberAction(this.startStoring, 'storing', ['upgrading', 'building', 'repairing'])) return;
       if (this.rememberAction(this.startEnergizing, 'energizing', ['upgrading', 'building'])) return;
+      if (this.rememberAction(this.startRepairing, 'repairing', ['upgrading'])) return;
+      if (this.rememberAction(this.startBuilding, 'building', ['upgrading'])) return;
       if (this.rememberAction(this.startSpreading, 'spreading')) return;
-      if (this.rememberAction(this.startRepairing, 'repairing')) return;
-      if (this.rememberAction(this.startBuilding, 'building')) return;
       if (this.rememberAction(this.startUpgrading, 'upgrading')) return;
     }
 

@@ -9,8 +9,8 @@ export const loop = ErrorMapper.wrapLoop(() => {
   // console.log(`Current game tick is ${Game.time}`);
   clearTickCache(); //The cache persists between ticks, we need to explicitly rebuild it each time.
 
+  manageStructures(); //Structures (tower) should have priority
   manageCreeps();
-  manageStructures();
   // for (const r in Game.rooms) {
   //   const room = Game.rooms[r];
   //   room.find(FIND_SOURCES).forEach(manageSource);

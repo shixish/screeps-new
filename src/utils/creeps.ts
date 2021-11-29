@@ -1,12 +1,14 @@
 import { BasicCreep } from "creeps/BasicCreep";
 import { CourierCreep } from "creeps/CourierCreep";
 import { MinerCreep } from "creeps/MinerCreep";
+import { MoverCreep } from "creeps/MoverCreep";
 import { PART_COST } from "./constants";
 
 export const CreepRoles:Record<CreepRoleName, typeof BasicCreep> = {
   basic: BasicCreep,
   miner: MinerCreep,
   courier: CourierCreep,
+  mover: MoverCreep,
 };
 
 export const getCreepName = (roleName = 'Creep')=>{
@@ -72,7 +74,9 @@ export const manageCreeps = ()=>{
   });
   for (const name of creepNamesByAuthority) {
     try{
-      const creep = new BasicCreep(Game.creeps[name]);
+      const creepObj = Game.creeps[name];
+      const CreepRole = CreepRoles[creepObj.memory.role] || BasicCreep;
+      const creep = new CreepRole(creepObj);
       creep.work();
     }catch(e){
       console.log('creep error', e);

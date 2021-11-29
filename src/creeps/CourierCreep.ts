@@ -15,7 +15,7 @@ export class CourierCreep extends BasicCreep {
         body: [
           CARRY, MOVE,
           CARRY, MOVE,
-          MOVE
+          CARRY, MOVE,
         ],
         max: genericMax,
       },
@@ -25,27 +25,39 @@ export class CourierCreep extends BasicCreep {
           CARRY, MOVE,
           CARRY, MOVE,
           CARRY, MOVE,
-          MOVE, MOVE
+          CARRY, MOVE,
+        ],
+        max: genericMax,
+      },
+      {
+        cost: 550,
+        body: [
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY,
         ],
         max: genericMax,
       },
       // {
-      //   cost: 550,
+      //   cost: 600,
       //   body: [
       //     CARRY, MOVE,
       //     CARRY, MOVE,
       //     CARRY, MOVE,
       //     CARRY, MOVE,
       //     CARRY, MOVE,
-      //     CARRY
+      //     CARRY, MOVE,
       //   ],
       //   max: genericMax,
       // },
     ]
   }
 
-  work(){
-    // if (this.rememberAction(this.startMining, 'mining')) return;
+  // work(){
+  //   // if (this.rememberAction(this.startMining, 'mining')) return;
 
-  }
+  // }
 }

@@ -38,7 +38,8 @@ export class MinerCreep extends BasicCreep {
     },
   }
 
-  work(){
-    // if (this.rememberAction(this.startMining, 'mining')) return;
-  }
+  // work(){
+  //   super.work();
+  //   // if (this.rememberAction(this.startMining, 'mining')) return;
+  // }
 }

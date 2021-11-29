@@ -37,7 +37,7 @@ declare global {
   //   miner: CreepRole;
   //   courier: CreepRole;
   // }
-  type CreepRoleName = 'basic'|'miner'|'courier';
+  type CreepRoleName = 'basic'|'miner'|'courier'|'mover';
   interface CreepMemory {
     role: CreepRoleName;
 
