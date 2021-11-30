@@ -15,6 +15,8 @@ declare global {
     [MK in K]-?: NonNullable<T[MK]>
   }
 
+  // type RoomObjectWithId = ConstructionSite|Creep|Resource<RESOURCE_ENERGY>|Mineral|Deposit|Nuke|Resource|Source|Structure|Terrain|Tombstone|PowerCreep|Ruin;
+
   interface Memory {
     // uuid: number;
     // log: any;
@@ -25,6 +27,15 @@ declare global {
     controllerLevel: number;
     sources: number;
   };
+
+  interface Target{
+    roomName?: Room['name'];
+    id?: Id<RoomObject>;
+    flagName?: Flag['name'];
+  }
+  type TargetableTypes = RoomObject|Flag|null;
+  type TargetTypes = Target|null;
+  // const ActionCallback:(storedTarget:TargetConstant)=>TargetConstant;
 
   type CreepRole = {
     authority:number,
@@ -41,7 +52,9 @@ declare global {
   interface CreepMemory {
     role: CreepRoleName;
 
-    targetId?: Id<RoomObject>;
+    // targetRoom?: Room['name'];
+    // targetId?: Id<RoomObject>;
+    target?: Target;
     action?: string;
 
     // home: string;
