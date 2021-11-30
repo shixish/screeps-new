@@ -203,14 +203,16 @@ export class BasicCreep extends Creep {
       if (moving === OK || moving === ERR_TIRED){
         return this.objectToTarget(target);
       }
-      console.log(`Creep moving error`, moving, this.name);
+      console.log(`Creep moving error`, this.currentAction, moving, this.name);
       if (moving === ERR_NO_PATH){
         console.log('Creep cannot find a path...');
       }
     } else {
-      console.log(`Creep action error`, action, this.name);
+      console.log(`Creep action error`, this.currentAction, action, this.name);
       if (action === ERR_FULL){
         console.log('Creep is full...');
+      }else if (action === ERR_NOT_ENOUGH_ENERGY){
+        console.log('Creep is out of energy...');
       }
       // throw action;
     }
@@ -272,23 +274,26 @@ export class BasicCreep extends Creep {
 
   startTaking(storedTarget:TargetableTypes):TargetTypes{
     const resourceType = RESOURCE_ENERGY;
+    const checkCapacity = (storage:StructureContainer|StructureStorage)=>{
+      return getClaimedAmount(storage.id, resourceType) < storage.store[resourceType];
+    }
     if (!this.canCarry) return null;
     // if (this.room.energyCapacityAvailable === this.room.energyAvailable) return false;
     const freeCapacity = this.store.getFreeCapacity(resourceType);
     if (freeCapacity === 0) return null;
     const storage =
-      storedTarget instanceof StructureContainer && storedTarget as StructureContainer ||
+      storedTarget instanceof StructureContainer && checkCapacity(storedTarget) && storedTarget as StructureContainer ||
       this.pos.findClosestByRange(FIND_STRUCTURES, {
         filter: (container:StructureContainer)=>{
           if (container.structureType !== STRUCTURE_CONTAINER) return false;
-          return getClaimedAmount(container.id, resourceType) < container.store[resourceType];
+          return checkCapacity(container);
         }
       }) as StructureContainer ||
-      storedTarget instanceof StructureStorage && storedTarget as StructureStorage ||
+      storedTarget instanceof StructureStorage && checkCapacity(storedTarget) && storedTarget as StructureStorage ||
       this.pos.findClosestByRange(FIND_STRUCTURES, {
-        filter: (container:StructureStorage)=>{
-          if (container.structureType !== STRUCTURE_STORAGE) return false;
-          return getClaimedAmount(container.id, resourceType) < container.store[resourceType];
+        filter: (storage:StructureStorage)=>{
+          if (storage.structureType !== STRUCTURE_STORAGE) return false;
+          return checkCapacity(storage);
         }
       }) as StructureStorage;
     // console.log(`container`, container);
@@ -338,20 +343,23 @@ export class BasicCreep extends Creep {
 
   startEnergizing(storedTarget:TargetableTypes):TargetTypes{
     const resourceType = RESOURCE_ENERGY;
+    const checkCapacity = (structure:StructureSpawn|StructureExtension|StructureTower)=>{
+      return structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
+    }
     const structure =
-      storedTarget instanceof StructureSpawn && storedTarget as StructureSpawn ||
-      storedTarget instanceof StructureExtension && storedTarget as StructureExtension ||
+      storedTarget instanceof StructureSpawn && checkCapacity(storedTarget) && storedTarget as StructureSpawn ||
+      storedTarget instanceof StructureExtension && checkCapacity(storedTarget) && storedTarget as StructureExtension ||
       this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
         filter: (structure:StructureSpawn|StructureExtension)=>{
           if (structure.structureType !== STRUCTURE_EXTENSION && structure.structureType !== STRUCTURE_SPAWN) return false;
-          return structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
+          return checkCapacity(structure);
         }
       }) as StructureSpawn ||
-      storedTarget instanceof StructureTower && storedTarget as StructureTower ||
+      storedTarget instanceof StructureTower && checkCapacity(storedTarget) && storedTarget as StructureTower ||
       this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
         filter: (structure:StructureTower)=>{
           if (structure.structureType !== STRUCTURE_TOWER) return false;
-          return structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
+          return checkCapacity(structure);
         }
       }) as StructureTower;
     if (!structure) return null;
@@ -367,12 +375,15 @@ export class BasicCreep extends Creep {
   startStoring(storedTarget:TargetableTypes):TargetTypes{
     const resourceType = RESOURCE_ENERGY;
     // const spawn = this.pos.findClosestByRange(FIND_MY_SPAWNS);
+    const checkCapacity = (structure:StructureStorage)=>{
+      return structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
+    }
     const storage =
-      storedTarget instanceof StructureStorage && storedTarget as StructureStorage ||
+      storedTarget instanceof StructureStorage && checkCapacity(storedTarget) && storedTarget as StructureStorage ||
       this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
         filter: (structure:StructureStorage)=>{
-          if (!(structure.structureType === STRUCTURE_STORAGE)) return false;
-          return structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
+          if (structure.structureType !== STRUCTURE_STORAGE) return false;
+          return checkCapacity(structure);
         }
       }) as StructureStorage;
     if (!storage) return null;

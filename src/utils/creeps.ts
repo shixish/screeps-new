@@ -75,6 +75,7 @@ export const manageCreeps = ()=>{
   for (const name of creepNamesByAuthority) {
     try{
       const creepObj = Game.creeps[name];
+      if (creepObj.spawning) continue;
       const CreepRole = CreepRoles[creepObj.memory.role] || BasicCreep;
       const creep = new CreepRole(creepObj);
       creep.work();

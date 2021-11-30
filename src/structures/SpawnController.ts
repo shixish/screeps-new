@@ -96,7 +96,7 @@ export class SpawnController extends StructureSpawn{
             counts: creepCountParts(tier.body),
           }
         };
-        if (config.modSpawnOptions) config.modSpawnOptions(options, this);
+        // if (config.modSpawnOptions) config.modSpawnOptions(options, this);
         if (tier.cost > this.room.energyAvailable) return;
         console.log(`Creep Counts:`, JSON.stringify(roomAudit.creepCountsByRole, null, 2));
         console.log(`Spawning ${roleToSpawn} creep (cost:${tier.cost}).`);// with memory:`, JSON.stringify(options, null, 2));

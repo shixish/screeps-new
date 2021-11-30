@@ -41,7 +41,7 @@ declare global {
     authority:number,
     // max: (roomAudit:RoomAudit)=>number,
     tiers: CreepTier[],
-    modSpawnOptions?:(options:MandateProps<SpawnOptions, 'memory'>, spawner:SpawnController)=>void,
+    // modSpawnOptions?:(options:MandateProps<SpawnOptions, 'memory'>, spawner:SpawnController)=>void,
   };
   // interface CreepRoles{
   //   basic: CreepRole;

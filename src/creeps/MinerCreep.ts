@@ -20,22 +20,22 @@ export class MinerCreep extends BasicCreep {
         },
       }
     ],
-    modSpawnOptions: (options, spawner)=>{
-      const miners = spawner.room.find(FIND_MY_CREEPS, {
-        filter: (creep:Creep)=>{
-          creep.memory.role === 'miner';
-        }
-      });
-      miners.map(miner=>miner.memory.targetId);
-      const sources = spawner.room.find(FIND_SOURCES, {
-        filter: (source:Source)=>{
-          return Boolean(miners.find(miner=>miner.memory.targetId === source.id));
-        }
-      });
-      // console.log(`sources`, sources);
-      if (!sources.length) return;
-      options.memory.targetId = sources[0].id;
-    },
+    // modSpawnOptions: (options, spawner)=>{
+    //   const miners = spawner.room.find(FIND_MY_CREEPS, {
+    //     filter: (creep:Creep)=>{
+    //       creep.memory.role === 'miner';
+    //     }
+    //   });
+    //   miners.map(miner=>miner.memory.targetId);
+    //   const sources = spawner.room.find(FIND_SOURCES, {
+    //     filter: (source:Source)=>{
+    //       return Boolean(miners.find(miner=>miner.memory.targetId === source.id));
+    //     }
+    //   });
+    //   // console.log(`sources`, sources);
+    //   if (!sources.length) return;
+    //   options.memory.targetId = sources[0].id;
+    // },
   }
 
   // work(){
