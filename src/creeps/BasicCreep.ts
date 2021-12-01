@@ -297,25 +297,24 @@ export class BasicCreep extends Creep {
         }
       }) as StructureStorage;
     // console.log(`container`, container);
-    if (storage instanceof StructureContainer){
-      const action = this.withdraw(storage, resourceType);
-      const ok = this.respondToActionCode(action, storage);
-      if (ok) claimAmount(storage.id, resourceType, Math.min(freeCapacity, storage.store[resourceType]));
-      return ok;
-    }
-    return null;
+    if (!storage) return null;
+    const action = this.withdraw(storage, resourceType);
+    const ok = this.respondToActionCode(action, storage);
+    if (ok) claimAmount(storage.id, resourceType, Math.min(freeCapacity, storage.store[resourceType]));
+    return ok;
   }
 
   startSpreading(storedTarget:TargetableTypes):TargetTypes{
     const resourceType = RESOURCE_ENERGY;
     if (this.canWork) return null; //If this is a worker don't bother giving away your resources
     if (this.store[resourceType] === 0) return null;
+    const checkCreep = (creep:Creep)=>{
+      return creep.id !== this.id && creep.memory.counts.work && creep.store.getUsedCapacity(resourceType) + getClaimedAmount(creep.id, resourceType) < creep.store.getCapacity(resourceType)
+    };
     const target =
-      storedTarget instanceof Creep && storedTarget as Creep ||
+      storedTarget instanceof Creep && checkCreep(storedTarget) && storedTarget as Creep ||
       this.pos.findClosestByRange(FIND_MY_CREEPS, {
-        filter: creep=>{
-          return creep.id !== this.id && creep.memory.counts.work && creep.store.getUsedCapacity(resourceType) + getClaimedAmount(creep.id, resourceType) < creep.store.getCapacity(resourceType)
-        }
+        filter: checkCreep
       });
     if (!target) return null;
     const action = this.transfer(target, resourceType);
@@ -327,10 +326,13 @@ export class BasicCreep extends Creep {
   startRepairing(storedTarget:TargetableTypes):TargetTypes{
     const resourceType = 'repair';
     if (!this.canWork) return null;
+    const checkHits = (structure:StructureRoad)=>{
+      return structure.hits + getClaimedAmount(structure.id, resourceType) < structure.hitsMax;
+    };
     const structure =
-      storedTarget instanceof StructureRoad && storedTarget as StructureRoad ||
+      storedTarget instanceof StructureRoad && checkHits(storedTarget) && storedTarget as StructureRoad ||
       this.pos.findClosestByRange(FIND_STRUCTURES, {
-        filter: structure=>(structure.structureType === STRUCTURE_ROAD) && structure.hits + getClaimedAmount(structure.id, resourceType) < structure.hitsMax
+        filter: structure=>structure.structureType === STRUCTURE_ROAD && checkHits(structure)
       }) as StructureRoad;
     if (!structure) return null;
     const action = this.repair(structure);
@@ -374,9 +376,10 @@ export class BasicCreep extends Creep {
 
   startStoring(storedTarget:TargetableTypes):TargetTypes{
     const resourceType = RESOURCE_ENERGY;
+    const energyCap = 250000; //Arbitrary cap for now. We don't need to keep storing more and more energy.
     // const spawn = this.pos.findClosestByRange(FIND_MY_SPAWNS);
     const checkCapacity = (structure:StructureStorage)=>{
-      return structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
+      return structure.store.getUsedCapacity(resourceType) < energyCap && structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
     }
     const storage =
       storedTarget instanceof StructureStorage && checkCapacity(storedTarget) && storedTarget as StructureStorage ||
@@ -538,8 +541,8 @@ export class BasicCreep extends Creep {
       if (this.rememberAction(this.startRepairing, 'repairing', ['upgrading'])) return;
       if (this.rememberAction(this.startBuilding, 'building', ['upgrading'])) return;
       if (this.rememberAction(this.startSpreading, 'spreading')) return;
-      if (this.rememberAction(this.startStoring, 'storing')) return;
       if (this.rememberAction(this.startUpgrading, 'upgrading')) return;
+      if (this.rememberAction(this.startStoring, 'storing')) return;
     }
 
     if (this.rememberAction(this.startMining, 'mining')) return;
