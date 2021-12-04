@@ -2,7 +2,7 @@ import { BasicCreep } from "./BasicCreep";
 
 const genericMax = (roomAudit: RoomAudit)=>{
   //We only need couriers if we have miners available, otherwise the resources should go to basic creeps that can do both
-  return Math.min(roomAudit.creepCountsByRole.miner*2, roomAudit.sourceCount*2);
+  return Math.min(roomAudit.creepCountsByRole.miner*2, roomAudit.sources.length*2);
 };
 
 export class CourierCreep extends BasicCreep {

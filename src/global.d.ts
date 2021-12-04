@@ -1,4 +1,5 @@
 import { SpawnController } from "structures/SpawnController";
+import { RoomSource } from "utils/room";
 
 declare global {
 //   /*
@@ -21,6 +22,12 @@ declare global {
     // uuid: number;
     // log: any;
     paths: any;
+    sources: {[name: string]: SourceMemory};
+  }
+
+  interface SourceMemory{
+    seats:number;
+    occupancy:Creep['name'][];
   }
 
   type SpawnerCounts = {
@@ -41,7 +48,8 @@ declare global {
     authority:number,
     // max: (roomAudit:RoomAudit)=>number,
     tiers: CreepTier[],
-    // modSpawnOptions?:(options:MandateProps<SpawnOptions, 'memory'>, spawner:SpawnController)=>void,
+    modSpawnOptions?:(roomAudit:RoomAudit, options:MandateProps<SpawnOptions, 'memory'>, spawner:SpawnController)=>void;
+    getCreepAnchor?:(roomAudit:RoomAudit)=>Id<RoomObject>|undefined;
   };
   // interface CreepRoles{
   //   basic: CreepRole;
@@ -53,12 +61,12 @@ declare global {
     role: CreepRoleName;
 
     // targetRoom?: Room['name'];
-    // targetId?: Id<RoomObject>;
+    anchor?: Id<RoomObject>;
     target?: Target;
     action?: string;
 
-    // home: string;
-    // office: string;
+    home?: Room['name'];
+    office?: Room['name'];
 
     counts: {
       [key in BodyPartConstant]?: number
@@ -77,7 +85,8 @@ declare global {
 
   interface RoomAudit{
     controllerLevel: number,
-    sourceCount: number,
+    sources:RoomSource[],
+    // sourceCount: number,
     sourceSeats: number,
     creeps: Creep[],
     creepCountsByRole: Record<CreepRoleName, number>
@@ -85,6 +94,7 @@ declare global {
 
   interface RoomMemory{
     // structures:string[];
+    sources?: Id<Source>[];
     sourceCount: number,
     sourceSeats: number, //How many standing locations around sources within the room
     // sources: {

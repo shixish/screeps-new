@@ -37,9 +37,9 @@ import { claimAmount, getClaimedAmount } from "utils/tickCache";
 //     // switch(roomAudit.controllerLevel){
 //     //   case 1:
 //     //   case 2:
-//     //     return roomAudit.sourceCount * 5;
+//     //     return roomAudit.sources.length * 5;
 //     //   // case 3:
-//     //   //   return roomAudit.sourceCount;
+//     //   //   return roomAudit.sources.length;
 //     //   default:
 //     //     return 4;
 //     // }
@@ -70,7 +70,7 @@ export class BasicCreep extends Creep {
           CARRY, MOVE,
         ],
         max: (roomAudit)=>{
-          return roomAudit.sourceCount * 2;
+          return roomAudit.sources.length * 2;
         }
       },
       {
@@ -80,7 +80,7 @@ export class BasicCreep extends Creep {
           WORK, MOVE, CARRY,
         ],
         max: (roomAudit)=>{
-          return roomAudit.sourceCount * 3;
+          return roomAudit.sources.length * 3;
         }
       },
       {
@@ -91,7 +91,7 @@ export class BasicCreep extends Creep {
           WORK, MOVE, CARRY,
         ],
         max: (roomAudit)=>{
-          return roomAudit.sourceCount * 3;
+          return roomAudit.sources.length * 3;
         }
       }
     ]
@@ -124,9 +124,9 @@ export class BasicCreep extends Creep {
   //   // switch(roomAudit.controllerLevel){
   //   //   case 1:
   //   //   case 2:
-  //   //     return roomAudit.sourceCount * 5;
+  //   //     return roomAudit.sources.length * 5;
   //   //   // case 3:
-  //   //   //   return roomAudit.sourceCount;
+  //   //   //   return roomAudit.sources.length;
   //   //   default:
   //   //     return 4;
   //   // }

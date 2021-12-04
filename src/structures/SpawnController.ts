@@ -53,10 +53,10 @@ export class SpawnController extends StructureSpawn{
       //   // this.room.createConstructionSite(source.pos.x-1, source.pos.y-1, STRUCTURE_ROAD); //Top Left
       // });
 
-      if (this.room.controller?.level >= 5){
-        //https://docs.screeps.com/api/#StructureLink
-        console.log('TODO: BUILD LINKS');
-      }
+      // if (this.room.controller?.level >= 5){
+      //   //https://docs.screeps.com/api/#StructureLink
+      //   console.log('TODO: BUILD LINKS');
+      // }
 
       const roomAudit = getRoomAudit(this.room);
       // console.log(`roomAudit`, JSON.stringify(roomAudit, null, 2));
@@ -64,7 +64,7 @@ export class SpawnController extends StructureSpawn{
       // console.log(`creepCountsByRole`, JSON.stringify(roomAudit.creepCountsByRole));
 
       // this.spawnCreep([WORK, MOVE, CARRY], getCreepName());
-      let roleToSpawn, creepTierToSpawn, lowestPercentage;
+      let roleToSpawn, creepTierToSpawn, creepAnchor, lowestPercentage;
       // const affordableTiers:{[roleName:string]: CreepTier} = {};
       for (const rn in CreepRoles){
         const roleName = rn as CreepRoleName;
@@ -73,12 +73,18 @@ export class SpawnController extends StructureSpawn{
         if (tier){ //Creep type doesn't count if we can't yet afford to produce the lowest tier
           const count = roomAudit.creepCountsByRole[roleName];
           const max = tier.max(roomAudit);
-          const percentage = count/max;
           if (count < max){
+            const anchor = config.getCreepAnchor && config.getCreepAnchor(roomAudit);
+            if (config.getCreepAnchor && !anchor){
+              console.log(`Unable to find creep anchor`);
+              continue;
+            }
+            const percentage = count/max;
             if (!roleToSpawn || percentage < (lowestPercentage as number)){
               // console.log(roleName, count, '<',  max);
               roleToSpawn = roleName;
               creepTierToSpawn = tier;
+              creepAnchor = anchor;
               lowestPercentage = percentage;
             }
           }
@@ -87,7 +93,7 @@ export class SpawnController extends StructureSpawn{
 
       if (roleToSpawn && creepTierToSpawn){
         // console.log(`roleToSpawn`, roleToSpawn);
-        const config = CreepRoles[roleToSpawn].config;
+        // const config = CreepRoles[roleToSpawn].config;
         const tier = creepTierToSpawn;
         const name = getCreepName(roleToSpawn);
         const options:MandateProps<SpawnOptions, 'memory'> = {
@@ -96,7 +102,10 @@ export class SpawnController extends StructureSpawn{
             counts: creepCountParts(tier.body),
           }
         };
-        // if (config.modSpawnOptions) config.modSpawnOptions(options, this);
+        if (creepAnchor){
+          options.memory.anchor = creepAnchor;
+        }
+        // if (config.modSpawnOptions) config.modSpawnOptions(roomAudit, options, this);
         if (tier.cost > this.room.energyAvailable) return;
         console.log(`Creep Counts:`, JSON.stringify(roomAudit.creepCountsByRole, null, 2));
         console.log(`Spawning ${roleToSpawn} creep (cost:${tier.cost}).`);// with memory:`, JSON.stringify(options, null, 2));

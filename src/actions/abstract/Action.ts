@@ -8,7 +8,7 @@ export abstract class Action {
   constructor(actor:Creep) {
     this.actor = actor;
     // console.log(this.actor);
-    if (this.actor.memory.targetId) this.target = Game.getObjectById(this.actor.memory.targetId) || undefined;
+    if (this.actor.memory.anchor) this.target = Game.getObjectById(this.actor.memory.anchor) || undefined;
     // this.action_name = this.actor.memory.action_name;
   }
 
@@ -54,7 +54,7 @@ export abstract class Action {
     if (targets && targets.length > 0) {
       let target_obj = BaseAction.getClosestByPath(this.actor, targets, this.getActionRange);
       if (target_obj.target) {
-        this.actor.memory.targetId = target_obj.target.id;
+        this.actor.memory.anchor = target_obj.target.id;
         this.actor.memory.target_path = Room.serializePath(target_obj.path);
         this.actor.memory.action_name = this.action_name;
         this.actor.memory.target_x = target_obj.target.pos.x;

@@ -28,28 +28,75 @@ const lookAround = function*(object:RoomObject, callback=(result:LookAtResult<Lo
 //   }
 // }
 
-const sourceAudit = (room:Room)=>{
-  if (room.memory.sourceSeats === undefined){
-    const sources = room.find(FIND_SOURCES);
-    let sourceSeats = 0;
-    const mapTerrain = room.getTerrain();
-    for (let source of sources){
-      for (let coord of [[-1,-1], [0,-1], [1,-1], [-1,0], [1,0], [-1,1], [0,1], [1,1]]){
-        const terrain = mapTerrain.get(source.pos.x + coord[0], source.pos.y + coord[1]);
-        if (terrain !== TERRAIN_MASK_WALL) sourceSeats++;
-        // const newX = source.pos.x + coord[0], newY = source.pos.y + coord[1];
-        // const terrain = (source.room.lookAt(newX, newY).find(result=>result.type === LOOK_TERRAIN) as LookAtResult<LOOK_TERRAIN>).terrain;
-        // if (terrain !== "wall") sourceSeats++;
-      }
-    }
-    room.memory.sourceCount = sources.length;
-    room.memory.sourceSeats = sourceSeats;
+export class RoomSource extends Source{
+  constructor(id:Id<Source>){
+    super(id);
+    this.memory.occupancy = this.memory.occupancy.filter(creepName=>Boolean(Game.creeps[creepName]));
   }
-  return {
-    sourceCount: room.memory.sourceCount,
-    sourceSeats: room.memory.sourceSeats,
+
+  get memory():SourceMemory{
+    if (!Memory.sources) Memory.sources = {};
+    return Memory.sources[this.id] || (Memory.sources[this.id] = {
+      occupancy: [],
+      seats: RoomSource.getTotalSeats(this),
+    });
+  }
+
+  static getTotalSeats(source:RoomSource){
+    let seats = 0;
+    const mapTerrain = source.room.getTerrain();
+    for (let coord of [[-1,-1], [0,-1], [1,-1], [-1,0], [1,0], [-1,1], [0,1], [1,1]]){
+      const terrain = mapTerrain.get(source.pos.x + coord[0], source.pos.y + coord[1]);
+      if (terrain !== TERRAIN_MASK_WALL) seats++;
+      // const newX = this.pos.x + coord[0], newY = this.pos.y + coord[1];
+      // const terrain = (this.room.lookAt(newX, newY).find(result=>result.type === LOOK_TERRAIN) as LookAtResult<LOOK_TERRAIN>).terrain;
+      // if (terrain !== "wall") sourceSeats++;
+    }
+    return seats;
   };
+
+  get totalSeats(){
+    return this.memory.seats;
+  }
+
+  get occupancy(){
+    // this.memory.occupancy = this.memory.occupancy.filter(creepName=>Boolean(Game.creeps[creepName]));
+    return this.memory.occupancy.length;
+  }
+
+  get seats(){
+    return this.totalSeats - this.occupancy;
+  }
+}
+
+const getSources = (room:Room)=>{
+  if (room.memory.sources) return room.memory.sources.map(id=>new RoomSource(id))
+  const sources = room.find(FIND_SOURCES).map(s=>new RoomSource(s.id));
+  room.memory.sources = sources.map(source=>source.id);
+  return sources;
 };
+// const sourceAudit = (room:Room)=>{
+//   if (room.memory.sourceSeats === undefined){
+//     const sources = room.find(FIND_SOURCES);
+//     let sourceSeats = 0;
+//     const mapTerrain = room.getTerrain();
+//     for (let source of sources){
+//       for (let coord of [[-1,-1], [0,-1], [1,-1], [-1,0], [1,0], [-1,1], [0,1], [1,1]]){
+//         const terrain = mapTerrain.get(source.pos.x + coord[0], source.pos.y + coord[1]);
+//         if (terrain !== TERRAIN_MASK_WALL) sourceSeats++;
+//         // const newX = source.pos.x + coord[0], newY = source.pos.y + coord[1];
+//         // const terrain = (source.room.lookAt(newX, newY).find(result=>result.type === LOOK_TERRAIN) as LookAtResult<LOOK_TERRAIN>).terrain;
+//         // if (terrain !== "wall") sourceSeats++;
+//       }
+//     }
+//     room.memory.sourceCount = sources.length;
+//     room.memory.sourceSeats = sourceSeats;
+//   }
+//   return {
+//     sourceCount: room.memory.sourceCount,
+//     sourceSeats: room.memory.sourceSeats,
+//   };
+// };
 
 const getStorageLocation = (room:Room)=>{
   const flagName = `${room.name}_storage`;
@@ -77,7 +124,7 @@ export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
   if (cached) return cached;
   else{
     const controllerLevel = room.controller?.level || 0;
-    const { sourceCount, sourceSeats } = sourceAudit(room);
+    // const { sourceCount, sourceSeats } = sourceAudit(room);
     getStorageLocation(room);
     const creeps = room.find(FIND_MY_CREEPS);
     const creepCountsByRole = Object.keys(CreepRoles).reduce((out, roleName)=>{
@@ -88,11 +135,13 @@ export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
       const role = Memory.creeps[creep.name].role;
       creepCountsByRole[role]++;
     });
+    const sources = getSources(room);
+    const sourceSeats = sources.reduce((out, source)=>out + source.totalSeats, 0);
     const audit:RoomAudit = {
       controllerLevel,
       creeps,
       creepCountsByRole,
-      sourceCount,
+      sources,
       sourceSeats,
     };
     // console.log(`creepCountsByRole`, JSON.stringify(creepCountsByRole));
