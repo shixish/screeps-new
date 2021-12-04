@@ -36,8 +36,8 @@ declare global {
   };
 
   interface Target{
-    roomName?: Room['name'];
     id?: Id<RoomObject>;
+    roomName?: Room['name'];
     flagName?: Flag['name'];
   }
   type TargetableTypes = RoomObject|Flag|null;

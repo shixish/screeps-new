@@ -1,4 +1,4 @@
-import { RoomSource } from "utils/room";
+import { getRoomAudit, RoomSource } from "utils/room";
 import { BasicCreep } from "./BasicCreep";
 
 export class MinerCreep extends BasicCreep {
@@ -48,8 +48,18 @@ export class MinerCreep extends BasicCreep {
     // },
   }
 
-  // work(){
-  //   super.work();
-  //   // if (this.rememberAction(this.startMining, 'mining')) return;
-  // }
+  work(){
+    // if (!this.memory.anchor){
+    //   const roomAudit = getRoomAudit(this.room);
+    //   const creepAnchor = MinerCreep.config.getCreepAnchor!(roomAudit);
+    //   if (creepAnchor){
+    //     // console.log(`creepAnchor`, creepAnchor);
+    //     this.memory.anchor = creepAnchor.id;
+    //     creepAnchor.addOccupant(this.name);
+    //   }
+    // }
+
+    // super.work();
+    if (this.rememberAction(this.startMining, 'mining')) return;
+  }
 }

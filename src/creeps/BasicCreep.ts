@@ -228,10 +228,13 @@ export class BasicCreep extends Creep {
     if (!this.canCarry) return null;
     const freeCapacity = this.store.getFreeCapacity();
     if (freeCapacity == 0) return null;
+    const checkResourceAmount = (resource:Resource)=>{
+      return getClaimedAmount(resource.id, resource.resourceType) < resource.amount;
+    };
     const resource =
-      storedTarget && (storedTarget as Resource<ResourceConstant>).resourceType && storedTarget as Resource<ResourceConstant> ||
+      storedTarget instanceof Resource && storedTarget.resourceType && checkResourceAmount(storedTarget) && storedTarget ||
       this.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
-        filter: resource => getClaimedAmount(resource.id, resource.resourceType) < resource.amount
+        filter: checkResourceAmount
       });
     if (resource){
       const action = this.pickup(resource);
@@ -240,18 +243,17 @@ export class BasicCreep extends Creep {
       return ok;
     }
 
+    const checkCapacity = (target:Tombstone|Ruin)=>{
+      return target.store.getUsedCapacity() > 0;
+    };
     const tombstone =
-      storedTarget instanceof Tombstone && storedTarget as Tombstone ||
-      storedTarget instanceof Ruin && storedTarget as Ruin ||
+      storedTarget instanceof Tombstone && checkCapacity(storedTarget) && storedTarget ||
+      storedTarget instanceof Ruin && checkCapacity(storedTarget) && storedTarget ||
       this.pos.findClosestByRange(FIND_TOMBSTONES, {
-        filter: ts=>{
-          return ts.store.getUsedCapacity() > 0;
-        }
+        filter: checkCapacity
       }) ||
       this.pos.findClosestByRange(FIND_RUINS, {
-        filter: ruin=>{
-          return ruin.store.getUsedCapacity() > 0;
-        }
+        filter: checkCapacity
       });
     if (tombstone){
       const resourceType = RESOURCES_ALL.find(resourceType=>{
@@ -282,14 +284,14 @@ export class BasicCreep extends Creep {
     const freeCapacity = this.store.getFreeCapacity(resourceType);
     if (freeCapacity === 0) return null;
     const storage =
-      storedTarget instanceof StructureContainer && checkCapacity(storedTarget) && storedTarget as StructureContainer ||
+      storedTarget instanceof StructureContainer && checkCapacity(storedTarget) && storedTarget ||
       this.pos.findClosestByRange(FIND_STRUCTURES, {
         filter: (container:StructureContainer)=>{
           if (container.structureType !== STRUCTURE_CONTAINER) return false;
           return checkCapacity(container);
         }
       }) as StructureContainer ||
-      storedTarget instanceof StructureStorage && checkCapacity(storedTarget) && storedTarget as StructureStorage ||
+      storedTarget instanceof StructureStorage && checkCapacity(storedTarget) && storedTarget ||
       this.pos.findClosestByRange(FIND_STRUCTURES, {
         filter: (storage:StructureStorage)=>{
           if (storage.structureType !== STRUCTURE_STORAGE) return false;
@@ -312,7 +314,7 @@ export class BasicCreep extends Creep {
       return creep.id !== this.id && creep.memory.counts.work && creep.store.getUsedCapacity(resourceType) + getClaimedAmount(creep.id, resourceType) < creep.store.getCapacity(resourceType)
     };
     const target =
-      storedTarget instanceof Creep && checkCreep(storedTarget) && storedTarget as Creep ||
+      storedTarget instanceof Creep && checkCreep(storedTarget) && storedTarget ||
       this.pos.findClosestByRange(FIND_MY_CREEPS, {
         filter: checkCreep
       });
@@ -330,7 +332,7 @@ export class BasicCreep extends Creep {
       return structure.hits + getClaimedAmount(structure.id, resourceType) < structure.hitsMax;
     };
     const structure =
-      storedTarget instanceof StructureRoad && checkHits(storedTarget) && storedTarget as StructureRoad ||
+      storedTarget instanceof StructureRoad && checkHits(storedTarget) && storedTarget ||
       this.pos.findClosestByRange(FIND_STRUCTURES, {
         filter: structure=>structure.structureType === STRUCTURE_ROAD && checkHits(structure)
       }) as StructureRoad;
@@ -349,15 +351,15 @@ export class BasicCreep extends Creep {
       return structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
     }
     const structure =
-      storedTarget instanceof StructureSpawn && checkCapacity(storedTarget) && storedTarget as StructureSpawn ||
-      storedTarget instanceof StructureExtension && checkCapacity(storedTarget) && storedTarget as StructureExtension ||
+      storedTarget instanceof StructureSpawn && checkCapacity(storedTarget) && storedTarget ||
+      storedTarget instanceof StructureExtension && checkCapacity(storedTarget) && storedTarget ||
       this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
         filter: (structure:StructureSpawn|StructureExtension)=>{
           if (structure.structureType !== STRUCTURE_EXTENSION && structure.structureType !== STRUCTURE_SPAWN) return false;
           return checkCapacity(structure);
         }
       }) as StructureSpawn ||
-      storedTarget instanceof StructureTower && checkCapacity(storedTarget) && storedTarget as StructureTower ||
+      storedTarget instanceof StructureTower && checkCapacity(storedTarget) && storedTarget ||
       this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
         filter: (structure:StructureTower)=>{
           if (structure.structureType !== STRUCTURE_TOWER) return false;
@@ -382,7 +384,7 @@ export class BasicCreep extends Creep {
       return structure.store.getUsedCapacity(resourceType) < energyCap && structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
     }
     const storage =
-      storedTarget instanceof StructureStorage && checkCapacity(storedTarget) && storedTarget as StructureStorage ||
+      storedTarget instanceof StructureStorage && checkCapacity(storedTarget) && storedTarget ||
       this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
         filter: (structure:StructureStorage)=>{
           if (structure.structureType !== STRUCTURE_STORAGE) return false;
@@ -402,9 +404,15 @@ export class BasicCreep extends Creep {
   startMining(storedTarget:TargetableTypes):TargetTypes{
     const resourceType = RESOURCE_ENERGY;
     if (!this.canWork) return null;
-    let source;
     if (this.canCarry && this.store.getFreeCapacity(resourceType) < this.biteSize) return null;
-    source = this.pos.findClosestByPath(FIND_SOURCES_ACTIVE);
+    const checkCapacity = (source:Source)=>{
+      return source.energyCapacity > 0;
+    };
+    const anchor = this.getAnchor();
+    const source =
+      storedTarget instanceof Source && checkCapacity(storedTarget) && storedTarget ||
+      anchor instanceof Source && checkCapacity(anchor) && anchor ||
+      this.pos.findClosestByPath(FIND_SOURCES_ACTIVE);
     // if (this.canCarry){
     // }else{
     //   const sources = this.room.find(FIND_SOURCES_ACTIVE, {
@@ -461,6 +469,10 @@ export class BasicCreep extends Creep {
 
   debug(...args:any[]){
     if (DEBUG) console.log(this.id, this.role, ...args);
+  }
+
+  getAnchor(){
+    return this.memory.anchor && Game.getObjectById(this.memory.anchor);
   }
 
   rememberAction(callback:(storedTarget:TargetableTypes)=>TargetTypes, actionName:string, overrideActions: string[] = []){
