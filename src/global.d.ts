@@ -44,12 +44,17 @@ declare global {
   type TargetTypes = Target|null;
   // const ActionCallback:(storedTarget:TargetConstant)=>TargetConstant;
 
+  interface CreepAnchor extends RoomObject{
+    id: Id<RoomObject>;
+    addOccupant: (creepName:Creep['name'])=>void;
+  }
+
   type CreepRole = {
     authority:number,
     // max: (roomAudit:RoomAudit)=>number,
     tiers: CreepTier[],
     modSpawnOptions?:(roomAudit:RoomAudit, options:MandateProps<SpawnOptions, 'memory'>, spawner:SpawnController)=>void;
-    getCreepAnchor?:(roomAudit:RoomAudit)=>Id<RoomObject>|undefined;
+    getCreepAnchor?:(roomAudit:RoomAudit)=>CreepAnchor|undefined;
   };
   // interface CreepRoles{
   //   basic: CreepRole;

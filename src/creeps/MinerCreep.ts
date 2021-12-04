@@ -22,13 +22,13 @@ export class MinerCreep extends BasicCreep {
       }
     ],
     getCreepAnchor: (roomAudit)=>{
-      const sourceAnchor = roomAudit.sources.reduce((out:RoomSource|null, source)=>{
+      const sourceAnchor = roomAudit.sources.reduce((out:RoomSource|undefined, source)=>{
         if (!out || source.occupancy < out.occupancy){
           out = source;
         }
         return out;
-      }, null);
-      return sourceAnchor?.id;
+      }, undefined);
+      return sourceAnchor;
     },
     // modSpawnOptions: (roomAudit, options, spawner)=>{
     //   const miners = spawner.room.find(FIND_MY_CREEPS, {

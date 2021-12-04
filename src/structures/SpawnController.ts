@@ -103,7 +103,8 @@ export class SpawnController extends StructureSpawn{
           }
         };
         if (creepAnchor){
-          options.memory.anchor = creepAnchor;
+          options.memory.anchor = creepAnchor.id;
+          creepAnchor.addOccupant(name);
         }
         // if (config.modSpawnOptions) config.modSpawnOptions(roomAudit, options, this);
         if (tier.cost > this.room.energyAvailable) return;

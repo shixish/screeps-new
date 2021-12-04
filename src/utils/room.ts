@@ -28,7 +28,7 @@ const lookAround = function*(object:RoomObject, callback=(result:LookAtResult<Lo
 //   }
 // }
 
-export class RoomSource extends Source{
+export class RoomSource extends Source implements CreepAnchor{
   constructor(id:Id<Source>){
     super(id);
     this.memory.occupancy = this.memory.occupancy.filter(creepName=>Boolean(Game.creeps[creepName]));
@@ -66,6 +66,10 @@ export class RoomSource extends Source{
 
   get seats(){
     return this.totalSeats - this.occupancy;
+  }
+
+  addOccupant(creepName:Creep['name']){
+    this.memory.occupancy.push(creepName);
   }
 }
 
