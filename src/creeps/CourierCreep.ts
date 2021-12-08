@@ -42,7 +42,7 @@ export class CourierCreep extends BasicCreep {
         max: genericMax,
       },
       // {
-      //   cost: 600,
+      //   cost: 1200,
       //   body: [
       //     CARRY, MOVE,
       //     CARRY, MOVE,
@@ -50,8 +50,16 @@ export class CourierCreep extends BasicCreep {
       //     CARRY, MOVE,
       //     CARRY, MOVE,
       //     CARRY, MOVE,
+      //     CARRY, MOVE,
+      //     CARRY, MOVE,
+      //     CARRY, MOVE,
+      //     CARRY, MOVE,
+      //     CARRY, MOVE,
+      //     CARRY, MOVE,
       //   ],
-      //   max: genericMax,
+      //   max: (roomAudit)=>{
+      //     return roomAudit.sources.length;
+      //   },
       // },
     ]
   }

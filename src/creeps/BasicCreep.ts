@@ -47,6 +47,15 @@ import { claimAmount, getClaimedAmount } from "utils/tickCache";
 //   }
 // }
 
+const maxStorageCapacity = (resourceType:ResourceConstant)=>{
+  switch(resourceType){
+    case RESOURCE_ENERGY:
+      return 300000;
+    default:
+      return 100000;
+  }
+}
+
 /*
   breakpoints
   300
@@ -56,6 +65,7 @@ import { claimAmount, getClaimedAmount } from "utils/tickCache";
 export class BasicCreep extends Creep {
   canWork:boolean = Boolean(this.memory.counts.work);
   canCarry:boolean = Boolean(this.memory.counts.carry);
+  canTransferMinerals:boolean = !this.canWork;
   biteSize:number = (this.memory.counts.work || 0)*2;
 
   // static role:CreepRoleName = 'basic';
@@ -92,6 +102,20 @@ export class BasicCreep extends Creep {
         ],
         max: (roomAudit)=>{
           return roomAudit.sources.length * 3;
+        }
+      },
+      {
+        cost: 1200, //CL5:1800
+        body: [
+          WORK, MOVE, CARRY,
+          WORK, MOVE, CARRY,
+          WORK, MOVE, CARRY,
+          WORK, MOVE, CARRY,
+          WORK, MOVE, CARRY,
+          WORK, MOVE, CARRY,
+        ],
+        max: (roomAudit)=>{
+          return roomAudit.sources.length;
         }
       }
     ]
@@ -274,15 +298,15 @@ export class BasicCreep extends Creep {
     return null;
   }
 
+  /* start taking energy */
   startTaking(storedTarget:TargetableTypes):TargetTypes{
-    const resourceType = RESOURCE_ENERGY;
+    if (!this.canCarry) return null;
+    const freeCapacity = this.store.getFreeCapacity();
+    if (freeCapacity === 0) return null;
+    const resourceType:ResourceConstant = RESOURCE_ENERGY;
     const checkCapacity = (storage:StructureContainer|StructureStorage)=>{
       return getClaimedAmount(storage.id, resourceType) < storage.store[resourceType];
     }
-    if (!this.canCarry) return null;
-    // if (this.room.energyCapacityAvailable === this.room.energyAvailable) return false;
-    const freeCapacity = this.store.getFreeCapacity(resourceType);
-    if (freeCapacity === 0) return null;
     const storage =
       storedTarget instanceof StructureContainer && checkCapacity(storedTarget) && storedTarget ||
       this.pos.findClosestByRange(FIND_STRUCTURES, {
@@ -300,6 +324,43 @@ export class BasicCreep extends Creep {
       }) as StructureStorage;
     // console.log(`container`, container);
     if (!storage) return null;
+    const action = this.withdraw(storage, resourceType);
+    const ok = this.respondToActionCode(action, storage);
+    if (ok) claimAmount(storage.id, resourceType, Math.min(freeCapacity, storage.store[resourceType]));
+    return ok;
+  }
+
+  /* start transferring minerals other than energy */
+  startTransferring(storedTarget:TargetableTypes):TargetTypes{
+    if (!this.canCarry || !this.canTransferMinerals) return null;
+    const freeCapacity = this.store.getFreeCapacity();
+    if (freeCapacity === 0) return null;
+    let resourceType:ResourceConstant|undefined;
+    const checkStoreCapacity = (storage:StructureContainer, type:ResourceConstant)=>{
+      return getClaimedAmount(storage.id, type) < storage.store[type];
+    };
+    const checkCapacity = (storage:StructureContainer)=>{
+      if (!resourceType){
+        resourceType = (Object.keys(storage.store) as ResourceConstant[]).find(type=>{
+          if (type === RESOURCE_ENERGY) return false; //Don't bother transferring energy using this method. Use startTaking for that instead.
+          return checkStoreCapacity(storage, type);
+        });
+        return resourceType !== undefined;
+      }else{
+        return checkStoreCapacity(storage, resourceType);
+      }
+    }
+    const storage =
+      storedTarget instanceof StructureContainer && checkCapacity(storedTarget) && storedTarget ||
+      this.pos.findClosestByRange(FIND_STRUCTURES, {
+        filter: (container:StructureContainer)=>{
+          if (container.structureType !== STRUCTURE_CONTAINER) return false;
+          return checkCapacity(container);
+        }
+      }) as StructureContainer;
+    // console.log(`container`, container);
+    if (!storage || !resourceType) return null;
+    console.log(`Start taking`, resourceType);
     const action = this.withdraw(storage, resourceType);
     const ok = this.respondToActionCode(action, storage);
     if (ok) claimAmount(storage.id, resourceType, Math.min(freeCapacity, storage.store[resourceType]));
@@ -377,11 +438,13 @@ export class BasicCreep extends Creep {
   }
 
   startStoring(storedTarget:TargetableTypes):TargetTypes{
-    const resourceType = RESOURCE_ENERGY;
-    const energyCap = 250000; //Arbitrary cap for now. We don't need to keep storing more and more energy.
-    // const spawn = this.pos.findClosestByRange(FIND_MY_SPAWNS);
+    const resourceType:ResourceConstant|undefined = (Object.keys(this.store) as ResourceConstant[]).find(type=>{
+      return this.store[type] > 0;
+    });
+    console.log(`resourceType`, resourceType);
+    if (!resourceType) return null;
     const checkCapacity = (structure:StructureStorage)=>{
-      return structure.store.getUsedCapacity(resourceType) < energyCap && structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
+      return structure.store.getUsedCapacity(resourceType) < maxStorageCapacity(resourceType) && structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
     }
     const storage =
       storedTarget instanceof StructureStorage && checkCapacity(storedTarget) && storedTarget ||
@@ -392,6 +455,7 @@ export class BasicCreep extends Creep {
         }
       }) as StructureStorage;
     if (!storage) return null;
+    // console.log(`Start storing`, resourceType);
     const action = this.transfer(storage, resourceType);
     const ok = this.respondToActionCode(action, storage);
     if (ok){
@@ -460,6 +524,12 @@ export class BasicCreep extends Creep {
     if (!this.room.controller) return null;
     const action = this.transfer(this.room.controller, RESOURCE_ENERGY);
     const ok = this.respondToActionCode(action, this.room.controller);
+    if (ok){
+      // console.log(`storedTarget === this.room.controller`, storedTarget !== this.room.controller);
+      if (this.checkIfBadIdleLocation()){
+        this.moveTo(this.room.controller);
+      }
+    }
     return ok;
   }
 
@@ -544,17 +614,31 @@ export class BasicCreep extends Creep {
     //   this.say('b:'+this.currentAction);
     // }
     // this.say(String(this.memory.targetId));
+    const usedCapacity = this.store.getUsedCapacity();
+    const energyCapacity = this.store.getUsedCapacity(RESOURCE_ENERGY);
+    let triedStoring = false;
 
+    /* this stuff deals with minerals */
+    if (this.canTransferMinerals){
+      if (this.rememberAction(this.startTransferring, 'transferring')) return;
+      if (usedCapacity > 0 && usedCapacity !== energyCapacity){
+        //if filled with stuff other than energy
+        if (this.rememberAction(this.startStoring, 'storing')) return;
+        triedStoring = true;
+      }
+    }
+
+    /* this stuff deals with energy */
     if (this.rememberAction(this.startPickup, 'pickup', ['mining'])) return;
     if (this.rememberAction(this.startTaking, 'taking', ['mining'])) return;
 
-    if (this.store.getUsedCapacity(RESOURCE_ENERGY) > 0){ //Do something with the energy
+    if (energyCapacity > 0){ //Do something with the energy
       if (this.rememberAction(this.startEnergizing, 'energizing', ['upgrading', 'building', 'repairing'])) return;
       if (this.rememberAction(this.startRepairing, 'repairing', ['upgrading'])) return;
       if (this.rememberAction(this.startBuilding, 'building', ['upgrading'])) return;
       if (this.rememberAction(this.startSpreading, 'spreading')) return;
       if (this.rememberAction(this.startUpgrading, 'upgrading')) return;
-      if (this.rememberAction(this.startStoring, 'storing')) return;
+      if (!triedStoring && this.rememberAction(this.startStoring, 'storing')) return;
     }
 
     if (this.rememberAction(this.startMining, 'mining')) return;
