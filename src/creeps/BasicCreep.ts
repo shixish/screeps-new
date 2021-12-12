@@ -51,6 +51,11 @@ export function calculateBiteSize (creep:Creep){
   return (creep.memory.counts.work || 0)*2
 }
 
+//currently unused...
+// export function getRemainingStorageCapacity(structure:StructureWithStore, resourceType:ResourceConstant = RESOURCE_ENERGY){
+//   return structure.store.getFreeCapacity(resourceType) - getClaimedAmount(structure.id, resourceType);
+// };
+
 /*
   breakpoints
   300
@@ -406,7 +411,12 @@ export class BasicCreep extends Creep {
     const resourceType = RESOURCE_ENERGY;
     const checkCapacity = (structure:StructureSpawn|StructureExtension|StructureTower)=>{
       return structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
-    }
+    };
+    const checkTowerCapacity = (structure:StructureTower)=>{
+      //Only start energizing towers if they require at least 25% of the creep's stored energy.
+      //This is to prevent it from idling there while the tower repairs things each turn.
+      return structure.store.getFreeCapacity(resourceType) - getClaimedAmount(structure.id, resourceType) > this.store.getCapacity(resourceType)*0.75;
+    };
     const structure =
       storedTarget instanceof StructureSpawn && checkCapacity(storedTarget) && storedTarget ||
       storedTarget instanceof StructureExtension && checkCapacity(storedTarget) && storedTarget ||
@@ -416,11 +426,11 @@ export class BasicCreep extends Creep {
           return checkCapacity(structure);
         }
       }) as StructureSpawn ||
-      storedTarget instanceof StructureTower && checkCapacity(storedTarget) && storedTarget ||
+      storedTarget instanceof StructureTower && checkTowerCapacity(storedTarget) && storedTarget ||
       this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
         filter: (structure:StructureTower)=>{
           if (structure.structureType !== STRUCTURE_TOWER) return false;
-          return checkCapacity(structure);
+          return checkTowerCapacity(structure);
         }
       }) as StructureTower;
     if (!structure) return null;

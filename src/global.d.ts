@@ -16,6 +16,10 @@ declare global {
     [MK in K]-?: NonNullable<T[MK]>
   }
 
+  interface StructureWithStore extends Structure{
+    store: Store<ResourceConstant, false>;
+  }
+
   // type RoomObjectWithId = ConstructionSite|Creep|Resource<RESOURCE_ENERGY>|Mineral|Deposit|Nuke|Resource|Source|Structure|Terrain|Tombstone|PowerCreep|Ruin;
 
   interface Memory {
