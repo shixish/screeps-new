@@ -56,6 +56,10 @@ const maxStorageCapacity = (resourceType:ResourceConstant)=>{
   }
 }
 
+export function calculateBiteSize (creep:Creep){
+  return (creep.memory.counts.work || 0)*2
+}
+
 /*
   breakpoints
   300
@@ -66,7 +70,7 @@ export class BasicCreep extends Creep {
   canWork:boolean = Boolean(this.memory.counts.work);
   canCarry:boolean = Boolean(this.memory.counts.carry);
   canTransferMinerals:boolean = !this.canWork;
-  biteSize:number = (this.memory.counts.work || 0)*2;
+  biteSize:number = calculateBiteSize(this);
 
   // static role:CreepRoleName = 'basic';
   static config:CreepRole = {
@@ -360,7 +364,7 @@ export class BasicCreep extends Creep {
       }) as StructureContainer;
     // console.log(`container`, container);
     if (!storage || !resourceType) return null;
-    console.log(`Start taking`, resourceType);
+    // console.log(`Start taking`, resourceType);
     const action = this.withdraw(storage, resourceType);
     const ok = this.respondToActionCode(action, storage);
     if (ok) claimAmount(storage.id, resourceType, Math.min(freeCapacity, storage.store[resourceType]));
@@ -368,11 +372,12 @@ export class BasicCreep extends Creep {
   }
 
   startSpreading(storedTarget:TargetableTypes):TargetTypes{
+    const maxFillPercentage = 0.75; //75%;
     const resourceType = RESOURCE_ENERGY;
     if (this.canWork) return null; //If this is a worker don't bother giving away your resources
     if (this.store[resourceType] === 0) return null;
     const checkCreep = (creep:Creep)=>{
-      return creep.id !== this.id && creep.memory.counts.work && creep.store.getUsedCapacity(resourceType) + getClaimedAmount(creep.id, resourceType) < creep.store.getCapacity(resourceType)
+      return creep.id !== this.id && creep.memory.counts.work && creep.store.getUsedCapacity(resourceType) + getClaimedAmount(creep.id, resourceType) < creep.store.getCapacity(resourceType)*maxFillPercentage;
     };
     const target =
       storedTarget instanceof Creep && checkCreep(storedTarget) && storedTarget ||
@@ -441,7 +446,6 @@ export class BasicCreep extends Creep {
     const resourceType:ResourceConstant|undefined = (Object.keys(this.store) as ResourceConstant[]).find(type=>{
       return this.store[type] > 0;
     });
-    console.log(`resourceType`, resourceType);
     if (!resourceType) return null;
     const checkCapacity = (structure:StructureStorage)=>{
       return structure.store.getUsedCapacity(resourceType) < maxStorageCapacity(resourceType) && structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);

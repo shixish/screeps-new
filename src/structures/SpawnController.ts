@@ -1,6 +1,6 @@
 import { USERNAME } from "utils/constants";
-import { creepCountParts, CreepRoles, getCreepName, getHeighestCreepTier } from "utils/creeps";
-import { getRoomAudit } from "utils/room";
+import { creepCountParts, CreepRoles, getCreepName, getHeighestCreepTier } from "managers/creeps";
+import { getRoomAudit } from "managers/room";
 
 export class SpawnController extends StructureSpawn{
   constructor(spawn:StructureSpawn){

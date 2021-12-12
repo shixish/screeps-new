@@ -2,13 +2,15 @@ import { BasicCreep } from "creeps/BasicCreep";
 import { CourierCreep } from "creeps/CourierCreep";
 import { MinerCreep } from "creeps/MinerCreep";
 import { MoverCreep } from "creeps/MoverCreep";
-import { PART_COST } from "./constants";
+import { UpgraderCreep } from "creeps/UpgraderCreep";
+import { PART_COST } from "../utils/constants";
 
 export const CreepRoles:Record<CreepRoleName, typeof BasicCreep> = {
   basic: BasicCreep,
   miner: MinerCreep,
   courier: CourierCreep,
   mover: MoverCreep,
+  upgrader: UpgraderCreep,
 };
 
 export const getCreepName = (roleName = 'Creep')=>{

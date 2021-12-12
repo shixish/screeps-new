@@ -5,7 +5,7 @@
 // };
 
 import { CreepRoles } from "./creeps";
-import { roomAuditCache } from "./tickCache";
+import { roomAuditCache } from "../utils/tickCache";
 
 // const lookAround = (object:RoomObject, callback=(result:LookAtResult<LookConstant>[])=>{})=>{
 //   if (!object || !object.room) return console.log('ERROR: invalid object passed to lookAround');

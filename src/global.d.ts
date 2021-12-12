@@ -1,5 +1,5 @@
 import { SpawnController } from "structures/SpawnController";
-import { RoomSource } from "utils/room";
+import { RoomSource } from "managers/room";
 
 declare global {
 //   /*
@@ -61,7 +61,7 @@ declare global {
   //   miner: CreepRole;
   //   courier: CreepRole;
   // }
-  type CreepRoleName = 'basic'|'miner'|'courier'|'mover';
+  type CreepRoleName = 'basic'|'miner'|'courier'|'mover'|'upgrader';
   interface CreepMemory {
     role: CreepRoleName;
 

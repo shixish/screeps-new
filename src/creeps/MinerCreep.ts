@@ -1,4 +1,4 @@
-import { getRoomAudit, RoomSource } from "utils/room";
+import { getRoomAudit, RoomSource } from "managers/room";
 import { BasicCreep } from "./BasicCreep";
 
 export class MinerCreep extends BasicCreep {

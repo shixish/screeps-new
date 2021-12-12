@@ -1,6 +1,6 @@
-import { manageCreeps } from "utils/creeps";
+import { manageCreeps } from "managers/creeps";
 import { ErrorMapper } from "utils/ErrorMapper";
-import { manageStructures } from "utils/structures";
+import { manageStructures } from "managers/structures";
 import { clearTickCache } from "utils/tickCache";
 
 // When compiling TS to JS and bundling with rollup, the line numbers and file names in error messages change
