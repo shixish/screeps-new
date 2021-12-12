@@ -72,7 +72,9 @@ export class SpawnController extends StructureSpawn{
         const tier = getHeighestCreepTier(config.tiers, this.room, roomAudit.creeps.length === 0);
         if (tier){ //Creep type doesn't count if we can't yet afford to produce the lowest tier
           const count = roomAudit.creepCountsByRole[roleName];
-          const max = tier.max(roomAudit);
+          const getMax = tier.max || config.max;
+          if (!getMax) throw `Unable to get max count for ${roleName}`;
+          const max = getMax(roomAudit);
           if (count < max){
             const anchor = config.getCreepAnchor && config.getCreepAnchor(roomAudit);
             if (config.getCreepAnchor && !anchor){
