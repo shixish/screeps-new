@@ -1,4 +1,4 @@
-import { getRoomAudit, RoomSource } from "managers/room";
+import { CreepAnchorObject, getRoomAudit } from "managers/room";
 import { BasicCreep } from "./BasicCreep";
 
 export class MinerCreep extends BasicCreep {
@@ -22,7 +22,7 @@ export class MinerCreep extends BasicCreep {
       }
     ],
     getCreepAnchor: (roomAudit)=>{
-      const sourceAnchor = roomAudit.sources.reduce((out:RoomSource|undefined, source)=>{
+      const sourceAnchor = roomAudit.sources.reduce((out:CreepAnchorObject<Source>|undefined, source)=>{
         if (!out || source.occupancy < out.occupancy){
           out = source;
         }

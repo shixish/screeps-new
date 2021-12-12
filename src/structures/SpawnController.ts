@@ -74,7 +74,7 @@ export class SpawnController extends StructureSpawn{
           const count = roomAudit.creepCountsByRole[roleName];
           const max = tier.max(roomAudit);
           if (count < max){
-            const anchor = config.getCreepAnchor && config.getCreepAnchor(roomAudit, this.room);
+            const anchor = config.getCreepAnchor && config.getCreepAnchor(roomAudit);
             if (config.getCreepAnchor && !anchor){
               console.log(`Unable to find creep anchor`);
               continue;
@@ -103,8 +103,8 @@ export class SpawnController extends StructureSpawn{
           }
         };
         if (creepAnchor){
-          options.memory.anchor = creepAnchor.id;
-          if (creepAnchor.addOccupant) creepAnchor.addOccupant(name);
+          options.memory.anchor = creepAnchor.anchor.id;
+          creepAnchor.addOccupant(name);
         }
         // if (config.modSpawnOptions) config.modSpawnOptions(roomAudit, options, this);
         if (tier.cost > this.room.energyAvailable) return;

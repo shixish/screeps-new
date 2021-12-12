@@ -1,4 +1,4 @@
-import { getRoomAudit, RoomSource } from "managers/room";
+import { getRoomAudit } from "managers/room";
 import { BasicCreep } from "./BasicCreep";
 
 export class UpgraderCreep extends BasicCreep {
@@ -17,15 +17,21 @@ export class UpgraderCreep extends BasicCreep {
         },
       }
     ],
-    getCreepAnchor: (roomAudit, room)=>{
-      return room.controller;
+    getCreepAnchor: (roomAudit)=>{
+      return roomAudit.controller;
     },
   }
 
   work(){
     const energyCapacity = this.store.getUsedCapacity(RESOURCE_ENERGY);
-    if (energyCapacity > 0){
-      if (this.rememberAction(this.startUpgrading, 'upgrading')) return;
+    if (energyCapacity > this.biteSize){
+      this.startUpgrading();
+    }else{
+      const roomAudit = getRoomAudit(this.room);
+      const container = roomAudit.controller?.containers.find(container=>{
+        return container.store.energy > 0;
+      });
+      if (container) this.startTaking(container);
     }
     this.idle();
   }

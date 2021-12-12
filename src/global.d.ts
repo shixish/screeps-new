@@ -1,5 +1,6 @@
 import { SpawnController } from "structures/SpawnController";
-import { RoomSource } from "managers/room";
+import { CreepAnchorObject } from "managers/room";
+import { CreepRoleName as CRN } from "utils/constants";
 
 declare global {
 //   /*
@@ -27,7 +28,13 @@ declare global {
     // log: any;
     paths: any;
     sources: {[name: string]: SourceMemory};
-    anchors: {[name: string]: SourceMemory};
+    anchors: {[name: string]: AnchorMemory};
+  }
+
+  interface AnchorMemory{
+    seats: number;
+    containers: Id<StructureContainer>[];
+    occupancy:Creep['name'][];
   }
 
   interface SourceMemory{
@@ -49,24 +56,27 @@ declare global {
   type TargetTypes = Target|null;
   // const ActionCallback:(storedTarget:TargetConstant)=>TargetConstant;
 
-  interface CreepAnchor extends RoomObject{
-    id: Id<RoomObject>;
-    addOccupant?: (creepName:Creep['name'])=>void;
-  }
+  // interface CreepAnchor extends RoomObject{
+  //   id: Id<RoomObject>;
+  //   addOccupant?: (creepName:Creep['name'])=>void;
+  // }
 
   type CreepRole = {
     authority:number,
     // max: (roomAudit:RoomAudit)=>number,
     tiers: CreepTier[],
     modSpawnOptions?:(roomAudit:RoomAudit, options:MandateProps<SpawnOptions, 'memory'>, spawner:SpawnController)=>void;
-    getCreepAnchor?:(roomAudit:RoomAudit, room:Room)=>CreepAnchor|undefined;
+    getCreepAnchor?:(roomAudit:RoomAudit)=>CreepAnchorObject|undefined;
   };
   // interface CreepRoles{
   //   basic: CreepRole;
   //   miner: CreepRole;
   //   courier: CreepRole;
   // }
-  type CreepRoleName = 'basic'|'miner'|'courier'|'mover'|'upgrader';
+  // type CreepRoleName = 'basic'|'miner'|'courier'|'mover'|'upgrader';
+
+  type CreepRoleName = CRN;
+
   interface CreepMemory {
     role: CreepRoleName;
 
@@ -94,8 +104,9 @@ declare global {
   }
 
   interface RoomAudit{
+    controller?: CreepAnchorObject<StructureController>,
     controllerLevel: number,
-    sources:RoomSource[],
+    sources: CreepAnchorObject<Source>[],
     // sourceCount: number,
     sourceSeats: number,
     creeps: Creep[],

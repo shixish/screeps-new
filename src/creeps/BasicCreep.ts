@@ -1,3 +1,4 @@
+import { getRoomAudit } from "managers/room";
 import { DEBUG, maxStorageFill } from "utils/constants";
 import { claimAmount, getClaimedAmount } from "utils/tickCache";
 
@@ -307,14 +308,26 @@ export class BasicCreep extends Creep {
     const checkCapacity = (storage:StructureContainer|StructureStorage)=>{
       return getClaimedAmount(storage.id, resourceType) < storage.store[resourceType];
     }
+    const findSourceContainer = ()=>{
+      const roomAudit = getRoomAudit(this.room);
+      for (let source of roomAudit.sources){
+        for (let container of source.containers){
+          if (container.store.getUsedCapacity(resourceType) > 0){
+            return container;
+          }
+        }
+      }
+      return null;
+    }
     const storage =
       storedTarget instanceof StructureContainer && checkCapacity(storedTarget) && storedTarget ||
-      this.pos.findClosestByRange(FIND_STRUCTURES, {
-        filter: (container:StructureContainer)=>{
-          if (container.structureType !== STRUCTURE_CONTAINER) return false;
-          return checkCapacity(container);
-        }
-      }) as StructureContainer ||
+      findSourceContainer() ||
+      // this.pos.findClosestByRange(FIND_STRUCTURES, {
+      //   filter: (container:StructureContainer)=>{
+      //     if (container.structureType !== STRUCTURE_CONTAINER) return false;
+      //     return checkCapacity(container);
+      //   }
+      // }) as StructureContainer ||
       storedTarget instanceof StructureStorage && checkCapacity(storedTarget) && storedTarget ||
       this.pos.findClosestByRange(FIND_STRUCTURES, {
         filter: (storage:StructureStorage)=>{
@@ -412,11 +425,12 @@ export class BasicCreep extends Creep {
     const checkCapacity = (structure:StructureSpawn|StructureExtension|StructureTower)=>{
       return structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
     };
-    const checkTowerCapacity = (structure:StructureTower)=>{
-      //Only start energizing towers if they require at least 25% of the creep's stored energy.
-      //This is to prevent it from idling there while the tower repairs things each turn.
+    const checkActiveCapacity = (structure:StructureTower|StructureContainer)=>{
+      //Only start energizing towers if they request at least 25% of the creep's stored energy.
+      //This is to prevent it from spoon feeding the tower while it repairs things each turn.
       return structure.store.getFreeCapacity(resourceType) - getClaimedAmount(structure.id, resourceType) > this.store.getCapacity(resourceType)*0.75;
     };
+    let roomAudit;
     const structure =
       storedTarget instanceof StructureSpawn && checkCapacity(storedTarget) && storedTarget ||
       storedTarget instanceof StructureExtension && checkCapacity(storedTarget) && storedTarget ||
@@ -426,13 +440,14 @@ export class BasicCreep extends Creep {
           return checkCapacity(structure);
         }
       }) as StructureSpawn ||
-      storedTarget instanceof StructureTower && checkTowerCapacity(storedTarget) && storedTarget ||
+      storedTarget instanceof StructureTower && checkActiveCapacity(storedTarget) && storedTarget ||
       this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
         filter: (structure:StructureTower)=>{
           if (structure.structureType !== STRUCTURE_TOWER) return false;
-          return checkTowerCapacity(structure);
+          return checkActiveCapacity(structure);
         }
-      }) as StructureTower;
+      }) as StructureTower ||
+      (roomAudit = getRoomAudit(this.room)) && roomAudit.controller?.containers.find(checkActiveCapacity);
     if (!structure) return null;
     const action = this.transfer(structure, resourceType);
     const ok = this.respondToActionCode(action, structure);
@@ -525,7 +540,7 @@ export class BasicCreep extends Creep {
     return ok;
   }
 
-  startUpgrading(storedTarget:TargetableTypes):TargetTypes{
+  startUpgrading(storedTarget?:TargetableTypes):TargetTypes{
     if (!this.canWork) return null;
     if (!this.room.controller) return null;
     const action = this.transfer(this.room.controller, RESOURCE_ENERGY);

@@ -1,9 +1,9 @@
+import { PART_COST } from "../utils/constants";
 import { BasicCreep } from "creeps/BasicCreep";
 import { CourierCreep } from "creeps/CourierCreep";
 import { MinerCreep } from "creeps/MinerCreep";
 import { MoverCreep } from "creeps/MoverCreep";
 import { UpgraderCreep } from "creeps/UpgraderCreep";
-import { PART_COST } from "../utils/constants";
 
 export const CreepRoles:Record<CreepRoleName, typeof BasicCreep> = {
   basic: BasicCreep,
@@ -11,7 +11,7 @@ export const CreepRoles:Record<CreepRoleName, typeof BasicCreep> = {
   courier: CourierCreep,
   mover: MoverCreep,
   upgrader: UpgraderCreep,
-};
+} as const;
 
 export const getCreepName = (roleName = 'Creep')=>{
   return roleName+Math.random().toString().substr(2);
@@ -30,10 +30,6 @@ export const getHeighestCreepTier = (tiers:CreepTier[], room: Room, currentlyAff
     if (!currentTier.cost) currentTier.cost = getCreepPartsCost(currentTier.body);
     return currentTier.cost <= budget && currentTier || heighestTier;
   }, tiers[0]);
-};
-
-export const getCreepObject = (creep:Creep)=>{
-  // A creep may move between by different roles depending on their body part capabilities and the current need.
 };
 
 export const creepHasParts = (creep:Creep, parts:BodyPartConstant[], activeOnly = true)=>{
@@ -78,7 +74,7 @@ export const manageCreeps = ()=>{
     try{
       const creepObj = Game.creeps[name];
       if (creepObj.spawning) continue;
-      const CreepRole = CreepRoles[creepObj.memory.role] || BasicCreep;
+      const CreepRole = CreepRoles[creepObj.memory.role] || CreepRoles.basic;
       const creep = new CreepRole(creepObj);
       creep.work();
     }catch(e){

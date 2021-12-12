@@ -17,6 +17,9 @@ export const PART_COST = {
   [TOUGH]: 10,
 } as const;
 
+export type CreepRoleName = 'basic'|'miner'|'courier'|'mover'|'upgrader';
+export const CreepRoleNames = ['basic','miner','courier','mover','upgrader'] as const;
+
 export const USERNAME = 'ShiXish';
 export const MIN_TICKS_TO_LIVE = 500;
 export const MAX_UNITS_METRIC = 3;
@@ -36,4 +39,4 @@ export const maxStorageFill = (resourceType:ResourceConstant)=>{
 };
 
 //Towers will continue to repair as long as storage is above this percentage of the max fill.
-export const TOWER_REPAIR_STORAGE_MIN = maxStorageFill(RESOURCE_ENERGY)*0.5;
+export const TOWER_REPAIR_STORAGE_MIN = maxStorageFill(RESOURCE_ENERGY)*0.75;
