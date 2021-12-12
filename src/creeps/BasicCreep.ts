@@ -486,17 +486,17 @@ export class BasicCreep extends Creep {
     return ok;
   }
 
-  startMining(storedTarget:TargetableTypes):TargetTypes{
+  startMining(storedTarget?:TargetableTypes):TargetTypes{
     const resourceType = RESOURCE_ENERGY;
     if (!this.canWork) return null;
     if (this.canCarry && this.store.getFreeCapacity(resourceType) < this.biteSize) return null;
     const checkCapacity = (source:Source)=>{
       return source.energyCapacity > 0;
     };
-    const anchor = this.getAnchor();
+    // const anchor = this.getAnchor();
     const source =
       storedTarget instanceof Source && checkCapacity(storedTarget) && storedTarget ||
-      anchor instanceof Source && checkCapacity(anchor) && anchor ||
+      // anchor instanceof Source && checkCapacity(anchor) && anchor ||
       this.pos.findClosestByPath(FIND_SOURCES_ACTIVE);
     // if (this.canCarry){
     // }else{

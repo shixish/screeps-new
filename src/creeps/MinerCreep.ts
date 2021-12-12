@@ -1,4 +1,4 @@
-import { CreepAnchorObject, getRoomAudit } from "managers/room";
+import { CreepAnchor, getRoomAudit } from "managers/room";
 import { BasicCreep } from "./BasicCreep";
 
 export class MinerCreep extends BasicCreep {
@@ -22,7 +22,7 @@ export class MinerCreep extends BasicCreep {
       }
     ],
     getCreepAnchor: (roomAudit)=>{
-      const sourceAnchor = roomAudit.sources.reduce((out:CreepAnchorObject<Source>|undefined, source)=>{
+      const sourceAnchor = roomAudit.sources.reduce((out:CreepAnchor<Source>|undefined, source)=>{
         if (!out || source.occupancy < out.occupancy){
           out = source;
         }
@@ -60,6 +60,7 @@ export class MinerCreep extends BasicCreep {
     // }
 
     // super.work();
-    if (this.rememberAction(this.startMining, 'mining')) return;
+    const anchor = this.getAnchor();
+    this.startMining(anchor);
   }
 }

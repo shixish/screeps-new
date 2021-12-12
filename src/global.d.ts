@@ -1,5 +1,5 @@
 import { SpawnController } from "structures/SpawnController";
-import { CreepAnchorObject } from "managers/room";
+import { CreepAnchor } from "managers/room";
 import { CreepRoleName as CRN } from "utils/constants";
 
 declare global {
@@ -56,17 +56,12 @@ declare global {
   type TargetTypes = Target|null;
   // const ActionCallback:(storedTarget:TargetConstant)=>TargetConstant;
 
-  // interface CreepAnchor extends RoomObject{
-  //   id: Id<RoomObject>;
-  //   addOccupant?: (creepName:Creep['name'])=>void;
-  // }
-
   type CreepRole = {
     authority:number,
     // max: (roomAudit:RoomAudit)=>number,
     tiers: CreepTier[],
     modSpawnOptions?:(roomAudit:RoomAudit, options:MandateProps<SpawnOptions, 'memory'>, spawner:SpawnController)=>void;
-    getCreepAnchor?:(roomAudit:RoomAudit)=>CreepAnchorObject|undefined;
+    getCreepAnchor?:(roomAudit:RoomAudit)=>CreepAnchor|undefined;
   };
   // interface CreepRoles{
   //   basic: CreepRole;
@@ -104,9 +99,9 @@ declare global {
   }
 
   interface RoomAudit{
-    controller?: CreepAnchorObject<StructureController>,
+    controller?: CreepAnchor<StructureController>,
     controllerLevel: number,
-    sources: CreepAnchorObject<Source>[],
+    sources: CreepAnchor<Source>[],
     // sourceCount: number,
     sourceSeats: number,
     creeps: Creep[],

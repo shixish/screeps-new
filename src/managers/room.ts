@@ -42,7 +42,7 @@ export function countAvailableSeats(pos:RoomPosition){
 };
 
 if (!Memory.anchors) Memory.anchors = {};
-export class CreepAnchorObject<AnchorType extends Source|Structure = Source|Structure>{
+export class CreepAnchor<AnchorType extends Source|Structure = Source|Structure>{
   anchor:AnchorType;
   containers: StructureContainer[] = [];
   // getCapacity = ()=>{
@@ -179,33 +179,11 @@ export class CreepAnchorObject<AnchorType extends Source|Structure = Source|Stru
 // }
 
 const getSources = (room:Room)=>{
-  if (room.memory.sources) return room.memory.sources.map(id=>new CreepAnchorObject(Game.getObjectById(id) as Source))
+  if (room.memory.sources) return room.memory.sources.map(id=>new CreepAnchor(Game.getObjectById(id) as Source))
   const sources = room.find(FIND_SOURCES);
   room.memory.sources = sources.map(source=>source.id);
-  return sources.map(source=>new CreepAnchorObject(source));
+  return sources.map(source=>new CreepAnchor(source));
 };
-// const sourceAudit = (room:Room)=>{
-//   if (room.memory.sourceSeats === undefined){
-//     const sources = room.find(FIND_SOURCES);
-//     let sourceSeats = 0;
-//     const mapTerrain = room.getTerrain();
-//     for (let source of sources){
-//       for (let coord of [[-1,-1], [0,-1], [1,-1], [-1,0], [1,0], [-1,1], [0,1], [1,1]]){
-//         const terrain = mapTerrain.get(source.pos.x + coord[0], source.pos.y + coord[1]);
-//         if (terrain !== TERRAIN_MASK_WALL) sourceSeats++;
-//         // const newX = source.pos.x + coord[0], newY = source.pos.y + coord[1];
-//         // const terrain = (source.room.lookAt(newX, newY).find(result=>result.type === LOOK_TERRAIN) as LookAtResult<LOOK_TERRAIN>).terrain;
-//         // if (terrain !== "wall") sourceSeats++;
-//       }
-//     }
-//     room.memory.sourceCount = sources.length;
-//     room.memory.sourceSeats = sourceSeats;
-//   }
-//   return {
-//     sourceCount: room.memory.sourceCount,
-//     sourceSeats: room.memory.sourceSeats,
-//   };
-// };
 
 const getStorageLocation = (room:Room)=>{
   const flagName = `${room.name}_storage`;
@@ -246,7 +224,7 @@ export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
     const sources = getSources(room);
     const sourceSeats = sources.reduce((out, source)=>out + source.totalSeats, 0);
     const audit:RoomAudit = {
-      controller: room.controller && new CreepAnchorObject(room.controller),
+      controller: room.controller && new CreepAnchor(room.controller),
       controllerLevel: room.controller?.level || 0,
       creeps,
       creepCountsByRole,
