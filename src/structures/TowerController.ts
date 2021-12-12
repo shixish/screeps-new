@@ -1,3 +1,4 @@
+import { maxStorageFill, TOWER_REPAIR_STORAGE_MIN } from "utils/constants";
 import { claimAmount, getClaimedAmount } from "utils/tickCache";
 
 export class TowerController extends StructureTower {
@@ -10,7 +11,9 @@ export class TowerController extends StructureTower {
     8: 1500000
   };
   //Don't repair walls more this amount, based on control level
-  private maxRepair = this.maxRepairTiers[this.room.controller!.level];
+  get maxRepair(){
+    return this.maxRepairTiers[this.room.controller!.level];
+  }
 
   constructor(tower:StructureTower){
     super(tower.id);
@@ -164,9 +167,14 @@ export class TowerController extends StructureTower {
   startRepairing():boolean{
     const resourceType = 'repair';
     if (this.store.energy < 200) return false; //Leave energy to attack scouts that are stomping my construction sites (what fucking cunts)
+    const storageIsFull = this.room.storage && this.room.storage.store.energy > TOWER_REPAIR_STORAGE_MIN;
+
+    maxStorageFill
     const repairable = this.room.find(FIND_STRUCTURES, {
       filter: (structure:OwnedStructure)=>{
-        return structure.hits + getClaimedAmount(structure.id, resourceType) < Math.min(structure.hitsMax, this.maxRepair) && (structure.my || !structure.owner);
+        const repairAmount = TowerController.repairEffectiveness(this.pos.getRangeTo(structure));
+        const maxHits = storageIsFull && structure.hitsMax || Math.min(structure.hitsMax, this.maxRepair);
+        return structure.hits + getClaimedAmount(structure.id, resourceType) + repairAmount < maxHits && (structure.my || !structure.owner);
       }
     });
     //Sort by lowest current hitpoints first

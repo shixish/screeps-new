@@ -1,4 +1,4 @@
-import { DEBUG } from "utils/constants";
+import { DEBUG, maxStorageFill } from "utils/constants";
 import { claimAmount, getClaimedAmount } from "utils/tickCache";
 
 // export class BasicCreepFactory{
@@ -46,15 +46,6 @@ import { claimAmount, getClaimedAmount } from "utils/tickCache";
 //     return currentCount/desiredAmount;
 //   }
 // }
-
-const maxStorageCapacity = (resourceType:ResourceConstant)=>{
-  switch(resourceType){
-    case RESOURCE_ENERGY:
-      return 300000;
-    default:
-      return 100000;
-  }
-}
 
 export function calculateBiteSize (creep:Creep){
   return (creep.memory.counts.work || 0)*2
@@ -448,16 +439,17 @@ export class BasicCreep extends Creep {
     });
     if (!resourceType) return null;
     const checkCapacity = (structure:StructureStorage)=>{
-      return structure.store.getUsedCapacity(resourceType) < maxStorageCapacity(resourceType) && structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
+      return structure.store.getUsedCapacity(resourceType) < maxStorageFill(resourceType) && structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
     }
     const storage =
       storedTarget instanceof StructureStorage && checkCapacity(storedTarget) && storedTarget ||
-      this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
-        filter: (structure:StructureStorage)=>{
-          if (structure.structureType !== STRUCTURE_STORAGE) return false;
-          return checkCapacity(structure);
-        }
-      }) as StructureStorage;
+      this.room.storage && checkCapacity(this.room.storage) && this.room.storage; //||
+      // this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
+      //   filter: (structure:StructureStorage)=>{
+      //     if (structure.structureType !== STRUCTURE_STORAGE) return false;
+      //     return checkCapacity(structure);
+      //   }
+      // }) as StructureStorage;
     if (!storage) return null;
     // console.log(`Start storing`, resourceType);
     const action = this.transfer(storage, resourceType);
@@ -580,7 +572,10 @@ export class BasicCreep extends Creep {
   }
 
   idle(){
-    if (this.checkIfBadIdleLocation()){
+    const anchor = this.getAnchor();
+    if (anchor){
+      this.moveTo(anchor);
+    } else if (this.checkIfBadIdleLocation()){
       for (let coord of [[-1,-1], [0,-1], [1,-1], [-1,0], [1,0], [-1,1], [0,1], [1,1]]){
         const newX = this.pos.x + coord[0], newY = this.pos.y + coord[1];
         if (!this.checkIfBadIdleLocation(newX, newY)){

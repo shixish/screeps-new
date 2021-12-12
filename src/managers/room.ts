@@ -28,6 +28,55 @@ const lookAround = function*(object:RoomObject, callback=(result:LookAtResult<Lo
 //   }
 // }
 
+export function countAvailableSeats(room:Room, pos:RoomPosition){
+  let seats = 0;
+  const mapTerrain = room.getTerrain();
+  for (let coord of [[-1,-1], [0,-1], [1,-1], [-1,0], [1,0], [-1,1], [0,1], [1,1]]){
+    const terrain = mapTerrain.get(pos.x + coord[0], pos.y + coord[1]);
+    if (terrain !== TERRAIN_MASK_WALL) seats++;
+    // const newX = this.pos.x + coord[0], newY = this.pos.y + coord[1];
+    // const terrain = (this.room.lookAt(newX, newY).find(result=>result.type === LOOK_TERRAIN) as LookAtResult<LOOK_TERRAIN>).terrain;
+    // if (terrain !== "wall") sourceSeats++;
+  }
+  return seats;
+};
+
+// if (!Memory.anchors) Memory.anchors = {};
+// export class CreepAnchor{
+//   anchorId:Id<Source|Structure>;
+//   creepId:Id<Creep>;
+
+//   constructor(anchorId:Id<Source|Structure>, creepId:Id<Creep>){
+//     this.anchorId = anchorId;
+//     this.creepId = creepId;
+//     this.memory.occupancy = this.memory.occupancy.filter(creepName=>Boolean(Game.creeps[creepName]));
+//   }
+
+//   get memory():SourceMemory{
+//     return Memory.anchors[this.anchorId] || (Memory.anchors[this.anchorId] = {
+//       occupancy: [],
+//       seats: countAvailableSeats(Game.creeps),
+//     });
+//   }
+
+//   get totalSeats(){
+//     return this.memory.seats;
+//   }
+
+//   get occupancy(){
+//     // this.memory.occupancy = this.memory.occupancy.filter(creepName=>Boolean(Game.creeps[creepName]));
+//     return this.memory.occupancy.length;
+//   }
+
+//   get seats(){
+//     return this.totalSeats - this.occupancy;
+//   }
+
+//   addOccupant(creepName:Creep['name']){
+//     this.memory.occupancy.push(creepName);
+//   }
+// }
+
 export class RoomSource extends Source implements CreepAnchor{
   constructor(id:Id<Source>){
     super(id);
@@ -72,6 +121,25 @@ export class RoomSource extends Source implements CreepAnchor{
     this.memory.occupancy.push(creepName);
   }
 }
+
+// export class RoomController extends StructureController implements CreepAnchor{
+//   constructor(id:Id<StructureController>){
+//     super(id);
+//     this.memory.occupancy = this.memory.occupancy.filter(creepName=>Boolean(Game.creeps[creepName]));
+//   }
+
+//   get memory():SourceMemory{
+//     if (!Memory.sources) Memory.sources = {};
+//     return Memory.sources[this.id] || (Memory.sources[this.id] = {
+//       occupancy: [],
+//       seats: RoomSource.getTotalSeats(this),
+//     });
+//   }
+
+//   addOccupant(creepName:Creep['name']){
+//     this.memory.occupancy.push(creepName);
+//   }
+// }
 
 const getSources = (room:Room)=>{
   if (room.memory.sources) return room.memory.sources.map(id=>new RoomSource(id))

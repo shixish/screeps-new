@@ -23,6 +23,7 @@ declare global {
     // log: any;
     paths: any;
     sources: {[name: string]: SourceMemory};
+    anchors: {[name: string]: SourceMemory};
   }
 
   interface SourceMemory{
@@ -46,7 +47,7 @@ declare global {
 
   interface CreepAnchor extends RoomObject{
     id: Id<RoomObject>;
-    addOccupant: (creepName:Creep['name'])=>void;
+    addOccupant?: (creepName:Creep['name'])=>void;
   }
 
   type CreepRole = {
@@ -54,7 +55,7 @@ declare global {
     // max: (roomAudit:RoomAudit)=>number,
     tiers: CreepTier[],
     modSpawnOptions?:(roomAudit:RoomAudit, options:MandateProps<SpawnOptions, 'memory'>, spawner:SpawnController)=>void;
-    getCreepAnchor?:(roomAudit:RoomAudit)=>CreepAnchor|undefined;
+    getCreepAnchor?:(roomAudit:RoomAudit, room:Room)=>CreepAnchor|undefined;
   };
   // interface CreepRoles{
   //   basic: CreepRole;

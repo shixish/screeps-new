@@ -6,33 +6,27 @@ export class UpgraderCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 1,
     tiers: [
-      // {
-      //   cost: 250,
-      //   body: [WORK, WORK, MOVE],
-      //   max: (roomAudit)=>{
-      //     return Math.min(roomAudit.sourceSeats, roomAudit.sources.length*3);
-      //   },
-      // },
-      // {
-      //   cost: 550,
-      //   body: [WORK, WORK, WORK, WORK, WORK, MOVE],
-      //   max: (roomAudit)=>{
-      //     return roomAudit.sources.length;
-      //   },
-      // }
+      {
+        cost: 650,
+        body: [
+          WORK, WORK, WORK, WORK, WORK,
+          CARRY, CARRY, MOVE
+        ],
+        max: (roomAudit)=>{
+          return roomAudit.controllerLevel > 5 ? 1 : 0;
+        },
+      }
     ],
-    getCreepAnchor: (roomAudit)=>{
-      const sourceAnchor = roomAudit.sources.reduce((out:RoomSource|undefined, source)=>{
-        if (!out || source.occupancy < out.occupancy){
-          out = source;
-        }
-        return out;
-      }, undefined);
-      return sourceAnchor;
+    getCreepAnchor: (roomAudit, room)=>{
+      return room.controller;
     },
   }
 
   work(){
-    // if (this.rememberAction(this.startMining, 'mining')) return;
+    const energyCapacity = this.store.getUsedCapacity(RESOURCE_ENERGY);
+    if (energyCapacity > 0){
+      if (this.rememberAction(this.startUpgrading, 'upgrading')) return;
+    }
+    this.idle();
   }
 }
