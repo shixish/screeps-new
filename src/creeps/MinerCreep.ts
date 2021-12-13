@@ -1,4 +1,4 @@
-import { CreepAnchor, getRoomAudit } from "managers/room";
+import { CreepAnchor } from "utils/CreepAnchor";
 import { BasicCreep } from "./BasicCreep";
 
 export class MinerCreep extends BasicCreep {

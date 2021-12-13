@@ -1,7 +1,8 @@
 import { CreepRoleType, USERNAME } from "utils/constants";
 import { creepCountParts, CreepRoles, getCreepName, getHeighestCreepTier } from "managers/creeps";
 import { getRoomAudit } from "managers/room";
-import { BasicCreep } from "creeps/BasicCreep";
+import { FlagManager } from "managers/flags";
+import { CreepAnchor } from "utils/CreepAnchor";
 
 export class SpawnController extends StructureSpawn{
   constructor(spawn:StructureSpawn){
@@ -105,8 +106,11 @@ export class SpawnController extends StructureSpawn{
             counts: creepCountParts(tier.body),
           }
         };
-        if (creepAnchor){
-          options.memory.anchor = creepAnchor.anchor.id;
+        if (creepAnchor instanceof FlagManager){
+          options.memory.flag = creepAnchor.name;
+          creepAnchor.addFollower(name);
+        }else if (creepAnchor instanceof CreepAnchor){
+          options.memory.anchor = creepAnchor.id;
           creepAnchor.addOccupant(name);
         }
         // if (config.modSpawnOptions) config.modSpawnOptions(roomAudit, options, this);

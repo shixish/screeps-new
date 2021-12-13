@@ -1,8 +1,7 @@
 import { SpawnController } from "structures/SpawnController";
-import { CreepAnchor } from "managers/room";
-import { FlagManagers, FlagManager } from "managers/flags";
-import { CreepRoles } from "managers/creeps";
+import { FlagManager } from "managers/flags";
 import { CreepRoleType } from "utils/constants";
+import { CreepAnchor } from "utils/CreepAnchor";
 
 declare global {
 //   /*
@@ -51,6 +50,7 @@ declare global {
 
   interface FlagMemory{
     room?: Room['name'];
+    followers: Creep['name'][];
   }
 
   type SpawnerCounts = {
@@ -72,7 +72,7 @@ declare global {
     max?: (roomAudit:RoomAudit)=>number,
     tiers: CreepTier[],
     modSpawnOptions?:(roomAudit:RoomAudit, options:MandateProps<SpawnOptions, 'memory'>, spawner:SpawnController)=>void;
-    getCreepAnchor?:(roomAudit:RoomAudit)=>CreepAnchor|undefined;
+    getCreepAnchor?:(roomAudit:RoomAudit)=>CreepAnchor|FlagManager|undefined;
   };
   // interface CreepRoles{
   //   basic: CreepRole;
@@ -86,7 +86,8 @@ declare global {
     role: CreepRoleType;
 
     // targetRoom?: Room['name'];
-    anchor?: Id<RoomObject>;
+    anchor?: Id<RoomObject>
+    flag?: FlagManager['name'];
     target?: Target;
     action?: string;
 
@@ -109,7 +110,7 @@ declare global {
   }
 
   interface RoomAudit{
-    flags:FlagManager[],
+    flags:Record<Flag['name'], FlagManager>,
     controller?: CreepAnchor<StructureController>,
     controllerLevel: number,
     sources: CreepAnchor<Source>[],

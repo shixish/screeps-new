@@ -5,6 +5,7 @@
 // };
 
 import { CreepRoleTypes } from "utils/constants";
+import { CreepAnchor } from "utils/CreepAnchor";
 import { roomAuditCache } from "../utils/tickCache";
 
 // const lookAround = (object:RoomObject, callback=(result:LookAtResult<LookConstant>[])=>{})=>{
@@ -27,92 +28,6 @@ const lookAround = function*(object:RoomObject, callback=(result:LookAtResult<Lo
 //     room.createFlag(flagName);
 //   }
 // }
-
-export function countAvailableSeats(pos:RoomPosition){
-  let seats = 0;
-  const mapTerrain = Game.rooms[pos.roomName].getTerrain();
-  for (let coord of [[-1,-1], [0,-1], [1,-1], [-1,0], [1,0], [-1,1], [0,1], [1,1]]){
-    const terrain = mapTerrain.get(pos.x + coord[0], pos.y + coord[1]);
-    if (terrain !== TERRAIN_MASK_WALL) seats++;
-    // const newX = this.pos.x + coord[0], newY = this.pos.y + coord[1];
-    // const terrain = (this.room.lookAt(newX, newY).find(result=>result.type === LOOK_TERRAIN) as LookAtResult<LOOK_TERRAIN>).terrain;
-    // if (terrain !== "wall") sourceSeats++;
-  }
-  return seats;
-};
-
-if (!Memory.anchors) Memory.anchors = {};
-export class CreepAnchor<AnchorType extends Source|Structure = Source|Structure>{
-  anchor:AnchorType;
-  containers: StructureContainer[] = [];
-  // getCapacity = ()=>{
-  //   return this.containers.reduce((out, container)=>{
-  //     return out + container.store.getCapacity(RESOURCE_ENERGY);
-  //   }, 0 as number);
-  // };
-  // getUsedCapacity = ()=>{
-  //   return this.containers.reduce((out, container)=>{
-  //     return out + container.store.getUsedCapacity(RESOURCE_ENERGY);
-  //   }, 0 as number);
-  // };
-  // getFreeCapacity = ()=>{
-  //   return this.containers.reduce((out, container)=>{
-  //     return out + container.store.getFreeCapacity(RESOURCE_ENERGY);
-  //   }, 0 as number);
-  // };
-  // store = {
-  //   get energy(){
-  //     return this.getUsedCapacity();
-  //   },
-  //   getCapacity: this.getCapacity,
-  //   getUsedCapacity: this.getUsedCapacity,
-  //   getFreeCapacity: this.getFreeCapacity,
-  // }
-
-  constructor(anchor:AnchorType){
-    this.anchor = anchor;
-    this.memory.occupancy = this.memory.occupancy.filter(creepName=>Boolean(Game.creeps[creepName]));
-    this.memory.containers = this.memory.containers.filter(id=>{
-      const container = Game.getObjectById(id);
-      if (container){
-        this.containers.push(container);
-      }
-      return false;
-    });
-    if (!this.containers.length){
-      this.containers = anchor.pos.findInRange(FIND_STRUCTURES, 1, {
-        filter: structure=>{
-          return structure.structureType === STRUCTURE_CONTAINER;
-        }
-      }) as StructureContainer[];
-      this.memory.containers = this.containers.map(container=>container.id);
-    }
-  }
-
-  get memory():AnchorMemory{
-    return Memory.anchors[this.anchor.id] || (Memory.anchors[this.anchor.id] = {
-      seats: countAvailableSeats(this.anchor.pos),
-      occupancy: [],
-      containers: [],
-    });
-  }
-
-  get occupancy(){
-    return this.memory.occupancy.length;
-  }
-
-  get totalSeats(){
-    return this.memory.seats;
-  }
-
-  get availableSeats(){
-    return this.totalSeats - this.occupancy;
-  }
-
-  addOccupant(creepName:Creep['name']){
-    this.memory.occupancy.push(creepName);
-  }
-}
 
 // export class RoomSource extends Source implements CreepAnchor{
 //   constructor(id:Id<Source>){
@@ -230,7 +145,7 @@ export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
       creepCountsByRole,
       sources,
       sourceSeats,
-      flags:[],
+      flags:{},
     };
     // console.log(`creepCountsByRole`, JSON.stringify(creepCountsByRole));
     roomAuditCache.set(room.name, audit);

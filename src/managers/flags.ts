@@ -11,8 +11,27 @@ export abstract class FlagManager{
   }
   abstract work(options?:string):void;
 
+  get name(){
+    return this.flag.name;
+  }
+
+  get pos(){
+    return this.flag.pos;
+  }
+
+  get followers(){
+    if (!this.memory.followers) this.memory.followers = []; //temporary fix
+    return this.memory.followers;
+  }
+
+  addFollower(creepName:Creep['name']){
+    this.memory.followers.push(creepName);
+  }
+
   get memory(){
-    return Memory.flags[this.flag.name] || (Memory.flags[this.flag.name] = {});
+    return Memory.flags[this.flag.name] || (Memory.flags[this.flag.name] = {
+      followers: [],
+    });
   }
 }
 
@@ -30,7 +49,7 @@ export class ClaimFlag extends FlagManager{
     // })?.room;
     if (room){
       const roomAudit = getRoomAudit(room);
-      roomAudit.flags.push(this);
+      roomAudit.flags[this.name] = this;
     }else{
       console.log(`Claim flag error: room not found.`);
     }

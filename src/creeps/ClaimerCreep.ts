@@ -1,3 +1,4 @@
+import { FlagType } from "utils/constants";
 import { BasicCreep } from "./BasicCreep";
 
 export class ClaimerCreep extends BasicCreep {
@@ -12,9 +13,9 @@ export class ClaimerCreep extends BasicCreep {
         ],
         max: (roomAudit: RoomAudit)=>{
           // roomAudit.flags.find(flag=>{
-          //   flag.type === 'claim';
+          //   return flag.type === FlagType.Claim;
           // });
-          return 0;
+          return 1;
         },
       },
       // {
@@ -28,10 +29,24 @@ export class ClaimerCreep extends BasicCreep {
       //     return 0;
       //   },
       // }
-    ]
+    ],
+    getCreepAnchor: (roomAudit)=>{
+      for (let flagName in roomAudit.flags){
+        const flagManager = roomAudit.flags[flagName];
+        console.log(`flagManager`, flagManager);
+        if (flagManager.type === FlagType.Claim && !flagManager.followers){
+          return flagManager;
+        }
+      }
+      return;
+      // return roomAudit.flags.find(flagManager=>flagManager.type === FlagType.Claim && !flagManager.followers);
+    },
   }
 
   work(){
+    if (this.memory.flag){
+
+    }
     const flag = Game.flags.Outpost1;
     if (flag){
       // console.log(`flag`, JSON.stringify(flag, null, 2));
