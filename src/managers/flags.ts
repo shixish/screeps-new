@@ -1,10 +1,13 @@
+import { FlagType } from "utils/constants";
 import { getRoomAudit } from "./room";
 
 export abstract class FlagManager{
-  flag:Flag;
+  flag: Flag;
+  type: FlagType;
 
-  constructor(flag:Flag){
+  constructor(flag:Flag, type:FlagType){
     this.flag = flag;
+    this.type = type;
   }
   abstract work(options?:string):void;
 
@@ -12,7 +15,8 @@ export abstract class FlagManager{
     return Memory.flags[this.flag.name] || (Memory.flags[this.flag.name] = {});
   }
 }
-class ClaimFlag extends FlagManager{
+
+export class ClaimFlag extends FlagManager{
   /* Flag name should be in the form: `claim:${roomName}` where roomName is the name of the parent room. */
   work(options?:string){
     const room = options && Game.rooms[options];
@@ -33,9 +37,8 @@ class ClaimFlag extends FlagManager{
   }
 }
 
-type FlagTypeName = 'claim';
-export const FlagManagers = { //:Record<FlagTypeName, FlagManager>
-  claim: ClaimFlag
+export const FlagManagers = { //:Record<FlagType, FlagManager>
+  [FlagType.Claim]: ClaimFlag,
 } as const;
 
 // const getFlagType = (flagName:Flag['name'])=>{
@@ -47,10 +50,10 @@ export const manageFlags = ()=>{
   for (const flagName in Game.flags) {
     try{
       const flag = Game.flags[flagName];
-      const [ flagType, options ] = flagName.split(':', 2);
+      const [ flagType, options ] = flagName.split(':', 2) as [ FlagType, string ];
       // const flagType = Memory.flags[flagName]?.type;
       if (flagType in FlagManagers){
-        const manager = new FlagManagers[flagType as FlagTypeName](flag);
+        const manager = new FlagManagers[flagType](flag, flagType);
         manager.work(options);
       }else{
         // console.log(`${flagName} has an unknown flag type:`, flagType);

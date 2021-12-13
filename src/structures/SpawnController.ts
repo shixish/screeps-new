@@ -1,6 +1,7 @@
-import { USERNAME } from "utils/constants";
-import { creepCountParts, CreepConstructors, getCreepName, getHeighestCreepTier } from "managers/creeps";
+import { CreepRoleType, USERNAME } from "utils/constants";
+import { creepCountParts, CreepRoles, getCreepName, getHeighestCreepTier } from "managers/creeps";
 import { getRoomAudit } from "managers/room";
+import { BasicCreep } from "creeps/BasicCreep";
 
 export class SpawnController extends StructureSpawn{
   constructor(spawn:StructureSpawn){
@@ -66,9 +67,9 @@ export class SpawnController extends StructureSpawn{
       // this.spawnCreep([WORK, MOVE, CARRY], getCreepName());
       let roleToSpawn, creepTierToSpawn, creepAnchor, lowestPercentage;
       // const affordableTiers:{[roleName:string]: CreepTier} = {};
-      for (const rn in CreepConstructors){
-        const roleName = rn as CreepRoleName;
-        const config = CreepConstructors[roleName].config;
+      for (const rn in CreepRoles){
+        const roleName = rn as CreepRoleType;
+        const config = CreepRoles[roleName].config;
         const tier = getHeighestCreepTier(config.tiers, this.room, roomAudit.creeps.length === 0);
         if (tier){ //Creep type doesn't count if we can't yet afford to produce the lowest tier
           const count = roomAudit.creepCountsByRole[roleName];

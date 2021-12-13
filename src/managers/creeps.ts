@@ -1,17 +1,17 @@
-import { PART_COST } from "../utils/constants";
+import { CreepRoleType, PART_COST } from "../utils/constants";
 import { BasicCreep } from "creeps/BasicCreep";
 import { CourierCreep } from "creeps/CourierCreep";
 import { MinerCreep } from "creeps/MinerCreep";
 import { MoverCreep } from "creeps/MoverCreep";
 import { UpgraderCreep } from "creeps/UpgraderCreep";
 
-export const CreepConstructors:Record<CreepRoleName, typeof BasicCreep> = {
-  basic: BasicCreep,
-  miner: MinerCreep,
-  courier: CourierCreep,
-  mover: MoverCreep,
-  upgrader: UpgraderCreep,
-};
+export const CreepRoles = { //:Record<CreepRoleName, typeof BasicCreep>
+  [CreepRoleType.Basic]: BasicCreep,
+  [CreepRoleType.Miner]: MinerCreep,
+  [CreepRoleType.Courier]: CourierCreep,
+  [CreepRoleType.Mover]: MoverCreep,
+  [CreepRoleType.Upgrader]: UpgraderCreep,
+} as const;
 
 export const getCreepName = (roleName = 'Creep')=>{
   return roleName+Math.random().toString().substr(2);
@@ -59,18 +59,20 @@ export const creepCountParts = (parts:BodyPartConstant[])=>{
 }
 
 export const getCreepConfig = (creep:Creep)=>{
-  return CreepConstructors[creep.memory.role].config;
+  return CreepRoles[creep.memory.role].config;
 }
 
 export const manageCreeps = ()=>{
   const creepNamesByAuthority = Object.keys(Game.creeps).sort((a,b)=>{
     return getCreepConfig(Game.creeps[b]).authority - getCreepConfig(Game.creeps[a]).authority;
   });
+  //Creeps will perform their actions in order of authority. Higher authority goes first.
+  //This way more specialized creep types will perform/reserve their activities before basic creeps.
   for (const name of creepNamesByAuthority) {
     try{
       const creepObj = Game.creeps[name];
       if (creepObj.spawning) continue;
-      const CreepRole = CreepConstructors[creepObj.memory.role] || CreepConstructors.basic;
+      const CreepRole = CreepRoles[creepObj.memory.role] || CreepRoles.basic;
       const creep = new CreepRole(creepObj);
       creep.work();
     }catch(e){

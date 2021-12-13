@@ -4,7 +4,7 @@
 //   return room.memory.sources[source.id] || (room.memory.sources[source.id] = {});
 // };
 
-import { CreepRoleNames } from "utils/constants";
+import { CreepRoleTypes } from "utils/constants";
 import { roomAuditCache } from "../utils/tickCache";
 
 // const lookAround = (object:RoomObject, callback=(result:LookAtResult<LookConstant>[])=>{})=>{
@@ -213,7 +213,7 @@ export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
     // const { sourceCount, sourceSeats } = sourceAudit(room);
     getStorageLocation(room);
     const creeps = room.find(FIND_MY_CREEPS);
-    const creepCountsByRole = CreepRoleNames.reduce((out, roleName)=>{
+    const creepCountsByRole = CreepRoleTypes.reduce((out, roleName)=>{
       out[roleName] = 0;
       return out;
     }, {} as any) as RoomAudit['creepCountsByRole'];

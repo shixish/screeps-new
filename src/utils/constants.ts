@@ -17,8 +17,17 @@ export const PART_COST = {
   [TOUGH]: 10,
 } as const;
 
-export type CreepRoleName = 'basic'|'miner'|'courier'|'mover'|'upgrader';
-export const CreepRoleNames = ['basic','miner','courier','mover','upgrader'] as const;
+export enum FlagType{
+  Claim = 'claim',
+};
+export enum CreepRoleType{
+  Basic = 'basic',
+  Miner = 'miner',
+  Courier = 'courier',
+  Mover = 'mover',
+  Upgrader = 'upgrader',
+};
+export const CreepRoleTypes = Object.values(CreepRoleType);
 
 export const USERNAME = 'ShiXish';
 export const MIN_TICKS_TO_LIVE = 500;

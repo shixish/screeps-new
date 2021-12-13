@@ -1,7 +1,8 @@
 import { SpawnController } from "structures/SpawnController";
 import { CreepAnchor } from "managers/room";
-import { CreepRoleName as CRN } from "utils/constants";
-import { FlagManager } from "managers/flags";
+import { FlagManagers, FlagManager } from "managers/flags";
+import { CreepRoles } from "managers/creeps";
+import { CreepRoleType } from "utils/constants";
 
 declare global {
 //   /*
@@ -17,6 +18,8 @@ declare global {
   type MandateProps<T extends {}, K extends keyof T> = Omit<T, K> & {
     [MK in K]-?: NonNullable<T[MK]>
   }
+
+  // function assumeType<T extends (...args: any) => any>(x: unknown): asserts x is ReturnType<T>;
 
   interface StructureWithStore extends Structure{
     store: Store<ResourceConstant, false>;
@@ -42,6 +45,9 @@ declare global {
     seats: number;
     occupancy: Creep['name'][];
   }
+
+  // type FlagMangerTypes = typeof ClaimFlag;
+  // type FlagManagerName = keyof typeof FlagManagers;
 
   interface FlagMemory{
     room?: Room['name'];
@@ -74,10 +80,10 @@ declare global {
   //   courier: CreepRole;
   // }
 
-  type CreepRoleName = CRN;
+  // type CreepRoleType = keyof typeof CreepRoles;
 
   interface CreepMemory {
-    role: CreepRoleName;
+    role: CreepRoleType;
 
     // targetRoom?: Room['name'];
     anchor?: Id<RoomObject>;
@@ -110,7 +116,7 @@ declare global {
     // sourceCount: number,
     sourceSeats: number,
     creeps: Creep[],
-    creepCountsByRole: Record<CreepRoleName, number>
+    creepCountsByRole: Record<CreepRoleType, number>
   }
 
   interface RoomMemory{

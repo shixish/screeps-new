@@ -507,7 +507,7 @@ export class BasicCreep extends Creep {
 
   startUpgrading(storedTarget?:TargetableTypes):TargetTypes{
     if (!this.canWork) return null;
-    if (!this.room.controller) return null;
+    if (!this.room.controller || !this.room.controller.my) return null;
     const action = this.transfer(this.room.controller, RESOURCE_ENERGY);
     const ok = this.respondToActionCode(action, this.room.controller);
     if (ok){
