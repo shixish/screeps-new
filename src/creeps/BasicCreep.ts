@@ -26,7 +26,6 @@ export function calculateBiteSize (creep:Creep){
 export class BasicCreep extends Creep {
   canWork:boolean = this.workCount > 0;
   canCarry:boolean = this.carryCount > 0;
-  canTransferMinerals:boolean = !this.canWork;
 
   static config:CreepRole = {
     authority: 0,
@@ -39,7 +38,7 @@ export class BasicCreep extends Creep {
           CARRY, MOVE,
         ],
         max: (roomAudit)=>{
-          return roomAudit.sources.length * 2;
+          return roomAudit.sources.length;
         }
       },
       {
@@ -49,7 +48,7 @@ export class BasicCreep extends Creep {
           WORK, MOVE, CARRY,
         ],
         max: (roomAudit)=>{
-          return roomAudit.sources.length * 3;
+          return roomAudit.sources.length;
         }
       },
       {
@@ -60,7 +59,7 @@ export class BasicCreep extends Creep {
           WORK, MOVE, CARRY,
         ],
         max: (roomAudit)=>{
-          return roomAudit.sources.length * 3;
+          return roomAudit.sources.length;
         }
       },
       {
@@ -216,6 +215,8 @@ export class BasicCreep extends Creep {
    ***********/
 
   startPickup(storedTarget:TargetableTypes):TargetTypes{
+    console.log(`startPickup`);
+
     if (!this.canCarry) return null;
     const freeCapacity = this.store.getFreeCapacity();
     if (freeCapacity == 0) return null;
@@ -228,6 +229,7 @@ export class BasicCreep extends Creep {
         filter: checkResourceAmount
       });
     if (resource){
+      console.log(`resource`, resource);
       const action = this.pickup(resource);
       const ok = this.respondToActionCode(action, resource);
       if (ok) claimAmount(resource.id, resource.resourceType, Math.min(freeCapacity, resource.amount));
@@ -311,7 +313,7 @@ export class BasicCreep extends Creep {
 
   /* start transferring minerals other than energy */
   startTransferring(storedTarget:TargetableTypes):TargetTypes{
-    if (!this.canCarry || !this.canTransferMinerals) return null;
+    if (!this.canCarry || this.canWork) return null;
     const freeCapacity = this.store.getFreeCapacity();
     if (freeCapacity === 0) return null;
     let resourceType:ResourceConstant|undefined;
@@ -349,6 +351,7 @@ export class BasicCreep extends Creep {
   startSpreading(storedTarget:TargetableTypes):TargetTypes{
     const maxFillPercentage = 0.75; //75%;
     const resourceType = RESOURCE_ENERGY;
+    console.log(`this.store[resourceType]`, this.store[resourceType]);
     if (this.canWork) return null; //If this is a worker don't bother giving away your resources
     if (this.store[resourceType] === 0) return null;
     const checkCreep = (creep:Creep)=>{
@@ -499,7 +502,11 @@ export class BasicCreep extends Creep {
   startBuilding(storedTarget:TargetableTypes):TargetTypes{
     if (!this.canWork) return null;
     if (this.store.getUsedCapacity(RESOURCE_ENERGY) === 0) return null;
-    const construction = this.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
+    const construction = this.pos.findClosestByRange(FIND_CONSTRUCTION_SITES, {
+      filter: site=>{
+        return site.room && site.room.name === this.room.name;
+      }
+    });
     if (!construction) return null;
     const action = this.build(construction);
     const ok = this.respondToActionCode(action, construction);
@@ -541,6 +548,7 @@ export class BasicCreep extends Creep {
     if (!this.currentAction || isCurrentAction || overrideActions.includes(this.currentAction)){
       const storedTarget = isCurrentAction && this.memory.target ? this.targetToObject(this.memory.target) : null;
       const target = callback.apply(this, [ storedTarget ]);
+      console.log(`actionName target`, actionName, target);
       if (target){
         this.currentAction = actionName;
         this.memory.target = target;
@@ -608,34 +616,50 @@ export class BasicCreep extends Creep {
     //   this.say('b:'+this.currentAction);
     // }
     // this.say(String(this.memory.targetId));
-    const usedCapacity = this.store.getUsedCapacity();
+    // const usedCapacity = this.store.getUsedCapacity();
     const energyCapacity = this.store.getUsedCapacity(RESOURCE_ENERGY);
-    let triedStoring = false;
+    // const roomAudit = getRoomAudit(this.room);
+    // let triedStoring = false;
 
-    /* this stuff deals with minerals */
-    if (this.canTransferMinerals){
-      if (this.rememberAction(this.startTransferring, 'transferring')) return;
-      if (usedCapacity > 0 && usedCapacity !== energyCapacity){
-        //if filled with stuff other than energy
-        if (this.rememberAction(this.startStoring, 'storing')) return;
-        triedStoring = true;
-      }
-    }
+    // /* this stuff deals with minerals */
+    // if (this.canTransferMinerals){
+    //   if (this.rememberAction(this.startTransferring, 'transferring')) return;
+    //   if (usedCapacity > 0 && usedCapacity !== energyCapacity){
+    //     //if filled with stuff other than energy
+    //     if (this.rememberAction(this.startStoring, 'storing')) return;
+    //     triedStoring = true;
+    //   }
+    // }
 
     /* this stuff deals with energy */
-    if (this.rememberAction(this.startPickup, 'pickup', ['mining'])) return;
+    // if (!roomAudit.creepCountsByRole.courier){
+      //Don't bother picking stuff up off the floor. Leave it to the couriers.
+      if (this.rememberAction(this.startPickup, 'pickup', ['mining'])) return;
+    // }
     if (this.rememberAction(this.startTaking, 'taking', ['mining'])) return;
 
     if (energyCapacity > 0){ //Do something with the energy
+      if (this.memory.office && this.memory.office !== this.room.name){
+        const direction = this.room.findExitTo(this.memory.office);
+        if (direction === ERR_NO_PATH) return console.log(`No path to office found.`);
+        if (direction === ERR_INVALID_ARGS) return console.log(`Invalid office args.`);
+        const exit = this.pos.findClosestByRange(direction);
+        this.say('commuting');
+        this.moveTo(exit!);
+        return;
+      }
       if (this.rememberAction(this.startEnergizing, 'energizing', ['upgrading', 'building', 'repairing'])) return;
       if (this.rememberAction(this.startRepairing, 'repairing', ['upgrading'])) return;
       if (this.rememberAction(this.startBuilding, 'building', ['upgrading'])) return;
       if (this.rememberAction(this.startSpreading, 'spreading')) return;
       if (this.rememberAction(this.startUpgrading, 'upgrading')) return;
-      if (!triedStoring && this.rememberAction(this.startStoring, 'storing')) return;
+      if (this.rememberAction(this.startStoring, 'storing')) return;
     }
 
-    if (this.rememberAction(this.startMining, 'mining')) return;
+    // if (!roomAudit.creepCountsByRole.miner){
+      //Let the miners do it, the basic creeps are jamming things up...
+      if (this.rememberAction(this.startMining, 'mining')) return;
+    // }
 
     this.idle();
 

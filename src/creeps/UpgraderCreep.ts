@@ -5,14 +5,23 @@ export class UpgraderCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 1,
     max: (roomAudit:RoomAudit)=>{
-      return roomAudit.controllerLevel > 5 ? 1 : 0;
+      return 1;
     },
     tiers: [
+      {
+        cost: 350,
+        body: [
+          WORK, WORK,
+          CARRY, CARRY,
+          MOVE,
+        ],
+      },
       {
         cost: 650,
         body: [
           WORK, WORK, WORK, WORK, WORK,
-          CARRY, MOVE
+          CARRY, CARRY,
+          MOVE,
         ],
       },
       {
@@ -20,7 +29,8 @@ export class UpgraderCreep extends BasicCreep {
         body: [
           WORK, WORK, WORK, WORK, WORK,
           WORK, WORK, WORK, WORK, WORK,
-          CARRY, CARRY, MOVE
+          CARRY, CARRY,
+          MOVE,
         ],
       },
       // { //This will consume 15 energy per tick. 1 Source gives 10 energy per tick. This might be too much...
@@ -42,6 +52,7 @@ export class UpgraderCreep extends BasicCreep {
   }
 
   work(){
+    if (this.spawning) return;
     const energyCapacity = this.store.getUsedCapacity(RESOURCE_ENERGY);
     if (energyCapacity >= this.workCount){ //Upgrade takes 1 energy per work
       this.startUpgrading();

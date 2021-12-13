@@ -104,6 +104,8 @@ export class SpawnController extends StructureSpawn{
           memory: {
             role: roleToSpawn,
             counts: creepCountParts(tier.body),
+            // home: this.room.name,
+            // office: this.room.name,
           }
         };
         if (creepAnchor instanceof FlagManager){

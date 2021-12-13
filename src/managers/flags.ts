@@ -62,7 +62,8 @@ export abstract class FlagManager{
 export class ClaimFlag extends FlagManager{
   /* Flag name should be in the form: `claim:${roomName}` where roomName is the name of the parent room. */
   work(){
-    const room = this.memory.room && Game.rooms[this.memory.room] || this.suffix && Game.rooms[this.suffix];
+    const home = this.memory.room && Game.rooms[this.memory.room] || this.suffix && Game.rooms[this.suffix];
+    const office = this.flag.room;
 
     // Note: this.flag.pos.findClosestByRange seems to only work with rooms that have vision...
     // || this.flag.pos.findClosestByRange(FIND_MY_SPAWNS, {
@@ -71,10 +72,15 @@ export class ClaimFlag extends FlagManager{
     //     return spawn.room.energyAvailable >= 800;
     //   }
     // })?.room;
-    if (room){
-      this.memory.room = room.name;
-      const roomAudit = getRoomAudit(room);
-      roomAudit.flags[this.name] = this;
+    if (home){
+      this.memory.room = home.name;
+      if (office?.controller?.my && office.controller.level > 1){
+        console.log(`Finished claiming ${home.name}.`);
+        this.remove();
+      }else{
+        const roomAudit = getRoomAudit(home);
+        roomAudit.flags[this.name] = this;
+      }
     }else{
       console.log(`Claim flag error: room not found.`);
     }

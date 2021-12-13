@@ -22,7 +22,7 @@ export class MinerCreep extends BasicCreep {
     ],
     getCreepAnchor: (roomAudit)=>{
       const sourceAnchor = roomAudit.sources.reduce((out:CreepAnchor<Source>|undefined, source)=>{
-        if (!out || source.occupancy < out.occupancy){
+        if (source.availableSeats > 0 && (!out || source.occupancy < out.occupancy)){
           out = source;
         }
         return out;
@@ -48,6 +48,7 @@ export class MinerCreep extends BasicCreep {
   }
 
   work(){
+    if (this.spawning) return;
     // if (!this.memory.anchor){
     //   const roomAudit = getRoomAudit(this.room);
     //   const creepAnchor = MinerCreep.config.getCreepAnchor!(roomAudit);

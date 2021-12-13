@@ -139,6 +139,7 @@ export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
     const sources = getSources(room);
     const sourceSeats = sources.reduce((out, source)=>out + source.totalSeats, 0);
     const audit:RoomAudit = {
+      name: room.name,
       controller: room.controller && new CreepAnchor(room.controller),
       controllerLevel: room.controller?.level || 0,
       creeps,

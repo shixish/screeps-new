@@ -2,8 +2,6 @@ import { FlagType } from "utils/constants";
 import { BasicCreep } from "./BasicCreep";
 
 export class ClaimerCreep extends BasicCreep {
-  flag = this.getFlag();
-
   static config:CreepRole = {
     authority: 0,
     tiers: [
@@ -14,9 +12,12 @@ export class ClaimerCreep extends BasicCreep {
           MOVE
         ],
         max: (roomAudit: RoomAudit)=>{
-          // roomAudit.flags.find(flag=>{
-          //   return flag.type === FlagType.Claim;
-          // });
+          for (let flagName in roomAudit.flags){
+            const flagManager = roomAudit.flags[flagName];
+            if (flagManager.type === FlagType.Claim && flagManager.suffix === roomAudit.name && !flagManager.room.controller?.my){
+              return Math.max(1-flagManager.followers.length, 0);
+            }
+          }
           return 0;
         },
       },
@@ -35,12 +36,11 @@ export class ClaimerCreep extends BasicCreep {
     getCreepAnchor: (roomAudit)=>{
       for (let flagName in roomAudit.flags){
         const flagManager = roomAudit.flags[flagName];
-        if (flagManager.type === FlagType.Claim && !flagManager.followers.length){
+        if (flagManager.type === FlagType.Claim && flagManager.suffix === roomAudit.name){
           return flagManager;
         }
       }
       return;
-      // return roomAudit.flags.find(flagManager=>flagManager.type === FlagType.Claim && !flagManager.followers);
     },
   }
 
@@ -49,7 +49,7 @@ export class ClaimerCreep extends BasicCreep {
     if (!target) return null;
     const action = this.claimController(target);
     if (action === ERR_INVALID_TARGET){
-      this.flag?.remove();
+      // flag?.remove(); //The flag can now be used to send remote workers
       return null;
     }
     const ok = this.respondToActionCode(action, target);
@@ -57,13 +57,16 @@ export class ClaimerCreep extends BasicCreep {
   }
 
   work(){
+    if (this.spawning) return;
+
     //The flag gets deleted once the job is done. The creep can just sit there until it's time runs out...
-    if (this.flag){
-      if (this.room.name === this.flag.room.name){
+    const flag = this.getFlag();
+    if (flag){
+      if (this.room.name === flag.room.name){
         if (this.startClaiming(this.room.controller)) return;
       }
 
-      this.moveTo(this.flag.pos);
+      this.moveTo(flag.pos);
     }
   }
 }
