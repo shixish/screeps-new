@@ -1,7 +1,6 @@
 import { BasicCreep } from "./BasicCreep";
 
 export class CourierCreep extends BasicCreep {
-  static role:CreepRoleName = 'courier';
   static config:CreepRole = {
     authority: 1,
     max: (roomAudit: RoomAudit)=>{

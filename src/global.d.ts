@@ -1,6 +1,7 @@
 import { SpawnController } from "structures/SpawnController";
 import { CreepAnchor } from "managers/room";
 import { CreepRoleName as CRN } from "utils/constants";
+import { FlagManager } from "managers/flags";
 
 declare global {
 //   /*
@@ -38,8 +39,12 @@ declare global {
   }
 
   interface SourceMemory{
-    seats:number;
-    occupancy:Creep['name'][];
+    seats: number;
+    occupancy: Creep['name'][];
+  }
+
+  interface FlagMemory{
+    room?: Room['name'];
   }
 
   type SpawnerCounts = {
@@ -68,7 +73,6 @@ declare global {
   //   miner: CreepRole;
   //   courier: CreepRole;
   // }
-  // type CreepRoleName = 'basic'|'miner'|'courier'|'mover'|'upgrader';
 
   type CreepRoleName = CRN;
 
@@ -99,6 +103,7 @@ declare global {
   }
 
   interface RoomAudit{
+    flags:FlagManager[],
     controller?: CreepAnchor<StructureController>,
     controllerLevel: number,
     sources: CreepAnchor<Source>[],

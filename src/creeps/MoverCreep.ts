@@ -1,7 +1,6 @@
 import { BasicCreep } from "./BasicCreep";
 
 export class MoverCreep extends BasicCreep {
-  static role:CreepRoleName = 'mover';
   static config:CreepRole = {
     authority: 1,
     tiers: [

@@ -2,7 +2,6 @@ import { getRoomAudit } from "managers/room";
 import { BasicCreep } from "./BasicCreep";
 
 export class UpgraderCreep extends BasicCreep {
-  static role:CreepRoleName = 'upgrader';
   static config:CreepRole = {
     authority: 1,
     max: (roomAudit:RoomAudit)=>{
@@ -44,7 +43,7 @@ export class UpgraderCreep extends BasicCreep {
 
   work(){
     const energyCapacity = this.store.getUsedCapacity(RESOURCE_ENERGY);
-    if (energyCapacity > this.biteSize){
+    if (energyCapacity >= this.workCount){ //Upgrade takes 1 energy per work
       this.startUpgrading();
     }else{
       const roomAudit = getRoomAudit(this.room);

@@ -2,7 +2,6 @@ import { CreepAnchor, getRoomAudit } from "managers/room";
 import { BasicCreep } from "./BasicCreep";
 
 export class MinerCreep extends BasicCreep {
-  static role:CreepRoleName = 'miner';
   static config:CreepRole = {
     authority: 1,
     tiers: [

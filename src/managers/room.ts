@@ -230,6 +230,7 @@ export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
       creepCountsByRole,
       sources,
       sourceSeats,
+      flags:[],
     };
     // console.log(`creepCountsByRole`, JSON.stringify(creepCountsByRole));
     roomAuditCache.set(room.name, audit);

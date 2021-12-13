@@ -2,52 +2,6 @@ import { getRoomAudit } from "managers/room";
 import { DEBUG, maxStorageFill } from "utils/constants";
 import { claimAmount, getClaimedAmount } from "utils/tickCache";
 
-// export class BasicCreepFactory{
-//   role:CreepRoleName = 'basic';
-//   tiers:CreepTier[] = [
-//     {
-//       cost: 300,
-//       body: [WORK, MOVE, CARRY, MOVE, CARRY]
-//     },
-//     {
-//       cost: 400,
-//       body: [
-//         WORK, MOVE, CARRY,
-//         WORK, MOVE, CARRY
-//       ]
-//     },
-//     // {
-//     //   cost: 550,
-//     //   body: [
-//     //     WORK, MOVE, CARRY,
-//     //     WORK, MOVE, CARRY,
-//     //     WORK, CARRY
-//     //   ]
-//     // }
-//   ];
-//   roomAudit: RoomAudit;
-
-//   constructor(roomAudit:RoomAudit){
-//     this.roomAudit = roomAudit;
-//   }
-
-//   getCurrentWeight(roomAudit:RoomAudit){
-//     const currentCount = roomAudit.creepCountsByRole[this.role] || 0;
-//     let desiredAmount:number = 0;
-//     desiredAmount = 4;
-//     // switch(roomAudit.controllerLevel){
-//     //   case 1:
-//     //   case 2:
-//     //     return roomAudit.sources.length * 5;
-//     //   // case 3:
-//     //   //   return roomAudit.sources.length;
-//     //   default:
-//     //     return 4;
-//     // }
-//     return currentCount/desiredAmount;
-//   }
-// }
-
 export function calculateBiteSize (creep:Creep){
   return (creep.memory.counts.work || 0)*2
 }
@@ -58,18 +12,21 @@ export function calculateBiteSize (creep:Creep){
 // };
 
 /*
-  breakpoints
-  300
-  300+250=550
-  300+250*2=800
+  Extension Breakpoints:
+  CL1: 300
+  CL2: 550 = 300 + 5*50  (50 capacity)
+  CL3: 800 = 300 + 10*50  (50 capacity)
+  CL4: 1300 = 300 + 20*50  (50 capacity)
+  CL5: 1800 = 300 + 30*50  (50 capacity)
+  CL6: 2300 = 300 + 40*50  (50 capacity)
+  CL7: 3100 = 2*300 + 50*50  (100 capacity) <-- This from the docs. Dunno what this capacity means 50 vs 100..?
+  CL8: 3600 = 2*300 + 60*50  (200 capacity)
 */
 export class BasicCreep extends Creep {
-  canWork:boolean = Boolean(this.memory.counts.work);
-  canCarry:boolean = Boolean(this.memory.counts.carry);
+  canWork:boolean = this.workCount > 0;
+  canCarry:boolean = this.carryCount > 0;
   canTransferMinerals:boolean = !this.canWork;
-  biteSize:number = calculateBiteSize(this);
 
-  // static role:CreepRoleName = 'basic';
   static config:CreepRole = {
     authority: 0,
     tiers: [
@@ -169,6 +126,14 @@ export class BasicCreep extends Creep {
   //     }
   //   });
   // }
+
+  get workCount(){
+    return this.memory.counts.work || 0;
+  }
+
+  get carryCount(){
+    return this.memory.counts.carry || 0;
+  }
 
   get role(){
     return this.memory.role;
@@ -489,7 +454,7 @@ export class BasicCreep extends Creep {
   startMining(storedTarget?:TargetableTypes):TargetTypes{
     const resourceType = RESOURCE_ENERGY;
     if (!this.canWork) return null;
-    if (this.canCarry && this.store.getFreeCapacity(resourceType) < this.biteSize) return null;
+    if (this.canCarry && this.store.getFreeCapacity(resourceType) < this.memory.counts.work!*2) return null;
     const checkCapacity = (source:Source)=>{
       return source.energyCapacity > 0;
     };

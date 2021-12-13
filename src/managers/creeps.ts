@@ -5,13 +5,13 @@ import { MinerCreep } from "creeps/MinerCreep";
 import { MoverCreep } from "creeps/MoverCreep";
 import { UpgraderCreep } from "creeps/UpgraderCreep";
 
-export const CreepRoles:Record<CreepRoleName, typeof BasicCreep> = {
+export const CreepConstructors:Record<CreepRoleName, typeof BasicCreep> = {
   basic: BasicCreep,
   miner: MinerCreep,
   courier: CourierCreep,
   mover: MoverCreep,
   upgrader: UpgraderCreep,
-} as const;
+};
 
 export const getCreepName = (roleName = 'Creep')=>{
   return roleName+Math.random().toString().substr(2);
@@ -58,12 +58,8 @@ export const creepCountParts = (parts:BodyPartConstant[])=>{
   }, {} as CreepMemory["counts"]);
 }
 
-// export const makeCreep(spawn:StructureSpawn, role){
-
-// }
-
 export const getCreepConfig = (creep:Creep)=>{
-  return CreepRoles[creep.memory.role].config;
+  return CreepConstructors[creep.memory.role].config;
 }
 
 export const manageCreeps = ()=>{
@@ -74,7 +70,7 @@ export const manageCreeps = ()=>{
     try{
       const creepObj = Game.creeps[name];
       if (creepObj.spawning) continue;
-      const CreepRole = CreepRoles[creepObj.memory.role] || CreepRoles.basic;
+      const CreepRole = CreepConstructors[creepObj.memory.role] || CreepConstructors.basic;
       const creep = new CreepRole(creepObj);
       creep.work();
     }catch(e){
