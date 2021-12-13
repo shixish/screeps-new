@@ -4,11 +4,26 @@ import { getRoomAudit } from "./room";
 export abstract class FlagManager{
   flag: Flag;
   type: FlagType;
+  suffix: string|undefined;
 
-  constructor(flag:Flag, type:FlagType){
+  constructor(flag:Flag, type:FlagType, suffix?:string){
     this.flag = flag;
     this.type = type;
+    this.suffix = suffix;
   }
+  static fromFlagName(flagName:Flag['name']){
+    return this.fromFlag(Game.flags[flagName]);
+  }
+  static fromFlag(flag?:Flag){
+    if (!flag) return;
+    const [ flagType, options ] = flag.name.split(':', 2) as [ FlagType, string ];
+    if (flagType in FlagManagers){
+      return new FlagManagers[flagType](flag, flagType, options);
+    }
+    return;
+    // throw 'Invalid flag type given to FlagManager.fromFlag';
+  }
+
   abstract work(options?:string):void;
 
   get name(){
@@ -17,6 +32,10 @@ export abstract class FlagManager{
 
   get pos(){
     return this.flag.pos;
+  }
+
+  get room(){
+    return this.flag.room!;
   }
 
   get followers(){
@@ -33,12 +52,17 @@ export abstract class FlagManager{
       followers: [],
     });
   }
+
+  remove(){
+    this.flag.remove();
+    delete Memory.flags[this.flag.name];
+  }
 }
 
 export class ClaimFlag extends FlagManager{
   /* Flag name should be in the form: `claim:${roomName}` where roomName is the name of the parent room. */
-  work(options?:string){
-    const room = options && Game.rooms[options];
+  work(){
+    const room = this.memory.room && Game.rooms[this.memory.room] || this.suffix && Game.rooms[this.suffix];
 
     // Note: this.flag.pos.findClosestByRange seems to only work with rooms that have vision...
     // || this.flag.pos.findClosestByRange(FIND_MY_SPAWNS, {
@@ -48,6 +72,7 @@ export class ClaimFlag extends FlagManager{
     //   }
     // })?.room;
     if (room){
+      this.memory.room = room.name;
       const roomAudit = getRoomAudit(room);
       roomAudit.flags[this.name] = this;
     }else{
@@ -68,12 +93,9 @@ export const FlagManagers = { //:Record<FlagType, FlagManager>
 export const manageFlags = ()=>{
   for (const flagName in Game.flags) {
     try{
-      const flag = Game.flags[flagName];
-      const [ flagType, options ] = flagName.split(':', 2) as [ FlagType, string ];
-      // const flagType = Memory.flags[flagName]?.type;
-      if (flagType in FlagManagers){
-        const manager = new FlagManagers[flagType](flag, flagType);
-        manager.work(options);
+      const flagManager = FlagManager.fromFlagName(flagName);
+      if (flagManager){
+        flagManager.work();
       }else{
         // console.log(`${flagName} has an unknown flag type:`, flagType);
       }

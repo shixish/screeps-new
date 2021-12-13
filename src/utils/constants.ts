@@ -26,6 +26,7 @@ export enum CreepRoleType{
   Courier = 'courier',
   Mover = 'mover',
   Upgrader = 'upgrader',
+  Claimer = 'claimer',
 };
 export const CreepRoleTypes = Object.values(CreepRoleType);
 

@@ -1,3 +1,4 @@
+import { FlagManager } from "managers/flags";
 import { getRoomAudit } from "managers/room";
 import { DEBUG, maxStorageFill } from "utils/constants";
 import { claimAmount, getClaimedAmount } from "utils/tickCache";
@@ -525,6 +526,10 @@ export class BasicCreep extends Creep {
 
   debug(...args:any[]){
     if (DEBUG) console.log(this.id, this.role, ...args);
+  }
+
+  getFlag(){
+    return this.memory.flag ? FlagManager.fromFlagName(this.memory.flag) : undefined;
   }
 
   getAnchor(){

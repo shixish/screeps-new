@@ -2,11 +2,13 @@ import { FlagType } from "utils/constants";
 import { BasicCreep } from "./BasicCreep";
 
 export class ClaimerCreep extends BasicCreep {
+  flag = this.getFlag();
+
   static config:CreepRole = {
     authority: 0,
     tiers: [
       {
-        cost: 50,
+        cost: 650,
         body: [
           CLAIM,
           MOVE
@@ -15,7 +17,7 @@ export class ClaimerCreep extends BasicCreep {
           // roomAudit.flags.find(flag=>{
           //   return flag.type === FlagType.Claim;
           // });
-          return 1;
+          return 0;
         },
       },
       // {
@@ -33,8 +35,7 @@ export class ClaimerCreep extends BasicCreep {
     getCreepAnchor: (roomAudit)=>{
       for (let flagName in roomAudit.flags){
         const flagManager = roomAudit.flags[flagName];
-        console.log(`flagManager`, flagManager);
-        if (flagManager.type === FlagType.Claim && !flagManager.followers){
+        if (flagManager.type === FlagType.Claim && !flagManager.followers.length){
           return flagManager;
         }
       }
@@ -43,22 +44,26 @@ export class ClaimerCreep extends BasicCreep {
     },
   }
 
-  work(){
-    if (this.memory.flag){
-
+  startClaiming(controller?:StructureController){
+    const target = controller || this.room.controller;
+    if (!target) return null;
+    const action = this.claimController(target);
+    if (action === ERR_INVALID_TARGET){
+      this.flag?.remove();
+      return null;
     }
-    const flag = Game.flags.Outpost1;
-    if (flag){
-      // console.log(`flag`, JSON.stringify(flag, null, 2));
-      if (flag.pos.roomName !== this.room.name){
-        const direction = this.room.findExitTo(flag.pos.roomName);
-        if (direction === ERR_NO_PATH) return console.log(`No path to flag found.`);
-        if (direction === ERR_INVALID_ARGS) return console.log(`No path to flag found.`);
-        const exit = this.pos.findClosestByRange(direction);
-        if (exit) this.moveTo(exit);
-      }else{
-        this.moveTo(flag.pos);
+    const ok = this.respondToActionCode(action, target);
+    return ok;
+  }
+
+  work(){
+    //The flag gets deleted once the job is done. The creep can just sit there until it's time runs out...
+    if (this.flag){
+      if (this.room.name === this.flag.room.name){
+        if (this.startClaiming(this.room.controller)) return;
       }
+
+      this.moveTo(this.flag.pos);
     }
   }
 }
