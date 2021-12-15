@@ -274,8 +274,8 @@ export class BasicCreep extends Creep {
     const checkCapacity = (storage:StructureContainer|StructureStorage)=>{
       return getClaimedAmount(storage.id, resourceType) < storage.store[resourceType];
     }
+    const roomAudit = getRoomAudit(this.room);
     const findSourceContainer = ()=>{
-      const roomAudit = getRoomAudit(this.room);
       for (let source of roomAudit.sources){
         for (let container of source.containers){
           if (container.store.getUsedCapacity(resourceType) > 0){
@@ -286,8 +286,11 @@ export class BasicCreep extends Creep {
       return null;
     }
     const storage =
-      storedTarget instanceof StructureContainer && checkCapacity(storedTarget) && storedTarget ||
-      findSourceContainer() ||
+      //If there are couriers let them pick up from source containers, otherwise there's congestion.
+      (!roomAudit.creepCountsByRole.courier || !this.canWork) && (
+        storedTarget instanceof StructureContainer && checkCapacity(storedTarget) && storedTarget ||
+        findSourceContainer()
+      ) ||
       // this.pos.findClosestByRange(FIND_STRUCTURES, {
       //   filter: (container:StructureContainer)=>{
       //     if (container.structureType !== STRUCTURE_CONTAINER) return false;

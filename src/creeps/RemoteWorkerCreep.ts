@@ -18,7 +18,8 @@ export class RemoteWorkerCreep extends BasicCreep {
         max: (roomAudit)=>{
           for (let flagName in roomAudit.flags){
             const flagManager = roomAudit.flags[flagName];
-            if (flagManager.type === FlagType.Claim && flagManager.suffix === roomAudit.name && flagManager.room.controller?.my){
+            // console.log(`flagManager.type`, flagManager.type, JSON.stringify(flagManager.followers, null, 2));
+            if (flagManager.type === FlagType.Claim && flagManager.suffix === roomAudit.name && flagManager.room && flagManager.room.controller?.my){
               return Math.max(2-flagManager.followers.length, 0);
             }
           }

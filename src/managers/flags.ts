@@ -10,6 +10,7 @@ export abstract class FlagManager{
     this.flag = flag;
     this.type = type;
     this.suffix = suffix;
+    this.memory.followers = this.memory.followers.filter(creepName=>Boolean(Game.creeps[creepName]));
   }
   static fromFlagName(flagName:Flag['name']){
     return this.fromFlag(Game.flags[flagName]);
@@ -39,7 +40,6 @@ export abstract class FlagManager{
   }
 
   get followers(){
-    if (!this.memory.followers) this.memory.followers = []; //temporary fix
     return this.memory.followers;
   }
 
