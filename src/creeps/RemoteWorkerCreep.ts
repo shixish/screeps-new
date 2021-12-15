@@ -1,3 +1,4 @@
+import { getRoomAudit } from "managers/room";
 import { FlagType } from "utils/constants";
 import { BasicCreep } from "./BasicCreep";
 
@@ -39,12 +40,38 @@ export class RemoteWorkerCreep extends BasicCreep {
   }
 
   work(){
+    //Basically the same thing as a basic creep but will take on more responsibilities to jump start things
     if (this.spawning) return;
     const flag = this.getFlag();
     if (flag && flag.room.name !== this.room.name){
       this.moveTo(flag.pos);
       return;
     }
-    super.work();
+
+    const energyCapacity = this.store.getUsedCapacity(RESOURCE_ENERGY);
+
+    /* this stuff deals with energy */
+    // if (this.rememberAction(this.startPickup, 'pickup', ['mining'])) return;
+    //Remote workers are usually the best miners available in an eary room, so don't bother picking up. Go straight to the source.
+    if (this.rememberAction(this.startTaking, 'taking', ['mining'])) return;
+    if (this.rememberAction(this.startMining, 'mining')) return;
+
+    if (energyCapacity > 0){ //Do something with the energy
+      if (this.commute()) return;
+      if (this.rememberAction(this.startEnergizing, 'energizing', ['upgrading', 'building', 'repairing'])) return;
+      // if (this.rememberAction(this.startRepairing, 'repairing', ['upgrading'])) return;
+      if (this.rememberAction(this.startBuilding, 'building', ['upgrading'])) return;
+      // if (this.rememberAction(this.startSpreading, 'spreading')) return;
+      if (this.rememberAction(this.startUpgrading, 'upgrading')) return;
+      if (this.rememberAction(this.startStoring, 'storing')) return;
+    }
+
+    //Let the miners do it, the basic creeps are jamming things up...
+    if (this.rememberAction(this.startMining, 'mining')) return;
+
+    this.idle();
+
+    // If nothing was successful reset action state. Necessary since rememberAction isn't always going to do the cleanup.
+    this.currentAction = undefined;
   }
 }

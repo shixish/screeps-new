@@ -635,7 +635,7 @@ export class BasicCreep extends Creep {
       if (this.rememberAction(this.startEnergizing, 'energizing', ['upgrading', 'building', 'repairing'])) return;
       if (this.rememberAction(this.startRepairing, 'repairing', ['upgrading'])) return;
       if (this.rememberAction(this.startBuilding, 'building', ['upgrading'])) return;
-      if (this.rememberAction(this.startSpreading, 'spreading')) return;
+      // if (this.rememberAction(this.startSpreading, 'spreading')) return; //basic workers don't need to spread their energy around
       if (this.rememberAction(this.startUpgrading, 'upgrading')) return;
       if (this.rememberAction(this.startStoring, 'storing')) return;
     }
