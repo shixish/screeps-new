@@ -194,17 +194,17 @@ export class BasicCreep extends Creep {
         return this.objectToTarget(target);
       }
       if (moving === ERR_NO_PATH){
-        console.log(`Creep ${this.name} cannot find a path while trying to ${this.currentAction}...`);
+        console.log(`[${this.room.name}] Creep ${this.name} cannot find a path while doing ${this.currentAction}...`);
       }else{
-        console.log(`Creep moving error`, this.currentAction, moving, this.name);
+        console.log(`[${this.room.name}] Creep moving error`, this.currentAction, moving, this.name);
       }
     } else {
       if (action === ERR_FULL){
-        console.log(`Creep ${this.name} is full while trying to ${this.currentAction}...`);
+        console.log(`[${this.room.name}] Creep ${this.name} is full while doing ${this.currentAction}...`);
       }else if (action === ERR_NOT_ENOUGH_ENERGY){
-        console.log(`Creep ${this.name} is out of energy while trying to ${this.currentAction}...`);
+        console.log(`[${this.room.name}] Creep ${this.name} is out of energy while doing ${this.currentAction}...`);
       }else{
-        console.log(`Creep action error`, this.currentAction, action, this.name);
+        console.log(`[${this.room.name}] Creep action error`, this.currentAction, action, this.name);
       }
       // throw action;
     }
@@ -495,6 +495,7 @@ export class BasicCreep extends Creep {
       // containers.reduce((available, container)=>{}, )
       // this.pos.getRangeTo()
     }
+    if (action === ERR_NOT_ENOUGH_ENERGY) return null; //This happens if you have too many miners on a source
     const ok = this.respondToActionCode(action, source);
     return ok;
   }
@@ -518,12 +519,12 @@ export class BasicCreep extends Creep {
     if (!this.room.controller || !this.room.controller.my) return null;
     const action = this.transfer(this.room.controller, RESOURCE_ENERGY);
     const ok = this.respondToActionCode(action, this.room.controller);
-    if (ok){
-      // console.log(`storedTarget === this.room.controller`, storedTarget !== this.room.controller);
-      if (this.checkIfBadIdleLocation()){
-        this.moveTo(this.room.controller);
-      }
-    }
+    // if (ok){
+    //   // console.log(`storedTarget === this.room.controller`, storedTarget !== this.room.controller);
+    //   if (this.checkIfBadIdleLocation()){
+    //     this.moveTo(this.room.controller);
+    //   }
+    // }
     return ok;
   }
 

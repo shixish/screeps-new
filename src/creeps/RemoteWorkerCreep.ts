@@ -49,12 +49,14 @@ export class RemoteWorkerCreep extends BasicCreep {
     }
 
     const energyCapacity = this.store.getUsedCapacity(RESOURCE_ENERGY);
+    const roomAudit = getRoomAudit(this.room);
 
-    /* this stuff deals with energy */
-    // if (this.rememberAction(this.startPickup, 'pickup', ['mining'])) return;
-    //Remote workers are usually the best miners available in an eary room, so don't bother picking up. Go straight to the source.
-    if (this.rememberAction(this.startTaking, 'taking', ['mining'])) return;
-    if (this.rememberAction(this.startMining, 'mining')) return;
+    //Remote workers are usually the best miners available in an eary room, so don't bother picking up. Go straight to the source if there's room to do so.
+    if (roomAudit.creepCountsByRole.miner < roomAudit.sourceSeats){
+      if (this.rememberAction(this.startMining, 'mining')) return;
+    }
+    if (this.rememberAction(this.startPickup, 'pickup')) return;
+    if (this.rememberAction(this.startTaking, 'taking')) return;
 
     if (energyCapacity > 0){ //Do something with the energy
       if (this.commute()) return;
@@ -65,9 +67,6 @@ export class RemoteWorkerCreep extends BasicCreep {
       if (this.rememberAction(this.startUpgrading, 'upgrading')) return;
       if (this.rememberAction(this.startStoring, 'storing')) return;
     }
-
-    //Let the miners do it, the basic creeps are jamming things up...
-    if (this.rememberAction(this.startMining, 'mining')) return;
 
     this.idle();
 

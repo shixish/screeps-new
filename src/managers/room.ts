@@ -100,33 +100,33 @@ const getSources = (room:Room)=>{
   return sources.map(source=>new CreepAnchor(source));
 };
 
-const getStorageLocation = (room:Room)=>{
-  const flagName = `${room.name}_storage`;
-  if (!room.controller?.level || room.controller.level < 4) return;
-  if (room.storage){
-    const flag = Game.flags[flagName];
-    if (flag) flag.remove();
-    return room.storage;
-  }else{
-    if (!Game.flags[flagName]){
-      const spawn = room.find(FIND_MY_SPAWNS)[0];
-      room.createFlag(spawn.pos.x, spawn.pos.y, flagName);
-    }
-    const flag = Game.flags[flagName];
-    const constructionSite = flag.pos.lookFor(LOOK_CONSTRUCTION_SITES).find(site => site.structureType === STRUCTURE_STORAGE);
-    if (!constructionSite){
-      room.createConstructionSite(flag.pos.x, flag.pos.y, STRUCTURE_STORAGE);
-    }
-    return flag;
-  }
-};
+// const getStorageLocation = (room:Room)=>{
+//   const flagName = `${room.name}_storage`;
+//   if (!room.controller?.level || room.controller.level < 4) return;
+//   if (room.storage){
+//     const flag = Game.flags[flagName];
+//     if (flag) flag.remove();
+//     return room.storage;
+//   }else{
+//     if (!Game.flags[flagName]){
+//       const spawn = room.find(FIND_MY_SPAWNS)[0];
+//       room.createFlag(spawn.pos.x, spawn.pos.y, flagName);
+//     }
+//     const flag = Game.flags[flagName];
+//     const constructionSite = flag.pos.lookFor(LOOK_CONSTRUCTION_SITES).find(site => site.structureType === STRUCTURE_STORAGE);
+//     if (!constructionSite){
+//       room.createConstructionSite(flag.pos.x, flag.pos.y, STRUCTURE_STORAGE);
+//     }
+//     return flag;
+//   }
+// };
 
 export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
   const cached = roomAuditCache.get(room.name);
   if (cached) return cached;
   else{
     // const { sourceCount, sourceSeats } = sourceAudit(room);
-    getStorageLocation(room);
+    // getStorageLocation(room);
     const creeps = room.find(FIND_MY_CREEPS);
     const creepCountsByRole = CreepRoleTypes.reduce((out, roleName)=>{
       out[roleName] = 0;
