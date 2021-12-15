@@ -79,8 +79,8 @@ export const manageCreeps = ()=>{
       const CreepRole = CreepRoles[creepObj.memory.role] || CreepRoles.basic;
       const creep = new CreepRole(creepObj);
       creep.work();
-    }catch(e){
-      console.log('creep error', e);
+    }catch(e:any){
+      console.log('creep error', e, e.stack);
     }
 
     // var creepDiag = debug.diag("creeps." + role);

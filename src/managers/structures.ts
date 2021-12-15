@@ -14,8 +14,8 @@ export const manageStructures = ()=>{
         const tower = new TowerController(structure);
         tower.work();
       }
-    }catch(e){
-      console.log('structure error', e);
+    }catch(e:any){
+      console.log('structure error', e, e.stack);
     }
   }
 }

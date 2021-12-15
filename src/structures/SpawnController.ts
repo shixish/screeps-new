@@ -35,7 +35,7 @@ export class SpawnController extends StructureSpawn{
   }
 
   work(){
-    if (!(this.room.controller?.owner?.username === USERNAME)) return; //Not sure if this is necessary
+    if (!this.room.controller?.my) return; //Not sure if this is necessary
 
     // const repairable = this.getRepairableCreeps();
     // if (repairable.length){
@@ -78,29 +78,33 @@ export class SpawnController extends StructureSpawn{
         creepTierToSpawn = getHeighestCreepTier(CreepRoles.basic.config.tiers, this.room, true);
       }else{
         for (const rn in CreepRoles){
-          const roleName = rn as CreepRoleType;
-          const config = CreepRoles[roleName].config;
-          const tier = getHeighestCreepTier(config.tiers, this.room);
-          if (tier){ //Creep type doesn't count if we can't yet afford to produce the lowest tier
-            const count = roomAudit.creepCountsByRole[roleName];
-            const getMax = tier.max || config.max;
-            if (!getMax) throw `Unable to get max count for ${roleName}`;
-            const max = getMax(roomAudit);
-            if (count < max){
-              const anchor = config.getCreepAnchor && config.getCreepAnchor(roomAudit);
-              if (config.getCreepAnchor && !anchor){
-                console.log(`Unable to find creep anchor`);
-                continue;
-              }
-              const percentage = count/max;
-              if (!roleToSpawn || percentage < (lowestPercentage as number)){
-                // console.log(roleName, count, '<',  max);
-                roleToSpawn = roleName;
-                creepTierToSpawn = tier;
-                creepAnchor = anchor;
-                lowestPercentage = percentage;
+          try{
+            const roleName = rn as CreepRoleType;
+            const config = CreepRoles[roleName].config;
+            const tier = getHeighestCreepTier(config.tiers, this.room);
+            if (tier){ //Creep type doesn't count if we can't yet afford to produce the lowest tier
+              const count = roomAudit.creepCountsByRole[roleName];
+              const getMax = tier.max || config.max;
+              if (!getMax) throw `Unable to get max count for ${roleName}`;
+              const max = getMax(roomAudit);
+              if (count < max){
+                const anchor = config.getCreepAnchor && config.getCreepAnchor(roomAudit);
+                if (config.getCreepAnchor && !anchor){
+                  console.log(`Unable to find creep anchor`);
+                  continue;
+                }
+                const percentage = count/max;
+                if (!roleToSpawn || percentage < (lowestPercentage as number)){
+                  // console.log(roleName, count, '<',  max);
+                  roleToSpawn = roleName;
+                  creepTierToSpawn = tier;
+                  creepAnchor = anchor;
+                  lowestPercentage = percentage;
+                }
               }
             }
+          }catch(e:any){
+            console.log(`spawn error for ${rn} role`, e, e.stack);
           }
         }
       }

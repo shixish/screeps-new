@@ -105,8 +105,8 @@ export const manageFlags = ()=>{
       }else{
         // console.log(`${flagName} has an unknown flag type:`, flagType);
       }
-    }catch(e){
-      console.log('flag error', e);
+    }catch(e:any){
+      console.log('flag error', e, e.stack);
     }
   }
 }

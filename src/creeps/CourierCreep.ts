@@ -60,41 +60,42 @@ export class CourierCreep extends BasicCreep {
     ]
   }
 
-  // work(){
-  //   if (this.spawning) return;
+  work(){
+    if (this.spawning) return;
 
-  //   const usedCapacity = this.store.getUsedCapacity();
-  //   const energyCapacity = this.store.getUsedCapacity(RESOURCE_ENERGY);
-  //   // const roomAudit = getRoomAudit(this.room);
-  //   let triedStoring = false;
-  //   console.log(`courier working`, this.currentAction, energyCapacity);
+    const usedCapacity = this.store.getUsedCapacity();
+    const energyCapacity = this.store.getUsedCapacity(RESOURCE_ENERGY);
+    // const roomAudit = getRoomAudit(this.room);
+    let triedStoring = false;
 
-  //   /* this stuff deals with minerals */
-  //   // if (this.rememberAction(this.startTransferring, 'transferring')) return;
-  //   // if (usedCapacity > 0 && usedCapacity !== energyCapacity){
-  //   //   //if filled with stuff other than energy
-  //   //   if (this.rememberAction(this.startStoring, 'storing')) return;
-  //   //   triedStoring = true;
-  //   // }
+    /* this stuff deals with minerals */
+    if (this.rememberAction(this.startTransferring, 'transferring')) return;
+    if (usedCapacity > 0 && usedCapacity !== energyCapacity){
+      //if filled with stuff other than energy
+      if (this.rememberAction(this.startStoring, 'storing')) return;
+      triedStoring = true;
+    }
 
-  //   /* this stuff deals with energy */
-  //   if (this.rememberAction(this.startPickup, 'pickup')) return;
-  //   if (this.rememberAction(this.startTaking, 'taking')) return;
+    /* this stuff deals with energy */
+    if (this.rememberAction(this.startPickup, 'pickup')) return;
+    if (this.rememberAction(this.startTaking, 'taking')) return;
 
-  //   if (energyCapacity > 0){ //Do something with the energy
-  //     // if (this.memory.office && this.memory.office !== this.room.name){
-  //     //   const direction = this.room.findExitTo(this.memory.office);
-  //     //   if (direction === ERR_NO_PATH) return console.log(`No path to office found.`);
-  //     //   if (direction === ERR_INVALID_ARGS) return console.log(`Invalid office args.`);
-  //     //   const exit = this.pos.findClosestByRange(direction);
-  //     //   this.say('commuting');
-  //     //   this.moveTo(exit!);
-  //     //   return;
-  //     // }
-  //     if (this.rememberAction(this.startEnergizing, 'energizing')) return;
-  //     if (this.rememberAction(this.startSpreading, 'spreading')) return;
-  //     if (!triedStoring && this.rememberAction(this.startStoring, 'storing')) return;
-  //   }
+    if (energyCapacity > 0){ //Do something with the energy
+      // if (this.memory.office && this.memory.office !== this.room.name){
+      //   const direction = this.room.findExitTo(this.memory.office);
+      //   if (direction === ERR_NO_PATH) return console.log(`No path to office found.`);
+      //   if (direction === ERR_INVALID_ARGS) return console.log(`Invalid office args.`);
+      //   const exit = this.pos.findClosestByRange(direction);
+      //   this.say('commuting');
+      //   this.moveTo(exit!);
+      //   return;
+      // }
+      if (this.rememberAction(this.startEnergizing, 'energizing')) return;
+      if (this.rememberAction(this.startSpreading, 'spreading')) return;
+      if (!triedStoring && this.rememberAction(this.startStoring, 'storing')) return;
+    }
 
-  // }
+    // If nothing was successful reset action state. Necessary since rememberAction isn't always going to do the cleanup.
+    this.currentAction = undefined;
+  }
 }

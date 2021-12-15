@@ -193,30 +193,29 @@ export class BasicCreep extends Creep {
       if (moving === OK || moving === ERR_TIRED){
         return this.objectToTarget(target);
       }
-      console.log(`Creep moving error`, this.currentAction, moving, this.name);
       if (moving === ERR_NO_PATH){
-        console.log('Creep cannot find a path...');
+        console.log(`Creep ${this.name} cannot find a path while trying to ${this.currentAction}...`);
+      }else{
+        console.log(`Creep moving error`, this.currentAction, moving, this.name);
       }
     } else {
-      console.log(`Creep action error`, this.currentAction, action, this.name);
       if (action === ERR_FULL){
-        console.log('Creep is full...');
+        console.log(`Creep ${this.name} is full while trying to ${this.currentAction}...`);
       }else if (action === ERR_NOT_ENOUGH_ENERGY){
-        console.log('Creep is out of energy...');
+        console.log(`Creep ${this.name} is out of energy while trying to ${this.currentAction}...`);
+      }else{
+        console.log(`Creep action error`, this.currentAction, action, this.name);
       }
       // throw action;
     }
     return null;
   }
 
-
   /***********
    * ACTIONS *
    ***********/
 
   startPickup(storedTarget:TargetableTypes):TargetTypes{
-    console.log(`startPickup`);
-
     if (!this.canCarry) return null;
     const freeCapacity = this.store.getFreeCapacity();
     if (freeCapacity == 0) return null;
@@ -229,7 +228,6 @@ export class BasicCreep extends Creep {
         filter: checkResourceAmount
       });
     if (resource){
-      console.log(`resource`, resource);
       const action = this.pickup(resource);
       const ok = this.respondToActionCode(action, resource);
       if (ok) claimAmount(resource.id, resource.resourceType, Math.min(freeCapacity, resource.amount));
@@ -351,7 +349,6 @@ export class BasicCreep extends Creep {
   startSpreading(storedTarget:TargetableTypes):TargetTypes{
     const maxFillPercentage = 0.75; //75%;
     const resourceType = RESOURCE_ENERGY;
-    console.log(`this.store[resourceType]`, this.store[resourceType]);
     if (this.canWork) return null; //If this is a worker don't bother giving away your resources
     if (this.store[resourceType] === 0) return null;
     const checkCreep = (creep:Creep)=>{
@@ -548,7 +545,6 @@ export class BasicCreep extends Creep {
     if (!this.currentAction || isCurrentAction || overrideActions.includes(this.currentAction)){
       const storedTarget = isCurrentAction && this.memory.target ? this.targetToObject(this.memory.target) : null;
       const target = callback.apply(this, [ storedTarget ]);
-      console.log(`actionName target`, actionName, target);
       if (target){
         this.currentAction = actionName;
         this.memory.target = target;
@@ -606,48 +602,33 @@ export class BasicCreep extends Creep {
     // }
   }
 
+  commute(){
+    if (this.memory.office && this.memory.office !== this.room.name){
+      const direction = this.room.findExitTo(this.memory.office);
+      if (direction === ERR_NO_PATH) return console.log(`No path to office found.`);
+      if (direction === ERR_INVALID_ARGS) return console.log(`Invalid office args.`);
+      const exit = this.pos.findClosestByRange(direction);
+      this.say('commuting');
+      this.moveTo(exit!);
+      return true;
+    }
+  }
+
   work():any{
     if (this.spawning) return;
 
-    // if (this.role === 'courier'){
-      // if (this.currentAction) this.say(this.currentAction);
-    // }
-    // if (!this.memory.targetId && this.currentAction){
-    //   this.say('b:'+this.currentAction);
-    // }
-    // this.say(String(this.memory.targetId));
-    // const usedCapacity = this.store.getUsedCapacity();
     const energyCapacity = this.store.getUsedCapacity(RESOURCE_ENERGY);
-    // const roomAudit = getRoomAudit(this.room);
-    // let triedStoring = false;
-
-    // /* this stuff deals with minerals */
-    // if (this.canTransferMinerals){
-    //   if (this.rememberAction(this.startTransferring, 'transferring')) return;
-    //   if (usedCapacity > 0 && usedCapacity !== energyCapacity){
-    //     //if filled with stuff other than energy
-    //     if (this.rememberAction(this.startStoring, 'storing')) return;
-    //     triedStoring = true;
-    //   }
-    // }
+    const roomAudit = getRoomAudit(this.room);
 
     /* this stuff deals with energy */
-    // if (!roomAudit.creepCountsByRole.courier){
+    if (!roomAudit.creepCountsByRole.courier){
       //Don't bother picking stuff up off the floor. Leave it to the couriers.
       if (this.rememberAction(this.startPickup, 'pickup', ['mining'])) return;
-    // }
+    }
     if (this.rememberAction(this.startTaking, 'taking', ['mining'])) return;
 
     if (energyCapacity > 0){ //Do something with the energy
-      if (this.memory.office && this.memory.office !== this.room.name){
-        const direction = this.room.findExitTo(this.memory.office);
-        if (direction === ERR_NO_PATH) return console.log(`No path to office found.`);
-        if (direction === ERR_INVALID_ARGS) return console.log(`Invalid office args.`);
-        const exit = this.pos.findClosestByRange(direction);
-        this.say('commuting');
-        this.moveTo(exit!);
-        return;
-      }
+      if (this.commute()) return;
       if (this.rememberAction(this.startEnergizing, 'energizing', ['upgrading', 'building', 'repairing'])) return;
       if (this.rememberAction(this.startRepairing, 'repairing', ['upgrading'])) return;
       if (this.rememberAction(this.startBuilding, 'building', ['upgrading'])) return;
@@ -656,13 +637,14 @@ export class BasicCreep extends Creep {
       if (this.rememberAction(this.startStoring, 'storing')) return;
     }
 
-    // if (!roomAudit.creepCountsByRole.miner){
+    if (!roomAudit.creepCountsByRole.miner){
       //Let the miners do it, the basic creeps are jamming things up...
       if (this.rememberAction(this.startMining, 'mining')) return;
-    // }
+    }
 
     this.idle();
 
-    this.currentAction = undefined; // If nothing was successful reset action state. Necessary since rememberAction isn't always going to do the cleanup.
+    // If nothing was successful reset action state. Necessary since rememberAction isn't always going to do the cleanup.
+    this.currentAction = undefined;
   }
 }

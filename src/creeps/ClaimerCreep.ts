@@ -14,7 +14,8 @@ export class ClaimerCreep extends BasicCreep {
         max: (roomAudit: RoomAudit)=>{
           for (let flagName in roomAudit.flags){
             const flagManager = roomAudit.flags[flagName];
-            if (flagManager.type === FlagType.Claim && flagManager.suffix === roomAudit.name && !flagManager.room.controller?.my){
+            //The room won't exist in Game.rooms until we've explored the room with a creep...
+            if (flagManager.type === FlagType.Claim && flagManager.suffix === roomAudit.name && !flagManager.room || !flagManager.room.controller?.my){
               return Math.max(1-flagManager.followers.length, 0);
             }
           }
@@ -62,7 +63,8 @@ export class ClaimerCreep extends BasicCreep {
     //The flag gets deleted once the job is done. The creep can just sit there until it's time runs out...
     const flag = this.getFlag();
     if (flag){
-      if (this.room.name === flag.room.name){
+      //Note flag.room will not exist until we actually get there.
+      if (flag.room && this.room.name === flag.room.name){
         if (this.startClaiming(this.room.controller)) return;
       }
 
