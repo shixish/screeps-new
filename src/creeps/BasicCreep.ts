@@ -287,10 +287,8 @@ export class BasicCreep extends Creep {
     }
     const storage =
       //If there are couriers let them pick up from source containers, otherwise there's congestion.
-      (!roomAudit.creepCountsByRole.courier || !this.canWork) && (
-        storedTarget instanceof StructureContainer && checkCapacity(storedTarget) && storedTarget ||
-        findSourceContainer()
-      ) ||
+      storedTarget instanceof StructureContainer && checkCapacity(storedTarget) && storedTarget || //Upgrader will explicitly grab from it's designated container
+      (!roomAudit.creepCountsByRole.courier || !this.canWork) && findSourceContainer() ||
       // this.pos.findClosestByRange(FIND_STRUCTURES, {
       //   filter: (container:StructureContainer)=>{
       //     if (container.structureType !== STRUCTURE_CONTAINER) return false;
