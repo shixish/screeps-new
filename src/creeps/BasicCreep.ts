@@ -225,7 +225,11 @@ export class BasicCreep extends Creep {
     const resource =
       storedTarget instanceof Resource && storedTarget.resourceType && checkResourceAmount(storedTarget) && storedTarget ||
       this.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
-        filter: checkResourceAmount
+        filter: (resource)=>{
+          //If the loose resource is sitting on a container just grab from the container instead so we can take a bigger bite and move on.
+          if (resource.pos.lookFor(LOOK_STRUCTURES).find(structure=>structure.structureType === STRUCTURE_CONTAINER)) return false;
+          return checkResourceAmount(resource);
+        }
       });
     if (resource){
       const action = this.pickup(resource);
@@ -276,14 +280,20 @@ export class BasicCreep extends Creep {
     }
     const roomAudit = getRoomAudit(this.room);
     const findSourceContainer = ()=>{
+    //   const containers = ([] as StructureContainer[]).concat(...roomAudit.sources.map(source=>source.containers)).sort((a, b)=>{
+    //     return a.store.energy - b.store.energy;
+    //   });
+      let containerWithMost:StructureContainer|undefined, mostEnergy:number = 0;
       for (let source of roomAudit.sources){
         for (let container of source.containers){
-          if (container.store.getUsedCapacity(resourceType) > 0){
-            return container;
+          const energy = container.store.getUsedCapacity(resourceType);
+          if (energy > mostEnergy){
+            mostEnergy = energy;
+            containerWithMost = container;
           }
         }
       }
-      return null;
+      return containerWithMost;
     }
     const storage =
       //If there are couriers let them pick up from source containers, otherwise there's congestion.
