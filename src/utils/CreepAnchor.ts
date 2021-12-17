@@ -50,7 +50,7 @@ export class CreepAnchor<AnchorType extends Source|Structure = Source|Structure>
       return false;
     });
     if (!this.containers.length){
-      this.containers = anchor.pos.findInRange(FIND_STRUCTURES, 1, {
+      this.containers = anchor.pos.findInRange(FIND_STRUCTURES, 2, {
         filter: structure=>{
           return structure.structureType === STRUCTURE_CONTAINER;
         }

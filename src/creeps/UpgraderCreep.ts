@@ -23,6 +23,7 @@ export class UpgraderCreep extends BasicCreep {
           CARRY, CARRY,
           MOVE,
         ],
+        max: (roomAudit:RoomAudit)=>2,
       },
       {
         cost: 1150,
