@@ -111,19 +111,21 @@ declare global {
 
   interface RoomAudit{
     name:Room['name'],
-    flags:Record<Flag['name'], FlagManager>,
-    controller?: CreepAnchor<StructureController>,
-    controllerLevel: number,
-    sources: CreepAnchor<Source>[],
+    controller?:CreepAnchor<StructureController>,
+    controllerLevel:number,
+    mineral?:CreepAnchor<Mineral>,
+    sources:CreepAnchor<Source>[],
     // sourceCount: number,
     sourceSeats: number,
     creeps: Creep[],
     creepCountsByRole: Record<CreepRoleType, number>,
+    flags:Record<Flag['name'], FlagManager>,
   }
 
   interface RoomMemory{
     // structures:string[],
-    sources?: Id<Source>[],
+    sources: Id<Source>[],
+    mineral: Id<Mineral>|null,
     sourceCount: number,
     sourceSeats: number, //How many standing locations around sources within the room
     // sources: {

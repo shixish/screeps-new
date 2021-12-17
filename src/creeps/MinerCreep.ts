@@ -8,19 +8,19 @@ export class MinerCreep extends BasicCreep {
       {
         cost: 250,
         body: [WORK, WORK, MOVE],
-        max: (roomAudit)=>{
+        max: (roomAudit:RoomAudit)=>{
           return Math.min(roomAudit.sourceSeats, roomAudit.sources.length*3);
         },
       },
       {
         cost: 550,
         body: [WORK, WORK, WORK, WORK, WORK, MOVE],
-        max: (roomAudit)=>{
+        max: (roomAudit:RoomAudit)=>{
           return roomAudit.sources.length;
         },
       }
     ],
-    getCreepAnchor: (roomAudit)=>{
+    getCreepAnchor: (roomAudit:RoomAudit)=>{
       const sourceAnchor = roomAudit.sources.reduce((out:CreepAnchor<Source>|undefined, source)=>{
         if (source.availableSeats > 0 && (!out || source.occupancy < out.occupancy)){
           out = source;

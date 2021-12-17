@@ -12,7 +12,8 @@ export function countAvailableSeats(pos:RoomPosition){
 };
 
 if (!Memory.anchors) Memory.anchors = {};
-export class CreepAnchor<AnchorType extends Source|Structure = Source|Structure>{
+type GenericAnchorType = Source|Mineral|Structure;
+export class CreepAnchor<AnchorType extends GenericAnchorType = GenericAnchorType>{
   anchor:AnchorType;
   containers: StructureContainer[] = [];
   // getCapacity = ()=>{

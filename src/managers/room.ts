@@ -100,6 +100,19 @@ const getSources = (room:Room)=>{
   return sources.map(source=>new CreepAnchor(source));
 };
 
+const getMineral = (room:Room)=>{
+  if (room.memory.mineral === null) return;
+  if (room.memory.mineral) return new CreepAnchor(Game.getObjectById(room.memory.mineral) as Mineral);
+  const [ mineral ] = room.find(FIND_MINERALS);
+  if (mineral){
+    room.memory.mineral = mineral.id;
+    return new CreepAnchor(mineral);
+  }else{
+    room.memory.mineral = null;
+    return;
+  }
+};
+
 // const getStorageLocation = (room:Room)=>{
 //   const flagName = `${room.name}_storage`;
 //   if (!room.controller?.level || room.controller.level < 4) return;
@@ -137,15 +150,17 @@ export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
       creepCountsByRole[role]++;
     });
     const sources = getSources(room);
+    const mineral = getMineral(room);
     const sourceSeats = sources.reduce((out, source)=>out + source.totalSeats, 0);
     const audit:RoomAudit = {
       name: room.name,
       controller: room.controller && new CreepAnchor(room.controller),
       controllerLevel: room.controller?.level || 0,
-      creeps,
-      creepCountsByRole,
+      mineral,
       sources,
       sourceSeats,
+      creeps,
+      creepCountsByRole,
       flags:{},
     };
     // console.log(`creepCountsByRole`, JSON.stringify(creepCountsByRole));
