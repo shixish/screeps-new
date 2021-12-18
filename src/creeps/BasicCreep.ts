@@ -270,7 +270,7 @@ export class BasicCreep extends Creep {
   }
 
   /* start taking energy */
-  startTaking(storedTarget:TargetableTypes):TargetTypes{
+  startTakingEnergy(storedTarget:TargetableTypes):TargetTypes{
     if (!this.canCarry) return null;
     const freeCapacity = this.store.getFreeCapacity();
     if (freeCapacity === 0) return null;
@@ -286,7 +286,7 @@ export class BasicCreep extends Creep {
       let containerWithMost:StructureContainer|undefined, mostEnergy:number = 0;
       for (let source of roomAudit.sources){
         for (let container of source.containers){
-          const energy = container.store.getUsedCapacity(resourceType);
+          const energy = container.store.getUsedCapacity(resourceType) - getClaimedAmount(container.id, resourceType);
           if (energy > mostEnergy){
             mostEnergy = energy;
             containerWithMost = container;
@@ -294,24 +294,20 @@ export class BasicCreep extends Creep {
         }
       }
       return containerWithMost;
-    }
+    };
     const storage =
       //If there are couriers let them pick up from source containers, otherwise there's congestion.
       storedTarget instanceof StructureContainer && checkCapacity(storedTarget) && storedTarget || //Upgrader will explicitly grab from it's designated container
-      (!roomAudit.creepCountsByRole.courier || !this.canWork) && findSourceContainer() ||
+      storedTarget instanceof StructureStorage && checkCapacity(storedTarget) && storedTarget ||
+      this.canWork && this.room.storage || //If the creep can work then favor going directly to the large storage and let couriers fill that up
+      findSourceContainer() || //(!roomAudit.creepCountsByRole.courier || !this.canWork) &&
+      this.room.storage;
       // this.pos.findClosestByRange(FIND_STRUCTURES, {
       //   filter: (container:StructureContainer)=>{
       //     if (container.structureType !== STRUCTURE_CONTAINER) return false;
       //     return checkCapacity(container);
       //   }
-      // }) as StructureContainer ||
-      storedTarget instanceof StructureStorage && checkCapacity(storedTarget) && storedTarget ||
-      this.pos.findClosestByRange(FIND_STRUCTURES, {
-        filter: (storage:StructureStorage)=>{
-          if (storage.structureType !== STRUCTURE_STORAGE) return false;
-          return checkCapacity(storage);
-        }
-      }) as StructureStorage;
+      // }) as StructureContainer;
     // console.log(`container`, container);
     if (!storage) return null;
     const action = this.withdraw(storage, resourceType);
@@ -321,7 +317,7 @@ export class BasicCreep extends Creep {
   }
 
   /* start transferring minerals other than energy */
-  startTransferring(storedTarget:TargetableTypes):TargetTypes{
+  startTransferringMinerals(storedTarget:TargetableTypes):TargetTypes{
     if (!this.canCarry || this.canWork) return null;
     const freeCapacity = this.store.getFreeCapacity();
     if (freeCapacity === 0) return null;
@@ -407,7 +403,6 @@ export class BasicCreep extends Creep {
       //This is to prevent it from spoon feeding the tower while it repairs things each turn.
       return structure.store.getFreeCapacity(resourceType) - getClaimedAmount(structure.id, resourceType) > this.store.getCapacity(resourceType)*0.75;
     };
-    let roomAudit;
     const structure =
       storedTarget instanceof StructureSpawn && checkCapacity(storedTarget) && storedTarget ||
       storedTarget instanceof StructureExtension && checkCapacity(storedTarget) && storedTarget ||
@@ -423,8 +418,29 @@ export class BasicCreep extends Creep {
           if (structure.structureType !== STRUCTURE_TOWER) return false;
           return checkActiveCapacity(structure);
         }
-      }) as StructureTower ||
-      (roomAudit = getRoomAudit(this.room)) && roomAudit.controller?.containers.find(checkActiveCapacity);
+      }) as StructureTower;
+    if (!structure) return null;
+    const action = this.transfer(structure, resourceType);
+    const ok = this.respondToActionCode(action, structure);
+    if (ok){
+      const amount = Math.min(structure.store.getFreeCapacity(resourceType), this.store[resourceType]);
+      claimAmount(structure.id, resourceType, amount);
+    }
+    return ok;
+  }
+
+  //This is used to stock containers that sit next to controllers. Other tasks have higher priority so this needed to be split off.
+  startStocking(storedTarget:TargetableTypes):TargetTypes{
+    const resourceType = RESOURCE_ENERGY;
+    const checkActiveCapacity = (structure:StructureContainer)=>{
+      //Only start energizing towers if they request at least 25% of the creep's stored energy.
+      //This is to prevent it from spoon feeding the tower while it repairs things each turn.
+      return structure.store.getFreeCapacity(resourceType) - getClaimedAmount(structure.id, resourceType) > this.store.getCapacity(resourceType)*0.75;
+    };
+    const roomAudit = getRoomAudit(this.room);
+    const structure =
+      storedTarget instanceof StructureContainer && checkActiveCapacity(storedTarget) && storedTarget ||
+      roomAudit.controller?.containers.find(checkActiveCapacity);
     if (!structure) return null;
     const action = this.transfer(structure, resourceType);
     const ok = this.respondToActionCode(action, structure);
@@ -495,6 +511,10 @@ export class BasicCreep extends Creep {
     //   }, 0);
     // }
     if (!source) return null; //This happens if there's no path to the source (it's blocked by other workers)
+
+    //TODO: Apparently using this then moving is more efficient than running .harvest then responding to the error code
+    // if(creep.pos.inRangeTo(source, 1))
+
     const action = this.harvest(source);
     if (action === OK && !this.canCarry){
       // const containers = source.pos.findInRange(FIND_STRUCTURES, 1, {
@@ -637,13 +657,14 @@ export class BasicCreep extends Creep {
       //Don't bother picking stuff up off the floor. Leave it to the couriers.
       if (this.rememberAction(this.startPickup, 'pickup', ['mining'])) return;
     }
-    if (this.rememberAction(this.startTaking, 'taking', ['mining'])) return;
+    if (this.rememberAction(this.startTakingEnergy, 'taking', ['mining'])) return;
 
     if (energyCapacity > 0){ //Do something with the energy
       if (this.commute()) return;
       if (this.rememberAction(this.startEnergizing, 'energizing', ['upgrading', 'building', 'repairing'])) return;
-      if (this.rememberAction(this.startRepairing, 'repairing', ['upgrading'])) return;
       if (this.rememberAction(this.startBuilding, 'building', ['upgrading'])) return;
+      if (this.rememberAction(this.startRepairing, 'repairing', ['upgrading'])) return;
+      if (this.rememberAction(this.startStocking, 'stocking', ['upgrading'])) return;
       // if (this.rememberAction(this.startSpreading, 'spreading')) return; //basic workers don't need to spread their energy around
       if (this.rememberAction(this.startUpgrading, 'upgrading')) return;
       if (this.rememberAction(this.startStoring, 'storing')) return;

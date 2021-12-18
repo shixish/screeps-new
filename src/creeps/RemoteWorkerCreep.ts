@@ -56,7 +56,7 @@ export class RemoteWorkerCreep extends BasicCreep {
       if (this.rememberAction(this.startMining, 'mining')) return;
     }
     if (this.rememberAction(this.startPickup, 'pickup')) return;
-    if (this.rememberAction(this.startTaking, 'taking')) return;
+    if (this.rememberAction(this.startTakingEnergy, 'taking')) return;
 
     if (energyCapacity > 0){ //Do something with the energy
       if (this.commute()) return;

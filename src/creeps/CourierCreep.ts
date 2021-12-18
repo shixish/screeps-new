@@ -69,7 +69,7 @@ export class CourierCreep extends BasicCreep {
     let triedStoring = false;
 
     /* this stuff deals with minerals */
-    if (this.rememberAction(this.startTransferring, 'transferring')) return;
+    if (this.rememberAction(this.startTransferringMinerals, 'transferring')) return;
     if (usedCapacity > 0 && usedCapacity !== energyCapacity){
       //if filled with stuff other than energy
       if (this.rememberAction(this.startStoring, 'storing')) return;
@@ -78,7 +78,7 @@ export class CourierCreep extends BasicCreep {
 
     /* this stuff deals with energy */
     if (this.rememberAction(this.startPickup, 'pickup')) return;
-    if (this.rememberAction(this.startTaking, 'taking')) return;
+    if (this.rememberAction(this.startTakingEnergy, 'taking')) return;
 
     if (energyCapacity > 0){ //Do something with the energy
       // if (this.memory.office && this.memory.office !== this.room.name){

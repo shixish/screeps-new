@@ -47,11 +47,12 @@ export class CreepAnchor<AnchorType extends GenericAnchorType = GenericAnchorTyp
       const container = Game.getObjectById(id);
       if (container){
         this.containers.push(container);
+        return true;
       }
       return false;
     });
     if (!this.containers.length){
-      this.containers = anchor.pos.findInRange(FIND_STRUCTURES, 2, {
+      this.containers = anchor.pos.findInRange(FIND_STRUCTURES, 1, { //Needs to be distance 1 since controller is sometimes close to sources that will also have a container
         filter: structure=>{
           return structure.structureType === STRUCTURE_CONTAINER;
         }

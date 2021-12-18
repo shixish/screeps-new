@@ -62,7 +62,7 @@ export class UpgraderCreep extends BasicCreep {
       const container = roomAudit.controller?.containers.find(container=>{
         return container.store.energy > 0;
       });
-      if (container) this.startTaking(container);
+      if (container) this.startTakingEnergy(container);
     }
     this.idle();
   }
