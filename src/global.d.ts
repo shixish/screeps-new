@@ -87,6 +87,7 @@ declare global {
 
     // targetRoom?: Room['name'];
     anchor?: Id<RoomObject>
+    seated?: boolean;
     flag?: FlagManager['name'];
     target?: Target;
     action?: string;

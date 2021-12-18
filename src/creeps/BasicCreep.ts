@@ -1,6 +1,7 @@
 import { FlagManager } from "managers/flags";
 import { getRoomAudit } from "managers/room";
 import { DEBUG, maxStorageFill } from "utils/constants";
+import { CreepAnchor } from "utils/CreepAnchor";
 import { claimAmount, getClaimedAmount } from "utils/tickCache";
 
 export function calculateBiteSize (creep:Creep){
@@ -482,11 +483,26 @@ export class BasicCreep extends Creep {
   startMining(storedTarget?:TargetableTypes):TargetTypes{
     const resourceType = RESOURCE_ENERGY;
     if (!this.canWork) return null;
-    if (this.canCarry && this.store.getFreeCapacity(resourceType) < this.memory.counts.work!*2) return null;
-    const checkCapacity = (source:Source)=>{
-      return source.energyCapacity > 0;
-    };
-    // const anchor = this.getAnchor();
+    if (this.canCarry && this.store.getFreeCapacity(resourceType) < this.workCount*2) return null;
+    const checkCapacity = (source:Source)=>source.energy > 0;
+
+    // const roomAudit = getRoomAudit(this.room);
+    // const findSourceAnchor = ()=>{
+    //   let targetSourceAnchor:CreepAnchor<Source>|undefined, targetDistance:number|undefined;
+    //   for (let sourceAnchor of roomAudit.sources){
+    //     if (this.memory.anchor === sourceAnchor.id || storedTarget instanceof Source && storedTarget.id === sourceAnchor.id) return sourceAnchor;
+    //     const distance = this.pos.getRangeTo(sourceAnchor.anchor);
+    //     if ((targetDistance === undefined || targetDistance < distance) && sourceAnchor.anchor.energy > 0){
+    //       targetDistance = distance;
+    //       targetSourceAnchor = sourceAnchor;
+    //     }
+    //   }
+    //   return targetSourceAnchor;
+    // };
+
+    // const sourceAnchor = findSourceAnchor();
+    // if (!sourceAnchor || sourceAnchor.anchor.energy === 0) return null;
+
     const source =
       storedTarget instanceof Source && checkCapacity(storedTarget) && storedTarget ||
       // anchor instanceof Source && checkCapacity(anchor) && anchor ||
@@ -510,19 +526,9 @@ export class BasicCreep extends Creep {
     //     return leastClaimed;
     //   }, 0);
     // }
-    if (!source) return null; //This happens if there's no path to the source (it's blocked by other workers)
-
-    //TODO: Apparently using this then moving is more efficient than running .harvest then responding to the error code
-    // if(creep.pos.inRangeTo(source, 1))
-
+    if (!source || source.energy === 0) return null;
+    if (this.moveInRange(source.pos, 1)) return source;
     const action = this.harvest(source);
-    if (action === OK && !this.canCarry){
-      // const containers = source.pos.findInRange(FIND_STRUCTURES, 1, {
-      //   filter: (structure)=>structure.structureType === STRUCTURE_CONTAINER,
-      // });
-      // containers.reduce((available, container)=>{}, )
-      // this.pos.getRangeTo()
-    }
     if (action === ERR_NOT_ENOUGH_ENERGY) return null; //This happens if you have too many miners on a source
     const ok = this.respondToActionCode(action, source);
     return ok;
@@ -600,6 +606,23 @@ export class BasicCreep extends Creep {
       }
     }
     return false;
+  }
+
+  startMoving(){
+
+  }
+
+  moveInRange(pos:RoomPosition, range:number=1){
+    if (this.pos.inRangeTo(pos, range)) return false;
+    const moving = this.moveTo(pos);
+    if (moving === OK || moving === ERR_TIRED){
+      return true;
+    }else if (moving === ERR_NO_PATH){
+      console.log(`[${this.room.name}] Creep ${this.name} cannot find a path while doing ${this.currentAction}...`);
+    }else{
+      console.log(`[${this.room.name}] Creep moving error`, this.currentAction, moving, this.name);
+    }
+    return true;
   }
 
   idle(){
