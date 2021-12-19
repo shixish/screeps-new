@@ -2,7 +2,7 @@ import { CreepRoleType, USERNAME } from "utils/constants";
 import { creepCountParts, CreepRoles, getCreepName, getHeighestCreepTier } from "managers/creeps";
 import { getRoomAudit } from "managers/room";
 import { FlagManager } from "managers/flags";
-import { CreepAnchor } from "utils/CreepAnchor";
+import { CreepAnchor, GenericAnchorType } from "utils/CreepAnchor";
 
 export class SpawnController extends StructureSpawn{
   constructor(spawn:StructureSpawn){
@@ -68,7 +68,7 @@ export class SpawnController extends StructureSpawn{
       // this.spawnCreep([WORK, MOVE, CARRY], getCreepName());
       let roleToSpawn:CreepRoleType|undefined,
           creepTierToSpawn:CreepTier|undefined|null,
-          creepAnchor:CreepAnchor<Source|Structure<StructureConstant>>|FlagManager|undefined,
+          creepAnchor:CreepAnchor<GenericAnchorType>|FlagManager|undefined,
           lowestPercentage:number|undefined;
 
       // const affordableTiers:{[roleName:string]: CreepTier} = {};

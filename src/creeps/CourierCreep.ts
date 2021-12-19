@@ -3,10 +3,10 @@ import { BasicCreep } from "./BasicCreep";
 
 export class CourierCreep extends BasicCreep {
   static config:CreepRole = {
-    authority: 1,
+    authority: 2,
     max: (roomAudit: RoomAudit)=>{
       //We only need couriers if we have miners available, otherwise the resources should go to basic creeps that can do both
-      return Math.min(roomAudit.creepCountsByRole.miner*2, roomAudit.sources.length*2);
+      return Math.min(roomAudit.creepCountsByRole.harvester*2, roomAudit.sources.length*2);
     },
     tiers: [
       {
@@ -90,8 +90,8 @@ export class CourierCreep extends BasicCreep {
       //   this.moveTo(exit!);
       //   return;
       // }
-      if (this.rememberAction(this.startEnergizing, 'energizing')) return;
       if (this.rememberAction(this.startSpreading, 'spreading')) return;
+      if (this.rememberAction(this.startEnergizing, 'energizing')) return;
       if (!triedStoring && this.rememberAction(this.startStoring, 'storing')) return;
     }
 

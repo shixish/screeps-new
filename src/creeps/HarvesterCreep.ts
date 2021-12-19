@@ -2,25 +2,39 @@ import { getRoomAudit } from "managers/room";
 import { CreepAnchor } from "utils/CreepAnchor";
 import { BasicCreep } from "./BasicCreep";
 
-export class MinerCreep extends BasicCreep {
+export class HarvesterCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 2,
     tiers: [
       {
+        cost: 250,
+        body: [WORK, WORK, MOVE],
+        max: (roomAudit:RoomAudit)=>{
+          return Math.min(roomAudit.sourceSeats, roomAudit.sources.length*3);
+        },
+      },
+      {
         cost: 550,
         body: [WORK, WORK, WORK, WORK, WORK, MOVE],
         max: (roomAudit:RoomAudit)=>{
-          return roomAudit.mineral?1:0;
+          return roomAudit.sources.length + (roomAudit.mineral?1:0);
         },
       }
     ],
     getCreepAnchor: (roomAudit:RoomAudit)=>{
+      const sourceAnchor = roomAudit.sources.reduce((out:CreepAnchor<Source>|undefined, source)=>{
+        if (source.availableSeats > 0 && (!out || source.occupancy < out.occupancy)){
+          out = source;
+        }
+        return out;
+      }, undefined);
       if (
+        !sourceAnchor &&
         roomAudit.mineral &&
         roomAudit.mineral.occupancy === 0 &&
         roomAudit.mineral.anchor.pos.lookFor(LOOK_STRUCTURES).find(structure=>structure.structureType === STRUCTURE_EXTRACTOR)
       ) return roomAudit.mineral;
-      return;
+      return sourceAnchor;
     },
     // modSpawnOptions: (roomAudit, options, spawner)=>{
     //   const miners = spawner.room.find(FIND_MY_CREEPS, {

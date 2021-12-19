@@ -22,7 +22,7 @@ export enum FlagType{
 };
 export enum CreepRoleType{
   Basic = 'basic',
-  Miner = 'miner',
+  Harvester = 'harvester',
   Courier = 'courier',
   Mover = 'mover',
   Upgrader = 'upgrader',

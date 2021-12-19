@@ -1,7 +1,7 @@
 import { CreepRoleType, PART_COST } from "../utils/constants";
 import { BasicCreep } from "creeps/BasicCreep";
 import { CourierCreep } from "creeps/CourierCreep";
-import { MinerCreep } from "creeps/MinerCreep";
+import { HarvesterCreep } from "creeps/HarvesterCreep";
 import { MoverCreep } from "creeps/MoverCreep";
 import { UpgraderCreep } from "creeps/UpgraderCreep";
 import { ClaimerCreep } from "creeps/ClaimerCreep";
@@ -9,7 +9,7 @@ import { RemoteWorkerCreep } from "creeps/RemoteWorkerCreep";
 
 export const CreepRoles = { //:Record<CreepRoleName, typeof BasicCreep>
   [CreepRoleType.Basic]: BasicCreep,
-  [CreepRoleType.Miner]: MinerCreep,
+  [CreepRoleType.Harvester]: HarvesterCreep,
   [CreepRoleType.Courier]: CourierCreep,
   [CreepRoleType.Mover]: MoverCreep,
   [CreepRoleType.Upgrader]: UpgraderCreep,
