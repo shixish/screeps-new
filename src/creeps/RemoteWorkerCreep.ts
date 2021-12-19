@@ -44,8 +44,11 @@ export class RemoteWorkerCreep extends BasicCreep {
     if (this.spawning) return;
     const flag = this.getFlag();
     if (flag && flag.room.name !== this.room.name){
+      this.memory.seated = false; //Prevent couriers from trying to give this creep energy while it's traveling, slowing it down, and sometimes dragging creeps into another room
       this.moveTo(flag.pos);
       return;
+    }else{
+      this.memory.seated = true;
     }
 
     const energyCapacity = this.store.getUsedCapacity(RESOURCE_ENERGY);
@@ -53,7 +56,7 @@ export class RemoteWorkerCreep extends BasicCreep {
 
     //Remote workers are usually the best miners available in an eary room, so don't bother picking up. Go straight to the source if there's room to do so.
     if (roomAudit.creepCountsByRole.harvester < roomAudit.sourceSeats){
-      if (this.rememberAction(this.startMining, 'mining')) return;
+      if (this.rememberAction(this.startHarvesting, 'mining')) return;
     }
     if (this.rememberAction(this.startPickup, 'pickup')) return;
     if (this.rememberAction(this.startTakingEnergy, 'taking')) return;

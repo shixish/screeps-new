@@ -54,6 +54,12 @@ export class UpgraderCreep extends BasicCreep {
 
   work(){
     if (this.spawning) return;
+    if (!this.memory.seated){
+      this.memory.seated = false; //This will disable resource spreading which will slow down these already slow creeps
+      if (this.moveWithinRange(this.room.controller!.pos, 1)) return;
+      this.memory.seated = true; //The creep doesn't necessarily need to sit on a container
+    }
+
     const energyCapacity = this.store.getUsedCapacity(RESOURCE_ENERGY);
     if (energyCapacity >= this.workCount){ //Upgrade takes 1 energy per work
       this.startUpgrading();
@@ -64,6 +70,5 @@ export class UpgraderCreep extends BasicCreep {
       });
       if (container) this.startTakingEnergy(container);
     }
-    this.idle();
   }
 }

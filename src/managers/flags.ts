@@ -74,7 +74,7 @@ export class ClaimFlag extends FlagManager{
     // })?.room;
     if (home){
       this.memory.room = home.name;
-      if (office?.controller?.my && office.controller.level > 1){
+      if (office?.controller?.my && office.controller.level > 2 && office.find(FIND_MY_SPAWNS).length){
         console.log(`Finished claiming ${home.name}.`);
         this.remove();
       }else{

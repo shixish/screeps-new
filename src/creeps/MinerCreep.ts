@@ -10,17 +10,34 @@ export class MinerCreep extends BasicCreep {
         cost: 550,
         body: [WORK, WORK, WORK, WORK, WORK, MOVE],
         max: (roomAudit:RoomAudit)=>{
-          return roomAudit.mineral?1:0;
+          return (
+            roomAudit.controllerLevel >= 6,
+            roomAudit.mineral &&
+            roomAudit.mineral.occupancy === 0 &&
+            roomAudit.mineral.anchor.pos.lookFor(LOOK_STRUCTURES).find(structure=>structure.structureType === STRUCTURE_EXTRACTOR)
+          ) ? 1 : 0;
+        },
+      },
+      {
+        cost: 1700,
+        body: [
+          WORK, WORK, WORK, WORK, WORK,
+          WORK, WORK, WORK, WORK, WORK,
+          WORK, WORK, WORK, WORK, WORK,
+          MOVE, MOVE, MOVE, MOVE,
+        ],
+        max: (roomAudit:RoomAudit)=>{
+          return (
+            roomAudit.controllerLevel >= 6,
+            roomAudit.mineral &&
+            roomAudit.mineral.occupancy === 0 &&
+            roomAudit.mineral.anchor.pos.lookFor(LOOK_STRUCTURES).find(structure=>structure.structureType === STRUCTURE_EXTRACTOR)
+          ) ? 1 : 0;
         },
       }
     ],
     getCreepAnchor: (roomAudit:RoomAudit)=>{
-      if (
-        roomAudit.mineral &&
-        roomAudit.mineral.occupancy === 0 &&
-        roomAudit.mineral.anchor.pos.lookFor(LOOK_STRUCTURES).find(structure=>structure.structureType === STRUCTURE_EXTRACTOR)
-      ) return roomAudit.mineral;
-      return;
+      return roomAudit.mineral;
     },
     // modSpawnOptions: (roomAudit, options, spawner)=>{
     //   const miners = spawner.room.find(FIND_MY_CREEPS, {
@@ -56,14 +73,15 @@ export class MinerCreep extends BasicCreep {
     const anchor = this.getAnchor();
     if (anchor){
       if (!this.memory.seated){
+        this.memory.seated = false; //This will disable resource spreading which will slow down these already slow creeps
         if (this.moveWithinRange(anchor.pos, 1)) return;
         const roomAudit = getRoomAudit(this.room);
-        const sourceAnchor = roomAudit.sources.find(source=>source.id === this.memory.anchor);
-        if (!sourceAnchor!.containers.length){
+        const mineralAnchor = roomAudit.mineral;
+        if (!mineralAnchor!.containers.length){
           //If this source doesn't have any containers near it yet just have a seat anywhere
           this.memory.seated = true;
         }else{
-          const seatContainer = sourceAnchor!.containers.find(container=>{
+          const seatContainer = mineralAnchor!.containers.find(container=>{
             //If you're already over a container or there's a open container nearby
             return this.pos.isEqualTo(container.pos) || !container.pos.lookFor(LOOK_CREEPS).length;
           });

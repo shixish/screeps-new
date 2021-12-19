@@ -113,13 +113,13 @@ const getMineral = (room:Room)=>{
   }
 };
 
-const getMinableMineral = (room:Room)=>{
-  if (room.controller?.level! >= 6){
-    const mineral = getMineral(room);
-    if (mineral?.anchor.pos.lookFor(LOOK_STRUCTURES).find(structure=>structure.structureType === STRUCTURE_EXTRACTOR)) return mineral;
-  }
-  return;
-}
+// const getMinableMineral = (room:Room)=>{
+//   if (room.controller?.level! >= 6){
+//     const mineral = getMineral(room);
+//     if (mineral?.anchor.pos.lookFor(LOOK_STRUCTURES).find(structure=>structure.structureType === STRUCTURE_EXTRACTOR)) return mineral;
+//   }
+//   return;
+// }
 
 // const getStorageLocation = (room:Room)=>{
 //   const flagName = `${room.name}_storage`;
@@ -158,7 +158,7 @@ export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
       creepCountsByRole[role]++;
     });
     const sources = getSources(room);
-    const mineral = getMinableMineral(room);
+    const mineral = getMineral(room);
     const sourceSeats = sources.reduce((out, source)=>out + source.totalSeats, 0);
     const audit:RoomAudit = {
       name: room.name,

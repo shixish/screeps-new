@@ -70,6 +70,7 @@ export class HarvesterCreep extends BasicCreep {
     const anchor = this.getAnchor();
     if (anchor){
       if (!this.memory.seated){
+        this.memory.seated = false; //This will disable resource spreading which will slow down these already slow creeps
         if (this.moveWithinRange(anchor.pos, 1)) return;
         const roomAudit = getRoomAudit(this.room);
         const sourceAnchor = roomAudit.sources.find(source=>source.id === this.memory.anchor);
@@ -93,6 +94,6 @@ export class HarvesterCreep extends BasicCreep {
         }
       }
     }
-    this.startMining(anchor);
+    this.startHarvesting(anchor);
   }
 }

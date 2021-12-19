@@ -364,7 +364,7 @@ export class BasicCreep extends Creep {
     if (this.canWork) return null; //If this is a worker don't bother giving away your resources
     if (this.store[resourceType] === 0) return null;
     const checkCreep = (creep:Creep)=>{
-      return creep.id !== this.id && creep.memory.counts.work && creep.store.getUsedCapacity(resourceType) + getClaimedAmount(creep.id, resourceType) < creep.store.getCapacity(resourceType)*maxFillPercentage;
+      return creep.id !== this.id && creep.memory.counts.work && creep.memory.seated !== false && creep.store.getUsedCapacity(resourceType) + getClaimedAmount(creep.id, resourceType) < creep.store.getCapacity(resourceType)*maxFillPercentage;
     };
     const target =
       storedTarget instanceof Creep && checkCreep(storedTarget) && storedTarget ||
@@ -489,10 +489,11 @@ export class BasicCreep extends Creep {
     return ok;
   }
 
-  startMining(storedTarget?:TargetableTypes){
-    const resourceType = RESOURCE_ENERGY;
+  //Harvest Source
+  startHarvesting(storedTarget?:TargetableTypes){
+    // const resourceType = RESOURCE_ENERGY;
     if (!this.canWork) return null;
-    if (this.canCarry && this.store.getFreeCapacity(resourceType) < this.workCount*2) return null;
+    if (this.canCarry && this.store.getFreeCapacity() < this.workCount*2) return null;
     const checkCapacity = (source:Source)=>source.energy > 0;
 
     // const roomAudit = getRoomAudit(this.room);
@@ -515,7 +516,7 @@ export class BasicCreep extends Creep {
     const source =
       storedTarget instanceof Source && checkCapacity(storedTarget) && storedTarget ||
       // anchor instanceof Source && checkCapacity(anchor) && anchor ||
-      this.pos.findClosestByPath(FIND_SOURCES_ACTIVE);
+      !this.memory.anchor && this.pos.findClosestByPath(FIND_SOURCES_ACTIVE);
     // if (this.canCarry){
     // }else{
     //   const sources = this.room.find(FIND_SOURCES_ACTIVE, {
@@ -540,6 +541,28 @@ export class BasicCreep extends Creep {
     const action = this.harvest(source);
     if (action === ERR_NOT_ENOUGH_ENERGY) return null; //This happens if you have too many miners on a source
     const ok = this.respondToActionCode(action, source);
+    return ok;
+  }
+
+  //Mine Minerals
+  startMining(storedTarget?:TargetableTypes){
+    if (!this.canWork) return null;
+    if (this.canCarry && this.store.getFreeCapacity() < this.workCount*2) return null;
+    const checkExtractorCooldown = (mineral:Mineral)=>{
+      const extractor = mineral.pos.lookFor(LOOK_STRUCTURES).find(structure=>structure.structureType === STRUCTURE_EXTRACTOR) as StructureExtractor;
+      return extractor && extractor.cooldown === 0;
+    };
+    const checkCapacity = (mineral:Mineral)=>{
+      return mineral.mineralAmount > 0 && checkExtractorCooldown(mineral);
+    };
+
+    const mineral = storedTarget instanceof Mineral && checkCapacity(storedTarget) && storedTarget;
+
+    if (!mineral) return null;
+    if (this.moveWithinRange(mineral.pos, 1)) return mineral;
+    const action = this.harvest(mineral);
+    if (action === ERR_NOT_ENOUGH_ENERGY) return null; //This happens if you have too many miners on a source
+    const ok = this.respondToActionCode(action, mineral);
     return ok;
   }
 
@@ -630,7 +653,8 @@ export class BasicCreep extends Creep {
     if (moving === OK || moving === ERR_TIRED){
       return true;
     }else if (moving === ERR_NO_PATH){
-      console.log(`[${this.room.name}] Creep ${this.name} cannot find a path while doing ${this.currentAction}...`);
+      this.say('stuck');
+      // console.log(`[${this.room.name}] Creep ${this.name} cannot find a path while doing ${this.currentAction}...`);
     }else{
       console.log(`[${this.room.name}] Creep moving error`, this.currentAction, moving, this.name);
     }
@@ -707,7 +731,7 @@ export class BasicCreep extends Creep {
 
     if (!roomAudit.creepCountsByRole.harvester){
       //Let the miners do it, the basic creeps are jamming things up...
-      if (this.rememberAction(this.startMining, 'mining')) return;
+      if (this.rememberAction(this.startHarvesting, 'mining')) return;
     }
 
     this.idle();
