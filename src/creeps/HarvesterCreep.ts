@@ -17,7 +17,7 @@ export class HarvesterCreep extends BasicCreep {
         cost: 550,
         body: [WORK, WORK, WORK, WORK, WORK, MOVE],
         max: (roomAudit:RoomAudit)=>{
-          return roomAudit.sources.length + (roomAudit.mineral?1:0);
+          return roomAudit.sources.length;
         },
       }
     ],
@@ -28,12 +28,6 @@ export class HarvesterCreep extends BasicCreep {
         }
         return out;
       }, undefined);
-      if (
-        !sourceAnchor &&
-        roomAudit.mineral &&
-        roomAudit.mineral.occupancy === 0 &&
-        roomAudit.mineral.anchor.pos.lookFor(LOOK_STRUCTURES).find(structure=>structure.structureType === STRUCTURE_EXTRACTOR)
-      ) return roomAudit.mineral;
       return sourceAnchor;
     },
     // modSpawnOptions: (roomAudit, options, spawner)=>{
