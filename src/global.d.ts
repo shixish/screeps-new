@@ -114,6 +114,7 @@ declare global {
     name:Room['name'],
     controller?:CreepAnchor<StructureController>,
     controllerLevel:number,
+    storedEnergy:number,
     mineral?:CreepAnchor<Mineral>,
     sources:CreepAnchor<Source>[],
     // sourceCount: number,

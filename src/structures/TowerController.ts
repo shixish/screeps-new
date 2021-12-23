@@ -1,4 +1,4 @@
-import { maxStorageFill, TOWER_REPAIR_STORAGE_MIN } from "utils/constants";
+import { TOWER_REPAIR_STORAGE_MIN } from "utils/constants";
 import { claimAmount, getClaimedAmount } from "utils/tickCache";
 
 export class TowerController extends StructureTower {
@@ -169,7 +169,6 @@ export class TowerController extends StructureTower {
     if (this.store.energy < 200) return false; //Leave energy to attack scouts that are stomping my construction sites (what fucking cunts)
     const storageIsFull = this.room.storage && this.room.storage.store.energy > TOWER_REPAIR_STORAGE_MIN;
 
-    maxStorageFill
     const repairable = this.room.find(FIND_STRUCTURES, {
       filter: (structure:OwnedStructure)=>{
         const repairAmount = TowerController.repairEffectiveness(this.pos.getRangeTo(structure));

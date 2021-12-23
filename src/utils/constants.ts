@@ -41,14 +41,17 @@ export const PART_COSTS = PART_COST;
 export const MAX_MINERALS_IN_STORE = 0.25;//%
 export const ALL_CLEAR_AFTER = 250;//game ticks till we look for changes to structure counts after an attack
 
+export const SOURCE_STORAGE_FILL = 300000;
+export const MINERALS_STORAGE_FILL = 300000;
 export const maxStorageFill = (resourceType:ResourceConstant)=>{
   switch(resourceType){
     case RESOURCE_ENERGY:
-      return 300000;
+      return SOURCE_STORAGE_FILL;
     default:
-      return 100000;
+      return MINERALS_STORAGE_FILL;
   }
 };
 
 //Towers will continue to repair as long as storage is above this percentage of the max fill.
-export const TOWER_REPAIR_STORAGE_MIN = maxStorageFill(RESOURCE_ENERGY)*0.75;
+export const TOWER_REPAIR_STORAGE_MIN = SOURCE_STORAGE_FILL*0.75;
+export const UPGRADER_STORAGE_MIN = SOURCE_STORAGE_FILL*0.5;

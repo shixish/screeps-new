@@ -4,7 +4,7 @@
 //   return room.memory.sources[source.id] || (room.memory.sources[source.id] = {});
 // };
 
-import { CreepRoleTypes } from "utils/constants";
+import { CreepRoleTypes, maxStorageFill } from "utils/constants";
 import { CreepAnchor } from "utils/CreepAnchor";
 import { roomAuditCache } from "../utils/tickCache";
 
@@ -160,10 +160,12 @@ export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
     const sources = getSources(room);
     const mineral = getMineral(room);
     const sourceSeats = sources.reduce((out, source)=>out + source.totalSeats, 0);
+    // const storagePercentage = room.storage?room.storage.store.energy/maxStorageFill(RESOURCE_ENERGY):0;
     const audit:RoomAudit = {
       name: room.name,
       controller: room.controller && new CreepAnchor(room.controller),
       controllerLevel: room.controller?.level || 0,
+      storedEnergy: room.storage?.store.energy || 0,
       mineral,
       sources,
       sourceSeats,

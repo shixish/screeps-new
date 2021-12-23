@@ -62,6 +62,7 @@ export class CourierCreep extends BasicCreep {
 
   work(){
     if (this.spawning) return;
+    if (this.commute()) return;
 
     const usedCapacity = this.store.getUsedCapacity();
     const energyCapacity = this.store.getUsedCapacity(RESOURCE_ENERGY);
