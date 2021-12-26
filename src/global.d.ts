@@ -1,7 +1,7 @@
 import { SpawnController } from "structures/SpawnController";
 import { FlagManager } from "managers/flags";
 import { CreepRoleType } from "utils/constants";
-import { CreepAnchor } from "utils/CreepAnchor";
+import { CreepAnchor, CreepMineralAnchor, CreepSourceAnchor } from "utils/CreepAnchor";
 
 declare global {
 //   /*
@@ -115,8 +115,8 @@ declare global {
     controller?:CreepAnchor<StructureController>,
     controllerLevel:number,
     storedEnergy:number,
-    mineral?:CreepAnchor<Mineral>,
-    sources:CreepAnchor<Source>[],
+    mineral?:CreepMineralAnchor,
+    sources:CreepSourceAnchor[],
     // sourceCount: number,
     sourceSeats: number,
     creeps: Creep[],

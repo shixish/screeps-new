@@ -75,6 +75,10 @@ export class CreepAnchor<AnchorType extends GenericAnchorType = GenericAnchorTyp
     });
   }
 
+  // get operational(){
+  //   return true;
+  // }
+
   get occupancy(){
     return this.memory.occupancy.length;
   }
@@ -89,6 +93,31 @@ export class CreepAnchor<AnchorType extends GenericAnchorType = GenericAnchorTyp
 
   addOccupant(creepName:Creep['name']){
     this.memory.occupancy.push(creepName);
+  }
+}
+
+export class CreepMineralAnchor extends CreepAnchor<Mineral>{
+  private _structure: Structure<StructureConstant> | undefined | null;
+
+  constructor(mineral:Mineral){
+    super(mineral);
+  }
+
+  get extractor(){
+    if (this._structure === undefined){
+      this._structure = this.anchor.pos.lookFor(LOOK_STRUCTURES).find(structure=>structure.structureType === STRUCTURE_EXTRACTOR) || null;
+    }
+    return this._structure;
+  }
+
+  // get operational(){
+  //   return !this.anchor.ticksToRegeneration;
+  // }
+}
+
+export class CreepSourceAnchor extends CreepAnchor<Source>{
+  constructor(source:Source){
+    super(source);
   }
 }
 

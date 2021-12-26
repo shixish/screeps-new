@@ -5,18 +5,21 @@ import { BasicCreep } from "./BasicCreep";
 export class MinerCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 2,
+    max: (roomAudit:RoomAudit)=>{
+      return (
+        roomAudit.controllerLevel >= 6,
+        roomAudit.mineral &&
+        roomAudit.mineral.anchor.mineralAmount &&
+        roomAudit.mineral.occupancy === 0 &&
+        roomAudit.mineral.extractor
+      ) ? 1 : 0;
+    },
     tiers: [
       {
         cost: 550,
-        body: [WORK, WORK, WORK, WORK, WORK, MOVE],
-        max: (roomAudit:RoomAudit)=>{
-          return (
-            roomAudit.controllerLevel >= 6,
-            roomAudit.mineral &&
-            roomAudit.mineral.occupancy === 0 &&
-            roomAudit.mineral.anchor.pos.lookFor(LOOK_STRUCTURES).find(structure=>structure.structureType === STRUCTURE_EXTRACTOR)
-          ) ? 1 : 0;
-        },
+        body: [
+          WORK, WORK, WORK, WORK, WORK, MOVE
+        ],
       },
       {
         cost: 1700,
@@ -26,14 +29,6 @@ export class MinerCreep extends BasicCreep {
           WORK, WORK, WORK, WORK, WORK,
           MOVE, MOVE, MOVE, MOVE,
         ],
-        max: (roomAudit:RoomAudit)=>{
-          return (
-            roomAudit.controllerLevel >= 6,
-            roomAudit.mineral &&
-            roomAudit.mineral.occupancy === 0 &&
-            roomAudit.mineral.anchor.pos.lookFor(LOOK_STRUCTURES).find(structure=>structure.structureType === STRUCTURE_EXTRACTOR)
-          ) ? 1 : 0;
-        },
       }
     ],
     getCreepAnchor: (roomAudit:RoomAudit)=>{

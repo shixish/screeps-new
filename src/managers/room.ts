@@ -5,7 +5,7 @@
 // };
 
 import { CreepRoleTypes, maxStorageFill } from "utils/constants";
-import { CreepAnchor } from "utils/CreepAnchor";
+import { CreepAnchor, CreepMineralAnchor, CreepSourceAnchor } from "utils/CreepAnchor";
 import { roomAuditCache } from "../utils/tickCache";
 
 // const lookAround = (object:RoomObject, callback=(result:LookAtResult<LookConstant>[])=>{})=>{
@@ -94,19 +94,19 @@ const lookAround = function*(object:RoomObject, callback=(result:LookAtResult<Lo
 // }
 
 const getSources = (room:Room)=>{
-  if (room.memory.sources) return room.memory.sources.map(id=>new CreepAnchor(Game.getObjectById(id) as Source))
+  if (room.memory.sources) return room.memory.sources.map(id=>new CreepSourceAnchor(Game.getObjectById(id) as Source))
   const sources = room.find(FIND_SOURCES);
   room.memory.sources = sources.map(source=>source.id);
-  return sources.map(source=>new CreepAnchor(source));
+  return sources.map(source=>new CreepSourceAnchor(source));
 };
 
 const getMineral = (room:Room)=>{
   if (room.memory.mineral === null) return;
-  if (room.memory.mineral) return new CreepAnchor(Game.getObjectById(room.memory.mineral) as Mineral);
+  if (room.memory.mineral) return new CreepMineralAnchor(Game.getObjectById(room.memory.mineral) as Mineral);
   const [ mineral ] = room.find(FIND_MINERALS);
   if (mineral){
     room.memory.mineral = mineral.id;
-    return new CreepAnchor(mineral);
+    return new CreepMineralAnchor(mineral);
   }else{
     room.memory.mineral = null;
     return;
