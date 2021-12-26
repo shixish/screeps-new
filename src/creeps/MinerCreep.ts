@@ -1,4 +1,5 @@
 import { getRoomAudit } from "managers/room";
+import { MINERALS_STORAGE_FILL } from "utils/constants";
 import { CreepAnchor } from "utils/CreepAnchor";
 import { BasicCreep } from "./BasicCreep";
 
@@ -8,6 +9,8 @@ export class MinerCreep extends BasicCreep {
     max: (roomAudit:RoomAudit)=>{
       return (
         roomAudit.controllerLevel >= 6,
+        roomAudit.storedEnergy &&
+        roomAudit.storedMineral < MINERALS_STORAGE_FILL &&
         roomAudit.mineral &&
         roomAudit.mineral.anchor.mineralAmount &&
         roomAudit.mineral.occupancy === 0 &&

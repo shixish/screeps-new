@@ -160,6 +160,7 @@ export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
     const sources = getSources(room);
     const mineral = getMineral(room);
     const sourceSeats = sources.reduce((out, source)=>out + source.totalSeats, 0);
+    const constructionSites = room.find(FIND_MY_CONSTRUCTION_SITES);
     // const storagePercentage = room.storage?room.storage.store.energy/maxStorageFill(RESOURCE_ENERGY):0;
     const audit:RoomAudit = {
       name: room.name,
@@ -167,11 +168,13 @@ export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
       controllerLevel: room.controller?.level || 0,
       storedEnergy: room.storage?.store.energy || 0,
       mineral,
+      storedMineral: mineral && room.storage?.store[mineral.anchor.mineralType] || 0,
       sources,
       sourceSeats,
       creeps,
       creepCountsByRole,
       flags:{},
+      constructionSites,
     };
     // console.log(`creepCountsByRole`, JSON.stringify(creepCountsByRole));
     roomAuditCache.set(room.name, audit);

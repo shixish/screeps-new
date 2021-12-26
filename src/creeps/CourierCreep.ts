@@ -37,26 +37,26 @@ export class CourierCreep extends BasicCreep {
           CARRY,
         ],
       },
-      // {
-      //   cost: 1200,
-      //   body: [
-      //     CARRY, MOVE,
-      //     CARRY, MOVE,
-      //     CARRY, MOVE,
-      //     CARRY, MOVE,
-      //     CARRY, MOVE,
-      //     CARRY, MOVE,
-      //     CARRY, MOVE,
-      //     CARRY, MOVE,
-      //     CARRY, MOVE,
-      //     CARRY, MOVE,
-      //     CARRY, MOVE,
-      //     CARRY, MOVE,
-      //   ],
-      //   max: (roomAudit)=>{
-      //     return roomAudit.sources.length;
-      //   },
-      // },
+      {
+        cost: 1200,
+        body: [
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+        ],
+        max: (roomAudit)=>{
+          return roomAudit.sources.length;
+        },
+      },
     ]
   }
 

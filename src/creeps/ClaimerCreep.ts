@@ -51,6 +51,7 @@ export class ClaimerCreep extends BasicCreep {
     const action = this.claimController(target);
     if (action === ERR_INVALID_TARGET){
       // flag?.remove(); //The flag can now be used to send remote workers
+      this.suicide(); //The creep is done with it's job, don't waste CPU on it
       return null;
     }
     const ok = this.respondToActionCode(action, target);

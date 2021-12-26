@@ -5,6 +5,16 @@ import { BasicCreep } from "./BasicCreep";
 export class RemoteWorkerCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 3,
+    max: (roomAudit)=>{
+      for (let flagName in roomAudit.flags){
+        const flagManager = roomAudit.flags[flagName];
+        // console.log(`flagManager.type`, flagManager.type, JSON.stringify(flagManager.followers, null, 2));
+        if (flagManager.type === FlagType.Claim && flagManager.suffix === roomAudit.name && flagManager.room && flagManager.room.controller?.my){
+          return Math.max(2-flagManager.followers.length, 0);
+        }
+      }
+      return 0;
+    },
     tiers: [
       {
         cost: 1200,
@@ -16,17 +26,20 @@ export class RemoteWorkerCreep extends BasicCreep {
           WORK, MOVE, CARRY,
           WORK, MOVE, CARRY,
         ],
-        max: (roomAudit)=>{
-          for (let flagName in roomAudit.flags){
-            const flagManager = roomAudit.flags[flagName];
-            // console.log(`flagManager.type`, flagManager.type, JSON.stringify(flagManager.followers, null, 2));
-            if (flagManager.type === FlagType.Claim && flagManager.suffix === roomAudit.name && flagManager.room && flagManager.room.controller?.my){
-              return Math.max(2-flagManager.followers.length, 0);
-            }
-          }
-          return 0;
-        }
-      }
+      },
+      // {
+      //   cost: 1500,
+      //   body: [
+      //     TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH,
+      //     WORK, MOVE, CARRY,
+      //     WORK, MOVE, CARRY,
+      //     WORK, MOVE, CARRY,
+      //     WORK, MOVE, CARRY,
+      //     WORK, MOVE, CARRY,
+      //     WORK, MOVE, CARRY,
+      //     MOVE, MOVE, MOVE, MOVE
+      //   ],
+      // }
     ],
     getCreepAnchor: (roomAudit)=>{
       for (let flagName in roomAudit.flags){

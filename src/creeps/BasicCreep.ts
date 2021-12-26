@@ -30,6 +30,10 @@ export class BasicCreep extends Creep {
 
   static config:CreepRole = {
     authority: 1,
+    max: roomAudit=>{
+      if (roomAudit.creeps.length < 2) return 1;
+      return Math.ceil(roomAudit.constructionSites.length/6);
+    },
     tiers: [
       {
         cost: 300,
@@ -37,20 +41,14 @@ export class BasicCreep extends Creep {
           WORK,
           CARRY, MOVE,
           CARRY, MOVE,
-        ],
-        max: (roomAudit)=>{
-          return roomAudit.sources.length;
-        }
+        ]
       },
       {
         cost: 400,
         body: [
           WORK, MOVE, CARRY,
           WORK, MOVE, CARRY,
-        ],
-        max: (roomAudit)=>{
-          return roomAudit.sources.length;
-        }
+        ]
       },
       {
         cost: 550,
@@ -58,10 +56,7 @@ export class BasicCreep extends Creep {
           WORK, MOVE,
           WORK, MOVE, CARRY,
           WORK, MOVE, CARRY,
-        ],
-        max: (roomAudit)=>{
-          return roomAudit.sources.length;
-        }
+        ]
       },
       {
         cost: 1200, //CL5:1800
@@ -72,10 +67,7 @@ export class BasicCreep extends Creep {
           WORK, MOVE, CARRY,
           WORK, MOVE, CARRY,
           WORK, MOVE, CARRY,
-        ],
-        max: (roomAudit)=>{
-          return roomAudit.sources.length;
-        }
+        ]
       }
     ]
   };
@@ -401,31 +393,66 @@ export class BasicCreep extends Creep {
   }
 
   startEnergizing(storedTarget:TargetableTypes){
+    type EnergizeTargets = StructureSpawn|StructureExtension|StructureTower|StructureTower;
     const resourceType = RESOURCE_ENERGY;
     const checkCapacity = (structure:StructureSpawn|StructureExtension|StructureTower)=>{
       return structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
     };
-    const checkActiveCapacity = (structure:StructureTower|StructureContainer)=>{
+    const checkActiveCapacity = (structure:EnergizeTargets, minRequested = this.store.getCapacity(resourceType)*0.75)=>{
       //Only start energizing towers if they request at least 25% of the creep's stored energy.
       //This is to prevent it from spoon feeding the tower while it repairs things each turn.
-      return structure.store.getFreeCapacity(resourceType) - getClaimedAmount(structure.id, resourceType) > this.store.getCapacity(resourceType)*0.75;
+      return structure.store.getFreeCapacity(resourceType) - getClaimedAmount(structure.id, resourceType) > minRequested;
     };
+    const targets:Partial<Record<StructureConstant, { priority:number, minRequested:number }>> = {
+      [STRUCTURE_SPAWN]: {
+        priority: 0,
+        minRequested: 0,
+      },
+      [STRUCTURE_EXTENSION]: {
+        priority: 0,
+        minRequested: 0,
+      },
+      [STRUCTURE_TOWER]: {
+        priority: 1,
+        minRequested: this.store.getCapacity(resourceType)*0.75,
+      },
+    };
+    const findStructure = ():EnergizeTargets|undefined=>{
+      let bestStructure:AnyOwnedStructure|undefined, bestDistance:number, bestPriority:number;
+      this.room.find(FIND_MY_STRUCTURES, {
+        filter: structure=>{
+          const target = targets[structure.structureType];
+          if (target){
+            const { priority, minRequested } = target;
+            const distance = this.pos.getRangeTo(structure);
+            if ((!bestStructure || priority <= bestPriority && distance < bestDistance) && checkActiveCapacity(structure as StructureSpawn, minRequested)){
+              bestStructure = structure;
+              bestDistance = distance;
+              bestPriority = priority;
+            }
+          }
+        },
+      });
+      return bestStructure as any;
+    };
+
     const structure =
       storedTarget instanceof StructureSpawn && checkCapacity(storedTarget) && storedTarget ||
       storedTarget instanceof StructureExtension && checkCapacity(storedTarget) && storedTarget ||
-      this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
-        filter: (structure:StructureSpawn|StructureExtension)=>{
-          if (structure.structureType !== STRUCTURE_EXTENSION && structure.structureType !== STRUCTURE_SPAWN) return false;
-          return checkCapacity(structure);
-        }
-      }) as StructureSpawn ||
+      // this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
+      //   filter: (structure:StructureSpawn|StructureExtension)=>{
+      //     if (structure.structureType !== STRUCTURE_EXTENSION && structure.structureType !== STRUCTURE_SPAWN) return false;
+      //     return checkCapacity(structure);
+      //   }
+      // }) as StructureSpawn ||
       storedTarget instanceof StructureTower && checkActiveCapacity(storedTarget) && storedTarget ||
-      this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
-        filter: (structure:StructureTower)=>{
-          if (structure.structureType !== STRUCTURE_TOWER) return false;
-          return checkActiveCapacity(structure);
-        }
-      }) as StructureTower;
+      // this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
+      //   filter: (structure:StructureTower)=>{
+      //     if (structure.structureType !== STRUCTURE_TOWER) return false;
+      //     return checkActiveCapacity(structure);
+      //   }
+      // }) as StructureTower
+      findStructure();
     if (!structure) return null;
     if (this.moveWithinRange(structure.pos, 1)) return structure;
     const action = this.transfer(structure, resourceType);
@@ -440,7 +467,7 @@ export class BasicCreep extends Creep {
   //This is used to stock containers that sit next to controllers. Other tasks have higher priority so this needed to be split off.
   startStocking(storedTarget:TargetableTypes){
     const resourceType = RESOURCE_ENERGY;
-    const checkActiveCapacity = (structure:StructureContainer)=>{
+    const checkActiveCapacity = (structure:StructureContainer|StructureLab)=>{
       //Only start energizing towers if they request at least 25% of the creep's stored energy.
       //This is to prevent it from spoon feeding the tower while it repairs things each turn.
       return structure.store.getFreeCapacity(resourceType) - getClaimedAmount(structure.id, resourceType) > this.store.getCapacity(resourceType)*0.75;
@@ -448,7 +475,14 @@ export class BasicCreep extends Creep {
     const roomAudit = getRoomAudit(this.room);
     const structure =
       storedTarget instanceof StructureContainer && checkActiveCapacity(storedTarget) && storedTarget ||
-      roomAudit.controller?.containers.find(checkActiveCapacity);
+      storedTarget instanceof StructureLab && checkActiveCapacity(storedTarget) && storedTarget ||
+      roomAudit.controller?.containers.find(checkActiveCapacity)
+      this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
+        filter: (structure:StructureLab)=>{
+          if (structure.structureType !== STRUCTURE_LAB) return false;
+          return checkActiveCapacity(structure);
+        }
+      }) as StructureTower
     if (!structure) return null;
     if (this.moveWithinRange(structure.pos, 1)) return structure;
     const action = this.transfer(structure, resourceType);

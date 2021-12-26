@@ -14,6 +14,8 @@ export function countAvailableSeats(pos:RoomPosition){
 if (!Memory.anchors) Memory.anchors = {};
 export type GenericAnchorType = Source|Mineral|Structure;
 export class CreepAnchor<AnchorType extends GenericAnchorType = GenericAnchorType>{
+  private _link: StructureLink | undefined | null;
+
   anchor:AnchorType;
   containers: StructureContainer[] = [];
   // getCapacity = ()=>{
@@ -75,6 +77,13 @@ export class CreepAnchor<AnchorType extends GenericAnchorType = GenericAnchorTyp
     });
   }
 
+  get link(){
+    if (this._link === undefined){
+      this._link = this.anchor.pos.lookFor(LOOK_STRUCTURES).find(structure=>structure.structureType === STRUCTURE_LINK) as StructureLink || null;
+    }
+    return this._link;
+  }
+
   // get operational(){
   //   return true;
   // }
@@ -97,17 +106,17 @@ export class CreepAnchor<AnchorType extends GenericAnchorType = GenericAnchorTyp
 }
 
 export class CreepMineralAnchor extends CreepAnchor<Mineral>{
-  private _structure: Structure<StructureConstant> | undefined | null;
+  private _extractor: StructureExtractor | undefined | null;
 
   constructor(mineral:Mineral){
     super(mineral);
   }
 
   get extractor(){
-    if (this._structure === undefined){
-      this._structure = this.anchor.pos.lookFor(LOOK_STRUCTURES).find(structure=>structure.structureType === STRUCTURE_EXTRACTOR) || null;
+    if (this._extractor === undefined){
+      this._extractor = this.anchor.pos.lookFor(LOOK_STRUCTURES).find(structure=>structure.structureType === STRUCTURE_EXTRACTOR) as StructureExtractor || null;
     }
-    return this._structure;
+    return this._extractor;
   }
 
   // get operational(){

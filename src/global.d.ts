@@ -116,12 +116,14 @@ declare global {
     controllerLevel:number,
     storedEnergy:number,
     mineral?:CreepMineralAnchor,
+    storedMineral:number,
     sources:CreepSourceAnchor[],
     // sourceCount: number,
-    sourceSeats: number,
-    creeps: Creep[],
-    creepCountsByRole: Record<CreepRoleType, number>,
+    sourceSeats:number,
+    creeps:Creep[],
+    creepCountsByRole:Record<CreepRoleType, number>,
     flags:Record<Flag['name'], FlagManager>,
+    constructionSites:ConstructionSite[],
   }
 
   interface RoomMemory{

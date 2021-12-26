@@ -33,7 +33,8 @@ export class UpgraderCreep extends BasicCreep {
           MOVE,
         ],
         max: (roomAudit:RoomAudit)=>{
-          return 1 + (roomAudit.storedEnergy > UPGRADER_STORAGE_MIN ? 1 : 0);
+          //My couriers aren't bringing them enough energy to actually keep 2 of them busy
+          return 1; //+ (roomAudit.storedEnergy > UPGRADER_STORAGE_MIN ? 1 : 0);
         },
       },
       // { //This will consume 15 energy per tick. 1 Source gives 10 energy per tick. This might be too much...
