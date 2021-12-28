@@ -5,6 +5,7 @@ import { BasicCreep } from "./BasicCreep";
 export class UpgraderCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 1,
+    max: (roomAudit:RoomAudit)=>roomAudit.controller?.containers.length ? 1 : 0,
     tiers: [
       {
         cost: 350,
@@ -13,7 +14,6 @@ export class UpgraderCreep extends BasicCreep {
           CARRY, CARRY,
           MOVE,
         ],
-        max: (roomAudit:RoomAudit)=>1,
       },
       {
         cost: 650,
@@ -22,7 +22,6 @@ export class UpgraderCreep extends BasicCreep {
           CARRY, CARRY,
           MOVE,
         ],
-        max: (roomAudit:RoomAudit)=>roomAudit.sources.length,
       },
       {
         cost: 1150,
@@ -32,10 +31,10 @@ export class UpgraderCreep extends BasicCreep {
           CARRY, CARRY,
           MOVE,
         ],
-        max: (roomAudit:RoomAudit)=>{
-          //My couriers aren't bringing them enough energy to actually keep 2 of them busy
-          return 1; //+ (roomAudit.storedEnergy > UPGRADER_STORAGE_MIN ? 1 : 0);
-        },
+        // max: (roomAudit:RoomAudit)=>{
+        //   //My couriers aren't bringing them enough energy to actually keep 2 of them busy
+        //   return 1; //+ (roomAudit.storedEnergy > UPGRADER_STORAGE_MIN ? 1 : 0);
+        // },
       },
       // { //This will consume 15 energy per tick. 1 Source gives 10 energy per tick. This might be too much...
       //   cost: 1700,

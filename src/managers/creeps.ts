@@ -9,7 +9,6 @@ import { RemoteWorkerCreep } from "creeps/RemoteWorkerCreep";
 import { MinerCreep } from "creeps/MinerCreep";
 
 export const CreepRoles = { //:Record<CreepRoleName, typeof BasicCreep>
-  [CreepRoleType.Basic]: BasicCreep,
   [CreepRoleType.Harvester]: HarvesterCreep,
   [CreepRoleType.Miner]: MinerCreep,
   [CreepRoleType.Courier]: CourierCreep,
@@ -17,6 +16,7 @@ export const CreepRoles = { //:Record<CreepRoleName, typeof BasicCreep>
   [CreepRoleType.Upgrader]: UpgraderCreep,
   [CreepRoleType.Claimer]: ClaimerCreep,
   [CreepRoleType.RemoteWorker]: RemoteWorkerCreep,
+  [CreepRoleType.Basic]: BasicCreep,
 } as const;
 
 export const getCreepName = (roleName = 'Creep')=>{

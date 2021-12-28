@@ -32,7 +32,8 @@ export class BasicCreep extends Creep {
     authority: 1,
     max: roomAudit=>{
       if (roomAudit.creeps.length < 2) return 1;
-      return Math.ceil(roomAudit.constructionSites.length/6);
+      //We need a basic creep to do the initial upgrading before we build a dedicated upgrader
+      return Math.max(Math.ceil(roomAudit.constructionSites.length/6), !roomAudit.creepCountsByRole.upgrader ? 1 : 0);
     },
     tiers: [
       {
@@ -271,7 +272,9 @@ export class BasicCreep extends Creep {
     if (freeCapacity === 0) return null;
     const resourceType:ResourceConstant = RESOURCE_ENERGY;
     const checkCapacity = (storage:StructureContainer|StructureStorage)=>{
-      return getClaimedAmount(storage.id, resourceType) < storage.store[resourceType];
+      //10 is how much energy is sent to the source containers per tick
+      //This is to have the courier creeps go use whatever energy they have rather than wait idle for the trickle of 10 energy per tick
+      return getClaimedAmount(storage.id, resourceType) < storage.store.getUsedCapacity(resourceType) - 10;
     }
     const roomAudit = getRoomAudit(this.room);
     const findSourceContainer = ()=>{
@@ -308,7 +311,7 @@ export class BasicCreep extends Creep {
     if (this.moveWithinRange(storage.pos, 1)) return storage;
     const action = this.withdraw(storage, resourceType);
     const ok = this.respondToActionCode(action, storage);
-    if (ok) claimAmount(storage.id, resourceType, Math.min(freeCapacity, storage.store[resourceType]));
+    if (ok) claimAmount(storage.id, resourceType, freeCapacity);
     return ok;
   }
 
@@ -351,18 +354,28 @@ export class BasicCreep extends Creep {
   }
 
   startSpreading(storedTarget:TargetableTypes){
-    const maxFillPercentage = 0.75; //75%;
+    // const maxFillPercentage = 0.75; //75%;
     const resourceType = RESOURCE_ENERGY;
     if (this.canWork) return null; //If this is a worker don't bother giving away your resources
     if (this.store[resourceType] === 0) return null;
-    const checkCreep = (creep:Creep)=>{
-      return creep.id !== this.id && creep.memory.counts.work && creep.memory.seated !== false && creep.store.getUsedCapacity(resourceType) + getClaimedAmount(creep.id, resourceType) < creep.store.getCapacity(resourceType)*maxFillPercentage;
-    };
-    const target =
-      storedTarget instanceof Creep && checkCreep(storedTarget) && storedTarget ||
-      this.pos.findClosestByRange(FIND_MY_CREEPS, {
-        filter: checkCreep
-      });
+    // const checkCreep = (creep:Creep)=>{
+    //   return creep.id !== this.id && creep.memory.counts.work && creep.memory.seated !== false && creep.store.getUsedCapacity(resourceType) + getClaimedAmount(creep.id, resourceType) < creep.store.getCapacity(resourceType)*maxFillPercentage;
+    // };
+    // const target =
+    //   storedTarget instanceof Creep && checkCreep(storedTarget) && storedTarget ||
+    //   this.pos.findClosestByRange(FIND_MY_CREEPS, {
+    //     filter: checkCreep
+    //   });
+    const { target } = this.pos.findInRange(FIND_MY_CREEPS, 1).reduce((out, creep)=>{
+      if (creep.id !== this.id && creep.memory.counts.work && creep.memory.seated !== false){
+        const amount = creep.store.getUsedCapacity(resourceType)-getClaimedAmount(creep.id, resourceType);
+        if (amount > out.amount){
+          out.target = creep;
+          out.amount = amount;
+        }
+      }
+      return out;
+    }, { target: undefined as Creep|undefined, amount: 0 });
     if (!target) return null;
     if (this.moveWithinRange(target.pos, 1)) return target;
     const action = this.transfer(target, resourceType);
@@ -468,9 +481,7 @@ export class BasicCreep extends Creep {
   startStocking(storedTarget:TargetableTypes){
     const resourceType = RESOURCE_ENERGY;
     const checkActiveCapacity = (structure:StructureContainer|StructureLab)=>{
-      //Only start energizing towers if they request at least 25% of the creep's stored energy.
-      //This is to prevent it from spoon feeding the tower while it repairs things each turn.
-      return structure.store.getFreeCapacity(resourceType) - getClaimedAmount(structure.id, resourceType) > this.store.getCapacity(resourceType)*0.75;
+      return structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
     };
     const roomAudit = getRoomAudit(this.room);
     const structure =
@@ -482,14 +493,14 @@ export class BasicCreep extends Creep {
           if (structure.structureType !== STRUCTURE_LAB) return false;
           return checkActiveCapacity(structure);
         }
-      }) as StructureTower
+      }) as StructureLab
     if (!structure) return null;
     if (this.moveWithinRange(structure.pos, 1)) return structure;
     const action = this.transfer(structure, resourceType);
     const ok = this.respondToActionCode(action, structure);
     if (ok){
-      const amount = Math.min(structure.store.getFreeCapacity(resourceType), this.store[resourceType]);
-      claimAmount(structure.id, resourceType, amount);
+      // const amount = Math.min(structure.store.getFreeCapacity(resourceType), this.store[resourceType]);
+      claimAmount(structure.id, resourceType, this.store.getUsedCapacity(resourceType));
     }
     return ok;
   }

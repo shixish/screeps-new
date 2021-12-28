@@ -93,6 +93,7 @@ export class CourierCreep extends BasicCreep {
       // }
       if (this.rememberAction(this.startSpreading, 'spreading')) return;
       if (this.rememberAction(this.startEnergizing, 'energizing')) return;
+      if (this.rememberAction(this.startStocking, 'stocking', ['upgrading'])) return;
       if (!triedStoring && this.rememberAction(this.startStoring, 'storing')) return;
     }
 
