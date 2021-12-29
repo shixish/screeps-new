@@ -133,6 +133,7 @@ export class SpawnController extends StructureSpawn{
         if (tier.cost > this.room.energyAvailable) return;
         console.log(`Creep Counts:`, JSON.stringify(roomAudit.creepCountsByRole, null, 2));
         console.log(`Spawning ${roleToSpawn} creep (cost:${tier.cost}) in [${this.room.name}]`);// with memory:`, JSON.stringify(options, null, 2));
+        roomAudit.creepCountsByRole[roleToSpawn]++; //Inflate the number now so that any other spawns in the room don't try to build the same thing
         this.spawnCreep(tier.body, name, options);
       }
     }

@@ -24,12 +24,12 @@ export class UpgraderCreep extends BasicCreep {
         ],
       },
       {
-        cost: 1150,
+        cost: 1200,
         body: [
           WORK, WORK, WORK, WORK, WORK,
           WORK, WORK, WORK, WORK, WORK,
           CARRY, CARRY,
-          MOVE,
+          MOVE, MOVE,
         ],
         // max: (roomAudit:RoomAudit)=>{
         //   //My couriers aren't bringing them enough energy to actually keep 2 of them busy
@@ -70,7 +70,11 @@ export class UpgraderCreep extends BasicCreep {
       const container = roomAudit.controller?.containers.find(container=>{
         return container.store.energy > 0;
       });
-      if (container) this.startTakingEnergy(container);
+      if (container){
+        //Not using startTakingEnergy because it does more complicated things and this creep should only be concerned with it's designated container
+        if (this.moveWithinRange(container.pos, 1)) return;
+        this.withdraw(container, RESOURCE_ENERGY);
+      }
     }
   }
 }

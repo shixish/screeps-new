@@ -130,6 +130,12 @@ export class CreepSourceAnchor extends CreepAnchor<Source>{
   }
 }
 
+export class CreepControllerAnchor extends CreepAnchor<Source>{
+  constructor(source:Source){
+    super(source);
+  }
+}
+
 // export class CreepObjectAnchor<AnchorType extends Source|Structure = Source|Structure> extends CreepAnchor<AnchorType>{
 //   constructor(anchor:AnchorType){
 //     super(anchor);
