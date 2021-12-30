@@ -10,9 +10,14 @@ export const objectCache = new Map<string, TickCache>();
 export const roomAuditCache = new Map<Room["name"], RoomAudit>();
 export const creepAnchorCache = new Map<Id<StructureConstant>, CreepAnchor>();
 
+const DEBUG_IDS = ['61ce31534016a24fd394b909'];
+
 export const getClaimedAmount = (objectId:string, resourceType:ClaimableConstant)=>{
   const cache = objectCache.get(objectId);
   if (!cache || !cache.claimedQuantities) return 0;
+  if (DEBUG_IDS.includes(objectId)){
+    console.log(`DEBUG getClaimedAmount(${objectId}, ${resourceType}) == ${cache.claimedQuantities[resourceType]}`);
+  }
   return cache.claimedQuantities[resourceType] || 0;
 };
 
@@ -22,6 +27,9 @@ export const claimAmount = (objectId:string, resourceType:ClaimableConstant, amo
   if (!cache.claimedQuantities) cache.claimedQuantities = {};
   cache.claimedQuantities[resourceType] = getClaimedAmount(objectId, resourceType) + amount;
   objectCache.set(objectId, cache);
+  if (DEBUG_IDS.includes(objectId)){
+    console.log(`DEBUG claimAmount(${objectId}, ${resourceType}, ${amount})`);
+  }
 };
 
 interface RoomObjectWithStore extends RoomObject{
@@ -32,6 +40,9 @@ interface RoomObjectWithStore extends RoomObject{
 //   return object.store.getUsedCapacity(resourceType) - getClaimedAmount(object.id, resourceType);
 // };
 export const getResourceAvailable = (object:RoomObjectWithStore, resourceType:ResourceConstant = RESOURCE_ENERGY)=>{
+  if (DEBUG_IDS.includes(object.id)){
+    console.log(`DEBUG getResourceAvailable(${object}, ${resourceType}) == ${object.store.getUsedCapacity(resourceType)} - ${getClaimedAmount(object.id, resourceType)} == ${object.store.getUsedCapacity(resourceType) - getClaimedAmount(object.id, resourceType)}`);
+  }
   return object.store.getUsedCapacity(resourceType) - getClaimedAmount(object.id, resourceType);
 };
 
@@ -39,6 +50,9 @@ export const getResourceAvailable = (object:RoomObjectWithStore, resourceType:Re
 //   return object.store.getFreeCapacity(resourceType) + getClaimedAmount(object.id, resourceType);
 // };
 export const getResourceSpace = (object:RoomObjectWithStore, resourceType:ResourceConstant = RESOURCE_ENERGY)=>{
+  if (DEBUG_IDS.includes(object.id)){
+    console.log(`DEBUG getResourceSpace(${object}, ${resourceType}) == ${object.store.getFreeCapacity(resourceType)} + ${getClaimedAmount(object.id, resourceType)} == ${object.store.getFreeCapacity(resourceType) + getClaimedAmount(object.id, resourceType)}`);
+  }
   return object.store.getFreeCapacity(resourceType) + getClaimedAmount(object.id, resourceType);
 };
 

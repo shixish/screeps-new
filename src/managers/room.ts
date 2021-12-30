@@ -157,6 +157,14 @@ export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
       const role = Memory.creeps[creep.name].role;
       creepCountsByRole[role]++;
     });
+    const spawns = room.find(FIND_MY_SPAWNS);
+    spawns.forEach(spawn=>{
+      if (spawn.spawning){
+        //Count spawning creeps. This is relevant when there are multiple spawns in a room. Otherwise the second spawn doesn't know that a new creep is already in production.
+        const role = Memory.creeps[spawn.spawning.name].role;
+        creepCountsByRole[role]++;
+      }
+    });
     const sources = getSources(room);
     const mineral = getMineral(room);
     const sourceSeats = sources.reduce((out, source)=>out + source.totalSeats, 0);

@@ -1,6 +1,5 @@
 import { getRoomAudit } from "managers/room";
 import { MINERALS_STORAGE_FILL } from "utils/constants";
-import { CreepAnchor } from "utils/CreepAnchor";
 import { BasicCreep } from "./BasicCreep";
 
 export class MinerCreep extends BasicCreep {
@@ -66,15 +65,12 @@ export class MinerCreep extends BasicCreep {
     const checkCapacity = (mineral:Mineral)=>{
       return mineral.mineralAmount > 0 && checkExtractorCooldown(mineral);
     };
-
     const mineral = storedTarget instanceof Mineral && checkCapacity(storedTarget) && storedTarget;
-
     if (!mineral) return null;
-    if (this.moveWithinRange(mineral.pos, 1)) return mineral;
-    const action = this.harvest(mineral);
-    if (action === ERR_NOT_ENOUGH_ENERGY) return null; //This happens if you have too many miners on a source
-    const ok = this.respondToActionCode(action, mineral);
-    return ok;
+    if (this.moveWithinRange(mineral.pos, 1) || this.manageActionCode(this.harvest(mineral))){
+      return mineral;
+    }
+    return null;
   }
 
   work(){

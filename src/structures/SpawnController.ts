@@ -40,6 +40,10 @@ export class SpawnController extends StructureSpawn{
     //   //TODO: Repair the lowest creep
     //   // this.renewCreep
     // }
+    // if (this.spawning){
+    //   const roomAudit = getRoomAudit(this.room);
+    //   console.log(`DEBUG: Creep Counts:`, JSON.stringify(roomAudit.creepCountsByRole, null, 2));
+    // }
     if (!this.spawning){
       // const sources = this.room.find(FIND_SOURCES);
       // sources.forEach(source=>{
@@ -129,9 +133,11 @@ export class SpawnController extends StructureSpawn{
         }
         // if (config.modSpawnOptions) config.modSpawnOptions(roomAudit, options, this);
         if (tier.cost > this.room.energyAvailable) return;
-        console.log(`Creep Counts:`, JSON.stringify(roomAudit.creepCountsByRole, null, 2));
+        //Inflate the number now so that any other spawns in the room don't try to build the same thing. This is only sufficient for this tick. The room audit needs to count creeps being produced in spawns.
+        // console.log(`Creep Counts:`, JSON.stringify(roomAudit.creepCountsByRole, null, 2));
         console.log(`Spawning ${roleToSpawn} creep (cost:${tier.cost}) in [${this.room.name}]`);// with memory:`, JSON.stringify(options, null, 2));
-        roomAudit.creepCountsByRole[roleToSpawn]++; //Inflate the number now so that any other spawns in the room don't try to build the same thing
+        roomAudit.creepCountsByRole[roleToSpawn]++;
+        console.log(`New ${roleToSpawn} creep count:`, roomAudit.creepCountsByRole[roleToSpawn]);
         this.spawnCreep(tier.body, name, options);
       }
     }

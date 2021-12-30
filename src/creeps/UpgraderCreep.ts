@@ -1,5 +1,6 @@
 import { getRoomAudit } from "managers/room";
 import { UPGRADER_STORAGE_MIN } from "utils/constants";
+import { claimAmount } from "utils/tickCache";
 import { BasicCreep } from "./BasicCreep";
 
 export class UpgraderCreep extends BasicCreep {
@@ -56,29 +57,31 @@ export class UpgraderCreep extends BasicCreep {
 
   startTakingFromControllerContainer(){
     //Not using startTakingEnergy because it does more complicated things and this creep should only be concerned with it's designated container
+    const resourceType = RESOURCE_ENERGY;
     const roomAudit = getRoomAudit(this.room);
     const container = roomAudit.controller?.containers.find(container=>{
       return container.store.energy > 0;
     });
     if (container){
-      if (!this.moveWithinRange(container.pos, 1)){
-        this.withdraw(container, RESOURCE_ENERGY);
+      if (this.moveWithinRange(container.pos, 1) || this.manageActionCode(this.withdraw(container, resourceType))){
+        claimAmount(this.id, resourceType, Math.min(container.store.getUsedCapacity(resourceType), this.store.getCapacity()));
+        return container;
       }
-      return true;
     }
-    return false;
+    return null;
   }
 
   startTakingFromControllerLink(){
+    const resourceType = RESOURCE_ENERGY;
     const roomAudit = getRoomAudit(this.room);
     const link = roomAudit.controller?.link;
     if (link && link.store.energy > 0){
-      if (!this.moveWithinRange(link.pos, 1)){
-        this.withdraw(link, RESOURCE_ENERGY);
+      if (this.moveWithinRange(link.pos, 1) || this.manageActionCode(this.withdraw(link, resourceType))){
+        claimAmount(this.id, resourceType, Math.min(link.store.getUsedCapacity(resourceType), this.store.getCapacity()));
+        return link;
       }
-      return true;
     }
-    return false;
+    return null;
   }
 
   work(){
@@ -94,7 +97,7 @@ export class UpgraderCreep extends BasicCreep {
       this.startUpgrading();
     }else{
       if (this.startTakingFromControllerContainer()) return;
-      if (this.startTakingFromControllerLink()) return;
+      // if (this.startTakingFromControllerLink()) return;
     }
   }
 }

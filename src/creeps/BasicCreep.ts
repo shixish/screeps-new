@@ -179,31 +179,47 @@ export class BasicCreep extends Creep {
     if (!target.id) return null;
     return Game.getObjectById(target.id);
   }
-  respondToActionCode(action:ScreepsReturnCode, target:NonNullable<TargetableTypes>):TargetableTypes{
+  manageActionCode(action:ScreepsReturnCode):boolean{
     if (action === OK){
-      return target;
+      return true;
     } else if (action === ERR_NOT_IN_RANGE){
-      const moving = this.moveTo(target);
-      if (moving === OK || moving === ERR_TIRED){
-        return target;
-      }
-      if (moving === ERR_NO_PATH){
-        console.log(`[${this.room.name}] Creep ${this.name} cannot find a path while doing ${this.currentAction}...`);
-      }else{
-        console.log(`[${this.room.name}] Creep moving error`, this.currentAction, moving, this.name);
-      }
+      console.log(`[${this.room.name}] Creep ${this.name} is not in range while doing ${this.currentAction}...`);
     } else {
       if (action === ERR_FULL){
         console.log(`[${this.room.name}] Creep ${this.name} is full while doing ${this.currentAction}...`);
       }else if (action === ERR_NOT_ENOUGH_ENERGY){
         console.log(`[${this.room.name}] Creep ${this.name} is out of energy while doing ${this.currentAction}...`);
       }else{
-        console.log(`[${this.room.name}] Creep action error`, this.currentAction, action, this.name);
+        console.log(`[${this.room.name}] Creep ${this.name} error ${action} while doing ${this.currentAction}...`);
       }
-      // throw action;
     }
-    return null;
+    return false;
   }
+  // respondToActionCode(action:ScreepsReturnCode, target:NonNullable<TargetableTypes>):TargetableTypes{
+  //   if (action === OK){
+  //     return target;
+  //   } else if (action === ERR_NOT_IN_RANGE){
+  //     const moving = this.moveTo(target);
+  //     if (moving === OK || moving === ERR_TIRED){
+  //       return target;
+  //     }
+  //     if (moving === ERR_NO_PATH){
+  //       console.log(`[${this.room.name}] Creep ${this.name} cannot find a path while doing ${this.currentAction}...`);
+  //     }else{
+  //       console.log(`[${this.room.name}] Creep moving error`, this.currentAction, moving, this.name);
+  //     }
+  //   } else {
+  //     if (action === ERR_FULL){
+  //       console.log(`[${this.room.name}] Creep ${this.name} is full while doing ${this.currentAction}...`);
+  //     }else if (action === ERR_NOT_ENOUGH_ENERGY){
+  //       console.log(`[${this.room.name}] Creep ${this.name} is out of energy while doing ${this.currentAction}...`);
+  //     }else{
+  //       console.log(`[${this.room.name}] Creep action error`, this.currentAction, action, this.name);
+  //     }
+  //     // throw action;
+  //   }
+  //   return null;
+  // }
 
   /***********
    * ACTIONS *
@@ -226,11 +242,10 @@ export class BasicCreep extends Creep {
         }
       });
     if (resource){
-      if (this.moveWithinRange(resource.pos, 1)) return resource;
-      const action = this.pickup(resource);
-      const ok = this.respondToActionCode(action, resource);
-      if (ok) claimAmount(resource.id, resource.resourceType, Math.min(freeCapacity, resource.amount));
-      return ok;
+      if (this.moveWithinRange(resource.pos, 1) || this.manageActionCode(this.pickup(resource))){
+        claimAmount(resource.id, resource.resourceType, Math.min(freeCapacity, resource.amount));
+        return resource;
+      }
     }
 
     const checkCapacity = (target:Tombstone|Ruin)=>{
@@ -253,14 +268,11 @@ export class BasicCreep extends Creep {
         // console.log('Invalid resource type in tombstone:', JSON.stringify(tombstone.store));
         return null;
       }
-      if (this.moveWithinRange(tombstone.pos, 1)) return tombstone;
-      const action = this.withdraw(tombstone, resourceType);
-      const ok = this.respondToActionCode(action, tombstone);
-      if (ok){
+      if (this.moveWithinRange(tombstone.pos, 1) || this.manageActionCode(this.withdraw(tombstone, resourceType))){
         const amount = Math.min(freeCapacity, tombstone.store[resourceType]);
         claimAmount(tombstone.id, resourceType, amount);
+        return tombstone;
       }
-      return ok;
     }
     return null;
   }
@@ -313,13 +325,12 @@ export class BasicCreep extends Creep {
       // }) as StructureContainer;
     // console.log(`container`, container);
     if (!storage) return null;
-    if (this.moveWithinRange(storage.pos, 1)) return storage;
-    const action = this.withdraw(storage, resourceType);
-    const ok = this.respondToActionCode(action, storage);
-    if (ok){
+
+    if (this.moveWithinRange(storage.pos, 1) || this.manageActionCode(this.withdraw(storage, resourceType))){
       claimAmount(storage.id, resourceType, freeCapacity);
+      return storage;
     }
-    return ok;
+    return null;
   }
 
   /* start transferring minerals other than energy */
@@ -351,18 +362,16 @@ export class BasicCreep extends Creep {
           return checkCapacity(container);
         }
       }) as StructureContainer;
-    // console.log(`container`, container);
     if (!storage || !resourceType) return null;
-    // console.log(`Start taking`, resourceType);
-    if (this.moveWithinRange(storage.pos, 1)) return storage;
-    const action = this.withdraw(storage, resourceType);
-    const ok = this.respondToActionCode(action, storage);
-    if (ok) claimAmount(storage.id, resourceType, Math.min(freeCapacity, storage.store[resourceType]));
-    return ok;
+    if (this.moveWithinRange(storage.pos, 1) || this.manageActionCode(this.withdraw(storage, resourceType))){
+      claimAmount(storage.id, resourceType, Math.min(freeCapacity, storage.store[resourceType]));
+      return storage;
+    }
+    return null;
   }
 
   startSpreading(storedTarget:TargetableTypes){
-    const maxFillPercentage = 0.75; //75%;
+    // const maxFillPercentage = 0.75; //75%;
     const resourceType = RESOURCE_ENERGY;
     if (this.canWork) return null; //If this is a worker don't bother giving away your resources
     if (this.store[resourceType] === 0) return null;
@@ -386,11 +395,11 @@ export class BasicCreep extends Creep {
     //   return out;
     // }, { target: undefined as Creep|undefined, amount: 0 });
     if (!target) return null;
-    if (this.moveWithinRange(target.pos, 1)) return target;
-    const action = this.transfer(target, resourceType);
-    const ok = this.respondToActionCode(action, target);
-    if (ok) claimAmount(target.id, resourceType, -this.store[resourceType]);
-    return ok;
+    if (this.moveWithinRange(target.pos, 1) || this.manageActionCode(this.transfer(target, resourceType))){
+      claimAmount(target.id, resourceType, -this.store[resourceType]);
+      return target;
+    }
+    return null;
   }
 
   startRepairing(storedTarget:TargetableTypes){
@@ -405,13 +414,13 @@ export class BasicCreep extends Creep {
         filter: structure=>structure.structureType === STRUCTURE_ROAD && checkHits(structure)
       }) as StructureRoad;
     if (!structure) return null;
-    if (this.moveWithinRange(structure.pos, 3)) return structure;
-    const action = this.repair(structure);
-    const ok = this.respondToActionCode(action, structure);
     //A creep can restore 100 points/tick to a target structure, spending 0.01 energy per hit point repaired, per WORK module equipped.
     //Ref: https://screeps.fandom.com/wiki/Creep
-    if (ok) claimAmount(structure.id, resourceType, Math.min(structure.hitsMax-structure.hits, 100));
-    return ok;
+    if (this.moveWithinRange(structure.pos, 3) || this.manageActionCode(this.repair(structure))){
+      claimAmount(structure.id, resourceType, Math.min(structure.hitsMax-structure.hits, 100));
+      return structure;
+    }
+    return null;
   }
 
   startEnergizing(storedTarget:TargetableTypes){
@@ -478,24 +487,19 @@ export class BasicCreep extends Creep {
       // }) as StructureTower
       findStructure();
     if (!structure) return null;
-    if (this.moveWithinRange(structure.pos, 1)) return structure;
-    const action = this.transfer(structure, resourceType);
-    const ok = this.respondToActionCode(action, structure);
-    if (ok){
+    if (this.moveWithinRange(structure.pos, 1) || this.manageActionCode(this.transfer(structure, resourceType))){
       const amount = -Math.min(structure.store.getFreeCapacity(resourceType), this.store[resourceType]);
       claimAmount(structure.id, resourceType, amount);
+      return structure;
     }
-    return ok;
+    return null;
   }
 
   //This is used to stock containers that sit next to controllers. Other tasks have higher priority so this needed to be split off.
   startStocking(storedTarget:TargetableTypes){
-    const maxFillPercentage = 0.75;
     const resourceType = RESOURCE_ENERGY;
     const checkActiveCapacity = (structure:StructureContainer|StructureLab)=>{
-      // return structure.store.getFreeCapacity(resourceType) + getClaimedAmount(structure.id, resourceType) < structure.store.getCapacity(resourceType)*maxFillPercentage;
       //Only fill the box if the remaining free capacity is more than 100
-      // return structure.store.getFreeCapacity(resourceType) - getClaimedAmount(structure.id, resourceType) > 100;
       return getResourceSpace(structure, resourceType) > 100;
     };
     const roomAudit = getRoomAudit(this.room);
@@ -510,15 +514,11 @@ export class BasicCreep extends Creep {
         }
       }) as StructureLab
     if (!structure) return null;
-    if (this.moveWithinRange(structure.pos, 1)) return structure;
-    const action = this.transfer(structure, resourceType);
-    const ok = this.respondToActionCode(action, structure);
-    if (ok){
-      //Claiming a negative amount means we're adding that energy rather than taking it
-      // const amount = -Math.min(structure.store.getFreeCapacity(resourceType), this.store[resourceType]);
+    if (this.moveWithinRange(structure.pos, 1) || this.manageActionCode(this.transfer(structure, resourceType))){
       claimAmount(structure.id, resourceType, -this.store.getUsedCapacity(resourceType));
+      return structure;
     }
-    return ok;
+    return null;
   }
 
   startStoring(storedTarget:TargetableTypes){
@@ -541,16 +541,11 @@ export class BasicCreep extends Creep {
       //   }
       // }) as StructureStorage;
     if (!storage) return null;
-    // console.log(`Start storing`, resourceType);
-    if (this.moveWithinRange(storage.pos, 1)) return storage;
-    const action = this.transfer(storage, resourceType);
-    const ok = this.respondToActionCode(action, storage);
-    if (ok){
-      //Claiming a negative amount means we're adding that energy rather than taking it
-      const amount = -Math.min(storage.store.getFreeCapacity(resourceType), this.store[resourceType]);
-      claimAmount(storage.id, resourceType, amount);
+    if (this.moveWithinRange(storage.pos, 1) || this.manageActionCode(this.transfer(storage, resourceType))){
+      claimAmount(storage.id, resourceType, -Math.min(storage.store.getFreeCapacity(resourceType), this.store[resourceType]));
+      return storage;
     }
-    return ok;
+    return null;
   }
 
   //Harvest Source
@@ -601,11 +596,14 @@ export class BasicCreep extends Creep {
     //   }, 0);
     // }
     if (!source || source.energy === 0) return null;
-    if (this.moveWithinRange(source.pos, 1)) return source;
-    const action = this.harvest(source);
-    if (action === ERR_NOT_ENOUGH_ENERGY) return null; //This happens if you have too many miners on a source
-    const ok = this.respondToActionCode(action, source);
-    return ok;
+    const manageHarvestAction = (action:ScreepsReturnCode)=>{
+      if (action === ERR_NOT_ENOUGH_ENERGY) return false; //This happens if you have too many miners on a source
+      return this.manageActionCode(action);
+    };
+    if (this.moveWithinRange(source.pos, 1) || manageHarvestAction(this.harvest(source))){
+      return source;
+    }
+    return null;
   }
 
   startBuilding(storedTarget:TargetableTypes){
@@ -617,26 +615,22 @@ export class BasicCreep extends Creep {
       }
     });
     if (!construction) return null;
-    if (this.moveWithinRange(construction.pos, 3)) return construction;
-    const action = this.build(construction);
-    const ok = this.respondToActionCode(action, construction);
-    return ok;
+    if (this.moveWithinRange(construction.pos, 3) || this.manageActionCode(this.build(construction))){
+      return construction;
+    }
+    return null;
   }
 
   startUpgrading(storedTarget?:TargetableTypes){
     if (!this.canWork) return null;
     if (!this.room.controller || !this.room.controller.my) return null;
-    //We can upgrade from
-    if (this.moveWithinRange(this.room.controller.pos, 3)) return this.room.controller;
-    const action = this.upgradeController(this.room.controller);
-    const ok = this.respondToActionCode(action, this.room.controller);
-    // if (ok){
-    //   // console.log(`storedTarget === this.room.controller`, storedTarget !== this.room.controller);
-    //   if (this.checkIfBadIdleLocation()){
-    //     this.moveTo(this.room.controller);
-    //   }
+    // if (this.checkIfBadIdleLocation()){
+    //   this.moveTo(this.room.controller);
     // }
-    return ok;
+    if (this.moveWithinRange(this.room.controller.pos, 3) || this.manageActionCode(this.upgradeController(this.room.controller))){
+      return this.room.controller;
+    }
+    return null;
   }
 
   /**

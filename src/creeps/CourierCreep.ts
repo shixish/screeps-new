@@ -1,5 +1,5 @@
 import { getRoomAudit } from "managers/room";
-import { claimAmount, getClaimedAmount } from "utils/tickCache";
+import { claimAmount, getResourceSpace } from "utils/tickCache";
 import { BasicCreep } from "./BasicCreep";
 
 export class CourierCreep extends BasicCreep {
@@ -68,7 +68,7 @@ export class CourierCreep extends BasicCreep {
     if (this.store[resourceType] === 0) return null;
     const { target } = this.pos.findInRange(FIND_MY_CREEPS, 1).reduce((out, creep)=>{
       if (creep.id !== this.id && creep.memory.counts.work && creep.memory.seated !== false){
-        const amount = creep.store.getUsedCapacity(resourceType)-getClaimedAmount(creep.id, resourceType);
+        const amount = getResourceSpace(creep, resourceType);
         if (amount > out.amount){
           out.target = creep;
           out.amount = amount;
@@ -77,10 +77,11 @@ export class CourierCreep extends BasicCreep {
       return out;
     }, { target: undefined as Creep|undefined, amount: 0 });
     if (!target) return null;
-    const action = this.transfer(target, resourceType);
-    const ok = this.respondToActionCode(action, target);
-    if (ok) claimAmount(target.id, resourceType, Math.min(target.store.getFreeCapacity(resourceType), this.store[resourceType]));
-    return ok;
+    if (this.moveWithinRange(target.pos, 1) || this.manageActionCode(this.transfer(target, resourceType))){
+      claimAmount(target.id, resourceType, -Math.min(target.store.getFreeCapacity(resourceType), this.store[resourceType]));
+      return target;
+    }
+    return null;
   }
 
   work(){
