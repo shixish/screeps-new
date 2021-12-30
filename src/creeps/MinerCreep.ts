@@ -55,6 +55,28 @@ export class MinerCreep extends BasicCreep {
     // },
   }
 
+  //Mine Minerals
+  startMining(storedTarget?:TargetableTypes){
+    if (!this.canWork) return null;
+    if (this.canCarry && this.store.getFreeCapacity() < this.workCount*2) return null;
+    const checkExtractorCooldown = (mineral:Mineral)=>{
+      const extractor = mineral.pos.lookFor(LOOK_STRUCTURES).find(structure=>structure.structureType === STRUCTURE_EXTRACTOR) as StructureExtractor;
+      return extractor && extractor.cooldown === 0;
+    };
+    const checkCapacity = (mineral:Mineral)=>{
+      return mineral.mineralAmount > 0 && checkExtractorCooldown(mineral);
+    };
+
+    const mineral = storedTarget instanceof Mineral && checkCapacity(storedTarget) && storedTarget;
+
+    if (!mineral) return null;
+    if (this.moveWithinRange(mineral.pos, 1)) return mineral;
+    const action = this.harvest(mineral);
+    if (action === ERR_NOT_ENOUGH_ENERGY) return null; //This happens if you have too many miners on a source
+    const ok = this.respondToActionCode(action, mineral);
+    return ok;
+  }
+
   work(){
     if (this.spawning) return;
     // if (!this.memory.anchor){

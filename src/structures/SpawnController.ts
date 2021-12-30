@@ -35,8 +35,6 @@ export class SpawnController extends StructureSpawn{
   }
 
   work(){
-    if (!this.room.controller?.my) return; //Not sure if this is necessary
-
     // const repairable = this.getRepairableCreeps();
     // if (repairable.length){
     //   //TODO: Repair the lowest creep
@@ -61,7 +59,7 @@ export class SpawnController extends StructureSpawn{
       // }
 
       const roomAudit = getRoomAudit(this.room);
-      // console.log(`roomAudit`, JSON.stringify(roomAudit, null, 2));
+      // console.log(`roomAudit upgrader`, JSON.stringify(roomAudit.creepCountsByRole.upgrader, null, 2));
 
       // console.log(`creepCountsByRole`, JSON.stringify(roomAudit.creepCountsByRole));
 

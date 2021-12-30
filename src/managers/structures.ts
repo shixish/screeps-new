@@ -7,6 +7,7 @@ export const manageStructures = ()=>{
     // "extension" | "rampart" | "road" | "spawn" | "link" | "constructedWall" | "storage" | "tower" | "observer" | "powerSpawn" | "extractor" | "lab" | "terminal" | "container" | "nuker" | "factory" | "keeperLair" | "controller" | "powerBank" | "portal" | "invaderCore"
     // console.log('structure', Object.keys(structure));
     try{
+      if (!structure.room.controller?.my) return; //Not sure if this is necessary
       if (structure instanceof StructureSpawn){
         const spawn = new SpawnController(structure);
         spawn.work();

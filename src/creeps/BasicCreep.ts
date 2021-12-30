@@ -2,7 +2,7 @@ import { FlagManager } from "managers/flags";
 import { getRoomAudit } from "managers/room";
 import { DEBUG, maxStorageFill } from "utils/constants";
 import { CreepAnchor } from "utils/CreepAnchor";
-import { claimAmount, getClaimedAmount } from "utils/tickCache";
+import { claimAmount, getClaimedAmount, getResourceAvailable, getResourceSpace } from "utils/tickCache";
 
 export function calculateBiteSize (creep:Creep){
   return (creep.memory.counts.work || 0)*2
@@ -274,7 +274,7 @@ export class BasicCreep extends Creep {
     const checkCapacity = (storage:StructureContainer|StructureStorage)=>{
       //10 is how much energy is sent to the source containers per tick
       //This is to have the courier creeps go use whatever energy they have rather than wait idle for the trickle of 10 energy per tick
-      return getClaimedAmount(storage.id, resourceType) < storage.store.getUsedCapacity(resourceType) - 10;
+      return getResourceAvailable(storage, resourceType) > 10;
     }
     const roomAudit = getRoomAudit(this.room);
     const findSourceContainer = ()=>{
@@ -284,12 +284,17 @@ export class BasicCreep extends Creep {
       let containerWithMost:StructureContainer|undefined, mostEnergy:number = 0;
       for (let source of roomAudit.sources){
         for (let container of source.containers){
-          const energy = container.store.getUsedCapacity(resourceType) - getClaimedAmount(container.id, resourceType);
+          const energy = getResourceAvailable(container, resourceType);
           if (energy > mostEnergy){
             mostEnergy = energy;
             containerWithMost = container;
           }
         }
+      }
+      const creepCapacity = this.store.getFreeCapacity(resourceType);
+      if (mostEnergy < creepCapacity && this.room.storage && this.room.storage.store.getUsedCapacity(resourceType) > creepCapacity){
+        //If the box doesn't have enough to fill up the creep but there is enough in storage, just go straight to the storage
+        return this.room.storage;
       }
       return containerWithMost;
     };
@@ -311,7 +316,9 @@ export class BasicCreep extends Creep {
     if (this.moveWithinRange(storage.pos, 1)) return storage;
     const action = this.withdraw(storage, resourceType);
     const ok = this.respondToActionCode(action, storage);
-    if (ok) claimAmount(storage.id, resourceType, freeCapacity);
+    if (ok){
+      claimAmount(storage.id, resourceType, freeCapacity);
+    }
     return ok;
   }
 
@@ -323,7 +330,7 @@ export class BasicCreep extends Creep {
     let resourceType:ResourceConstant|undefined;
     const checkStoreCapacity = (storage:StructureContainer, type:ResourceConstant)=>{
       //Only grab minerals out of storage boxes if it's enough to fill up the creep, otherwise it's got better things to do
-      return storage.store[type] - getClaimedAmount(storage.id, type) >= Math.min(storage.store.getCapacity(), freeCapacity);
+      return getResourceAvailable(storage, type) >= Math.min(storage.store.getCapacity(), freeCapacity);
     };
     const checkCapacity = (storage:StructureContainer)=>{
       if (!resourceType){
@@ -360,7 +367,8 @@ export class BasicCreep extends Creep {
     if (this.canWork) return null; //If this is a worker don't bother giving away your resources
     if (this.store[resourceType] === 0) return null;
     const checkCreep = (creep:Creep)=>{
-      return creep.id !== this.id && creep.memory.counts.work && creep.memory.seated !== false && creep.store.getUsedCapacity(resourceType) + getClaimedAmount(creep.id, resourceType) < creep.store.getCapacity(resourceType)*maxFillPercentage;
+      // return creep.id !== this.id && creep.memory.counts.work && creep.memory.seated !== false && creep.store.getUsedCapacity(resourceType) + getClaimedAmount(creep.id, resourceType) < creep.store.getCapacity(resourceType)*maxFillPercentage;
+      return creep.id !== this.id && creep.memory.counts.work && creep.memory.seated !== false && getResourceSpace(creep, resourceType) >= 50; //Don't bother chasing down a creep that can't accept more than 50 energy
     };
     const target =
       storedTarget instanceof Creep && checkCreep(storedTarget) && storedTarget ||
@@ -381,7 +389,7 @@ export class BasicCreep extends Creep {
     if (this.moveWithinRange(target.pos, 1)) return target;
     const action = this.transfer(target, resourceType);
     const ok = this.respondToActionCode(action, target);
-    if (ok) claimAmount(target.id, resourceType, this.store[resourceType]);
+    if (ok) claimAmount(target.id, resourceType, -this.store[resourceType]);
     return ok;
   }
 
@@ -410,12 +418,14 @@ export class BasicCreep extends Creep {
     type EnergizeTargets = StructureSpawn|StructureExtension|StructureTower|StructureTower;
     const resourceType = RESOURCE_ENERGY;
     const checkCapacity = (structure:StructureSpawn|StructureExtension|StructureTower)=>{
-      return structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
+      // structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
+      return getResourceSpace(structure, resourceType) > 0;
     };
     const checkActiveCapacity = (structure:EnergizeTargets, minRequested = this.store.getCapacity(resourceType)*0.75)=>{
       //Only start energizing towers if they request at least 25% of the creep's stored energy.
       //This is to prevent it from spoon feeding the tower while it repairs things each turn.
-      return structure.store.getFreeCapacity(resourceType) - getClaimedAmount(structure.id, resourceType) > minRequested;
+      // return structure.store.getFreeCapacity(resourceType) - getClaimedAmount(structure.id, resourceType) > minRequested;
+      return getResourceSpace(structure, resourceType) > minRequested;
     };
     const targets:Partial<Record<StructureConstant, { priority:number, minRequested:number }>> = {
       [STRUCTURE_SPAWN]: {
@@ -472,7 +482,7 @@ export class BasicCreep extends Creep {
     const action = this.transfer(structure, resourceType);
     const ok = this.respondToActionCode(action, structure);
     if (ok){
-      const amount = Math.min(structure.store.getFreeCapacity(resourceType), this.store[resourceType]);
+      const amount = -Math.min(structure.store.getFreeCapacity(resourceType), this.store[resourceType]);
       claimAmount(structure.id, resourceType, amount);
     }
     return ok;
@@ -483,7 +493,10 @@ export class BasicCreep extends Creep {
     const maxFillPercentage = 0.75;
     const resourceType = RESOURCE_ENERGY;
     const checkActiveCapacity = (structure:StructureContainer|StructureLab)=>{
-      return structure.store.getFreeCapacity(resourceType) + getClaimedAmount(structure.id, resourceType) < structure.store.getCapacity(resourceType)*maxFillPercentage;
+      // return structure.store.getFreeCapacity(resourceType) + getClaimedAmount(structure.id, resourceType) < structure.store.getCapacity(resourceType)*maxFillPercentage;
+      //Only fill the box if the remaining free capacity is more than 100
+      // return structure.store.getFreeCapacity(resourceType) - getClaimedAmount(structure.id, resourceType) > 100;
+      return getResourceSpace(structure, resourceType) > 100;
     };
     const roomAudit = getRoomAudit(this.room);
     const structure =
@@ -501,8 +514,9 @@ export class BasicCreep extends Creep {
     const action = this.transfer(structure, resourceType);
     const ok = this.respondToActionCode(action, structure);
     if (ok){
-      // const amount = Math.min(structure.store.getFreeCapacity(resourceType), this.store[resourceType]);
-      claimAmount(structure.id, resourceType, this.store.getUsedCapacity(resourceType));
+      //Claiming a negative amount means we're adding that energy rather than taking it
+      // const amount = -Math.min(structure.store.getFreeCapacity(resourceType), this.store[resourceType]);
+      claimAmount(structure.id, resourceType, -this.store.getUsedCapacity(resourceType));
     }
     return ok;
   }
@@ -513,7 +527,9 @@ export class BasicCreep extends Creep {
     });
     if (!resourceType) return null;
     const checkCapacity = (structure:StructureStorage)=>{
-      return structure.store.getUsedCapacity(resourceType) < maxStorageFill(resourceType) && structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
+      //We can't enforce max storage here since the courier will sit there filled up with minerals that it can't drop anywhere
+      return getResourceSpace(structure, resourceType) > 0;
+      // return structure.store.getUsedCapacity(resourceType) < maxStorageFill(resourceType) && structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
     }
     const storage =
       storedTarget instanceof StructureStorage && checkCapacity(storedTarget) && storedTarget ||
@@ -530,7 +546,8 @@ export class BasicCreep extends Creep {
     const action = this.transfer(storage, resourceType);
     const ok = this.respondToActionCode(action, storage);
     if (ok){
-      const amount = Math.min(storage.store.getFreeCapacity(resourceType), this.store[resourceType]);
+      //Claiming a negative amount means we're adding that energy rather than taking it
+      const amount = -Math.min(storage.store.getFreeCapacity(resourceType), this.store[resourceType]);
       claimAmount(storage.id, resourceType, amount);
     }
     return ok;
@@ -588,28 +605,6 @@ export class BasicCreep extends Creep {
     const action = this.harvest(source);
     if (action === ERR_NOT_ENOUGH_ENERGY) return null; //This happens if you have too many miners on a source
     const ok = this.respondToActionCode(action, source);
-    return ok;
-  }
-
-  //Mine Minerals
-  startMining(storedTarget?:TargetableTypes){
-    if (!this.canWork) return null;
-    if (this.canCarry && this.store.getFreeCapacity() < this.workCount*2) return null;
-    const checkExtractorCooldown = (mineral:Mineral)=>{
-      const extractor = mineral.pos.lookFor(LOOK_STRUCTURES).find(structure=>structure.structureType === STRUCTURE_EXTRACTOR) as StructureExtractor;
-      return extractor && extractor.cooldown === 0;
-    };
-    const checkCapacity = (mineral:Mineral)=>{
-      return mineral.mineralAmount > 0 && checkExtractorCooldown(mineral);
-    };
-
-    const mineral = storedTarget instanceof Mineral && checkCapacity(storedTarget) && storedTarget;
-
-    if (!mineral) return null;
-    if (this.moveWithinRange(mineral.pos, 1)) return mineral;
-    const action = this.harvest(mineral);
-    if (action === ERR_NOT_ENOUGH_ENERGY) return null; //This happens if you have too many miners on a source
-    const ok = this.respondToActionCode(action, mineral);
     return ok;
   }
 
@@ -776,7 +771,7 @@ export class BasicCreep extends Creep {
       if (this.rememberAction(this.startStoring, 'storing')) return;
     }
 
-    if (roomAudit.creepCountsByRole.harvester > roomAudit.sources.length){
+    if (roomAudit.creepCountsByRole.harvester < roomAudit.sources.length){
       //Let the miners do it, the basic creeps are jamming things up...
       if (this.rememberAction(this.startHarvesting, 'mining')) return;
     }
