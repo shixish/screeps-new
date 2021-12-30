@@ -1,7 +1,7 @@
 import { SpawnController } from "structures/SpawnController";
 import { FlagManager } from "managers/flags";
 import { CreepRoleType } from "utils/constants";
-import { CreepAnchor, CreepMineralAnchor, CreepSourceAnchor } from "utils/CreepAnchor";
+import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor } from "utils/CreepAnchor";
 
 declare global {
 //   /*
@@ -112,7 +112,7 @@ declare global {
 
   interface RoomAudit{
     name:Room['name'],
-    controller?:CreepAnchor<StructureController>,
+    controller?:CreepControllerAnchor,
     controllerLevel:number,
     storedEnergy:number,
     mineral?:CreepMineralAnchor,

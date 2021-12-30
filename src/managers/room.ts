@@ -5,7 +5,7 @@
 // };
 
 import { CreepRoleTypes, maxStorageFill } from "utils/constants";
-import { CreepAnchor, CreepMineralAnchor, CreepSourceAnchor } from "utils/CreepAnchor";
+import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor } from "utils/CreepAnchor";
 import { roomAuditCache } from "../utils/tickCache";
 
 // const lookAround = (object:RoomObject, callback=(result:LookAtResult<LookConstant>[])=>{})=>{
@@ -164,7 +164,7 @@ export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
     // const storagePercentage = room.storage?room.storage.store.energy/maxStorageFill(RESOURCE_ENERGY):0;
     const audit:RoomAudit = {
       name: room.name,
-      controller: room.controller && new CreepAnchor(room.controller),
+      controller: room.controller && new CreepControllerAnchor(room.controller),
       controllerLevel: room.controller?.level || 0,
       storedEnergy: room.storage?.store.energy || 0,
       mineral,

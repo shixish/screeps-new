@@ -1,4 +1,5 @@
 import { getRoomAudit } from "managers/room";
+import { claimAmount, getClaimedAmount } from "utils/tickCache";
 import { BasicCreep } from "./BasicCreep";
 
 export class CourierCreep extends BasicCreep {
@@ -60,6 +61,28 @@ export class CourierCreep extends BasicCreep {
     ]
   }
 
+  spreadEnergyNearby(){
+    // const maxFillPercentage = 0.75; //75%;
+    const resourceType = RESOURCE_ENERGY;
+    if (this.canWork) return null; //If this is a worker don't bother giving away your resources
+    if (this.store[resourceType] === 0) return null;
+    const { target } = this.pos.findInRange(FIND_MY_CREEPS, 1).reduce((out, creep)=>{
+      if (creep.id !== this.id && creep.memory.counts.work && creep.memory.seated !== false){
+        const amount = creep.store.getUsedCapacity(resourceType)-getClaimedAmount(creep.id, resourceType);
+        if (amount > out.amount){
+          out.target = creep;
+          out.amount = amount;
+        }
+      }
+      return out;
+    }, { target: undefined as Creep|undefined, amount: 0 });
+    if (!target) return null;
+    const action = this.transfer(target, resourceType);
+    const ok = this.respondToActionCode(action, target);
+    if (ok) claimAmount(target.id, resourceType, Math.min(target.store.getFreeCapacity(resourceType), this.store[resourceType]));
+    return ok;
+  }
+
   work(){
     if (this.spawning) return;
     if (this.commute()) return;
@@ -68,6 +91,9 @@ export class CourierCreep extends BasicCreep {
     const energyCapacity = this.store.getUsedCapacity(RESOURCE_ENERGY);
     // const roomAudit = getRoomAudit(this.room);
     let triedStoring = false;
+
+    //Opportunistic.
+    // if (this.spreadEnergyNearby()) return; //Sucks because they end up spoon feeding upgraders
 
     /* this stuff deals with minerals */
     if (this.rememberAction(this.startTransferringMinerals, 'transferring')) return;
@@ -91,8 +117,8 @@ export class CourierCreep extends BasicCreep {
       //   this.moveTo(exit!);
       //   return;
       // }
-      if (this.rememberAction(this.startSpreading, 'spreading')) return;
       if (this.rememberAction(this.startEnergizing, 'energizing')) return;
+      if (this.rememberAction(this.startSpreading, 'spreading')) return;
       if (this.rememberAction(this.startStocking, 'stocking', ['upgrading'])) return;
       if (!triedStoring && this.rememberAction(this.startStoring, 'storing')) return;
     }

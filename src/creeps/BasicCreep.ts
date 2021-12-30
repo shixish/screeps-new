@@ -221,7 +221,7 @@ export class BasicCreep extends Creep {
       this.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
         filter: (resource)=>{
           //If the loose resource is sitting on a container just grab from the container instead so we can take a bigger bite and move on.
-          if (resource.pos.lookFor(LOOK_STRUCTURES).find(structure=>structure.structureType === STRUCTURE_CONTAINER)) return false;
+          if (resource.pos.lookFor(LOOK_STRUCTURES).find(structure=>structure.structureType === STRUCTURE_CONTAINER && (structure as StructureContainer).store.getFreeCapacity() === 0)) return false;
           return checkResourceAmount(resource);
         }
       });
@@ -322,7 +322,8 @@ export class BasicCreep extends Creep {
     if (freeCapacity === 0) return null;
     let resourceType:ResourceConstant|undefined;
     const checkStoreCapacity = (storage:StructureContainer, type:ResourceConstant)=>{
-      return getClaimedAmount(storage.id, type) < storage.store[type];
+      //Only grab minerals out of storage boxes if it's enough to fill up the creep, otherwise it's got better things to do
+      return storage.store[type] - getClaimedAmount(storage.id, type) >= Math.min(storage.store.getCapacity(), freeCapacity);
     };
     const checkCapacity = (storage:StructureContainer)=>{
       if (!resourceType){
@@ -354,33 +355,33 @@ export class BasicCreep extends Creep {
   }
 
   startSpreading(storedTarget:TargetableTypes){
-    // const maxFillPercentage = 0.75; //75%;
+    const maxFillPercentage = 0.75; //75%;
     const resourceType = RESOURCE_ENERGY;
     if (this.canWork) return null; //If this is a worker don't bother giving away your resources
     if (this.store[resourceType] === 0) return null;
-    // const checkCreep = (creep:Creep)=>{
-    //   return creep.id !== this.id && creep.memory.counts.work && creep.memory.seated !== false && creep.store.getUsedCapacity(resourceType) + getClaimedAmount(creep.id, resourceType) < creep.store.getCapacity(resourceType)*maxFillPercentage;
-    // };
-    // const target =
-    //   storedTarget instanceof Creep && checkCreep(storedTarget) && storedTarget ||
-    //   this.pos.findClosestByRange(FIND_MY_CREEPS, {
-    //     filter: checkCreep
-    //   });
-    const { target } = this.pos.findInRange(FIND_MY_CREEPS, 1).reduce((out, creep)=>{
-      if (creep.id !== this.id && creep.memory.counts.work && creep.memory.seated !== false){
-        const amount = creep.store.getUsedCapacity(resourceType)-getClaimedAmount(creep.id, resourceType);
-        if (amount > out.amount){
-          out.target = creep;
-          out.amount = amount;
-        }
-      }
-      return out;
-    }, { target: undefined as Creep|undefined, amount: 0 });
+    const checkCreep = (creep:Creep)=>{
+      return creep.id !== this.id && creep.memory.counts.work && creep.memory.seated !== false && creep.store.getUsedCapacity(resourceType) + getClaimedAmount(creep.id, resourceType) < creep.store.getCapacity(resourceType)*maxFillPercentage;
+    };
+    const target =
+      storedTarget instanceof Creep && checkCreep(storedTarget) && storedTarget ||
+      this.pos.findClosestByRange(FIND_MY_CREEPS, {
+        filter: checkCreep
+      });
+    // const { target } = this.pos.findInRange(FIND_MY_CREEPS, 1).reduce((out, creep)=>{
+    //   if (creep.id !== this.id && creep.memory.counts.work && creep.memory.seated !== false){
+    //     const amount = creep.store.getUsedCapacity(resourceType)-getClaimedAmount(creep.id, resourceType);
+    //     if (amount > out.amount){
+    //       out.target = creep;
+    //       out.amount = amount;
+    //     }
+    //   }
+    //   return out;
+    // }, { target: undefined as Creep|undefined, amount: 0 });
     if (!target) return null;
     if (this.moveWithinRange(target.pos, 1)) return target;
     const action = this.transfer(target, resourceType);
     const ok = this.respondToActionCode(action, target);
-    if (ok) claimAmount(target.id, resourceType, Math.min(target.store.getFreeCapacity(resourceType), this.store[resourceType]));
+    if (ok) claimAmount(target.id, resourceType, this.store[resourceType]);
     return ok;
   }
 
@@ -479,9 +480,10 @@ export class BasicCreep extends Creep {
 
   //This is used to stock containers that sit next to controllers. Other tasks have higher priority so this needed to be split off.
   startStocking(storedTarget:TargetableTypes){
+    const maxFillPercentage = 0.75;
     const resourceType = RESOURCE_ENERGY;
     const checkActiveCapacity = (structure:StructureContainer|StructureLab)=>{
-      return structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
+      return structure.store.getFreeCapacity(resourceType) + getClaimedAmount(structure.id, resourceType) < structure.store.getCapacity(resourceType)*maxFillPercentage;
     };
     const roomAudit = getRoomAudit(this.room);
     const structure =
@@ -774,7 +776,7 @@ export class BasicCreep extends Creep {
       if (this.rememberAction(this.startStoring, 'storing')) return;
     }
 
-    if (!roomAudit.creepCountsByRole.harvester){
+    if (roomAudit.creepCountsByRole.harvester > roomAudit.sources.length){
       //Let the miners do it, the basic creeps are jamming things up...
       if (this.rememberAction(this.startHarvesting, 'mining')) return;
     }
