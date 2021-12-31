@@ -499,8 +499,8 @@ export class BasicCreep extends Creep {
   startStocking(storedTarget:TargetableTypes){
     const resourceType = RESOURCE_ENERGY;
     const checkActiveCapacity = (structure:StructureContainer|StructureLab)=>{
-      //Only fill the box if the remaining free capacity is more than 100
-      return getResourceSpace(structure, resourceType) > 100;
+      //Only fill the box if the remaining free capacity is more than 200
+      return getResourceSpace(structure, resourceType) > 200;
     };
     const roomAudit = getRoomAudit(this.room);
     const structure =

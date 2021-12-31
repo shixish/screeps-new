@@ -10,7 +10,7 @@ export const objectCache = new Map<string, TickCache>();
 export const roomAuditCache = new Map<Room["name"], RoomAudit>();
 export const creepAnchorCache = new Map<Id<StructureConstant>, CreepAnchor>();
 
-const DEBUG_IDS = ['61ce31534016a24fd394b909'];
+const DEBUG_IDS:string[] = [];
 
 export const getClaimedAmount = (objectId:string, resourceType:ClaimableConstant)=>{
   const cache = objectCache.get(objectId);

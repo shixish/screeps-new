@@ -64,6 +64,7 @@ export class UpgraderCreep extends BasicCreep {
     });
     if (container){
       if (this.moveWithinRange(container.pos, 1) || this.manageActionCode(this.withdraw(container, resourceType))){
+        //couriers try to fill up these creeps so tell the couriers to not bother if you're already going to grab energy from the container nearby
         claimAmount(this.id, resourceType, Math.min(container.store.getUsedCapacity(resourceType), this.store.getCapacity()));
         return container;
       }
