@@ -63,6 +63,12 @@ export class SpawnController extends StructureSpawn{
       // }
 
       const roomAudit = getRoomAudit(this.room);
+
+      if (roomAudit.hostileCreeps.length){
+        //We don't currently have logic for defender creeps. Just let everything die and save our stored energy until the invader times out.
+        return;
+      }
+
       // console.log(`roomAudit upgrader`, JSON.stringify(roomAudit.creepCountsByRole.upgrader, null, 2));
 
       // console.log(`creepCountsByRole`, JSON.stringify(roomAudit.creepCountsByRole));

@@ -157,6 +157,7 @@ export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
       const role = Memory.creeps[creep.name].role;
       creepCountsByRole[role]++;
     });
+    const hostileCreeps = room.find(FIND_HOSTILE_CREEPS);
     const spawns = room.find(FIND_MY_SPAWNS);
     spawns.forEach(spawn=>{
       if (spawn.spawning){
@@ -181,6 +182,7 @@ export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
       sourceSeats,
       creeps,
       creepCountsByRole,
+      hostileCreeps,
       flags:{},
       constructionSites,
     };

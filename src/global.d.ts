@@ -122,6 +122,7 @@ declare global {
     sourceSeats:number,
     creeps:Creep[],
     creepCountsByRole:Record<CreepRoleType, number>,
+    hostileCreeps:Creep[],
     flags:Record<Flag['name'], FlagManager>,
     constructionSites:ConstructionSite[],
   }
