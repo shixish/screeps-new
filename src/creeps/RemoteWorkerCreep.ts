@@ -6,12 +6,12 @@ export class RemoteWorkerCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 3,
     max: (roomAudit)=>{
-      for (let flagName in roomAudit.flags){
-        const flagManager = roomAudit.flags[flagName];
-        // console.log(`flagManager.type`, flagManager.type, JSON.stringify(flagManager.followers, null, 2));
-        if (flagManager.type === FlagType.Claim && flagManager.suffix === roomAudit.name && flagManager.room && flagManager.room.controller?.my){
-          return Math.max(2-flagManager.followers.length, 0);
-        }
+      const flagManager = roomAudit.flags[FlagType.Claim].find(flagManager=>{
+        //The room won't exist in Game.rooms until we've explored the room with a creep...
+        return flagManager.suffix === roomAudit.name && !flagManager.room || !flagManager.room.controller?.my;
+      });
+      if (flagManager){
+        return Math.max(2-flagManager.followers.length, 0);
       }
       return 0;
     },
@@ -42,13 +42,9 @@ export class RemoteWorkerCreep extends BasicCreep {
       // }
     ],
     getCreepAnchor: (roomAudit)=>{
-      for (let flagName in roomAudit.flags){
-        const flagManager = roomAudit.flags[flagName];
-        if (flagManager.type === FlagType.Claim && flagManager.suffix === roomAudit.name){
-          return flagManager;
-        }
-      }
-      return;
+      return roomAudit.flags[FlagType.Claim].find(flagManager=>{
+        return flagManager.suffix === roomAudit.name;
+      });
     },
   }
 

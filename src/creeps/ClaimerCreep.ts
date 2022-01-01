@@ -4,6 +4,16 @@ import { BasicCreep } from "./BasicCreep";
 export class ClaimerCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 0,
+    max: (roomAudit: RoomAudit)=>{
+      const flagManager = roomAudit.flags[FlagType.Claim].find(flagManager=>{
+        //The room won't exist in Game.rooms until we've explored the room with a creep...
+        return flagManager.suffix === roomAudit.name && !flagManager.room || !flagManager.room.controller?.my;
+      });
+      if (flagManager){
+        return Math.max(1-flagManager.followers.length, 0);
+      }
+      return 0;
+    },
     tiers: [
       {
         cost: 650,
@@ -11,51 +21,30 @@ export class ClaimerCreep extends BasicCreep {
           CLAIM,
           MOVE
         ],
-        max: (roomAudit: RoomAudit)=>{
-          for (let flagName in roomAudit.flags){
-            const flagManager = roomAudit.flags[flagName];
-            //The room won't exist in Game.rooms until we've explored the room with a creep...
-            if (flagManager.type === FlagType.Claim && flagManager.suffix === roomAudit.name && !flagManager.room || !flagManager.room.controller?.my){
-              return Math.max(1-flagManager.followers.length, 0);
-            }
-          }
-          return 0;
-        },
       },
-      // {
-      //   cost: 300,
-      //   body: [
-      //     MOVE, MOVE,
-      //     MOVE, MOVE,
-      //     MOVE, MOVE,
-      //   ],
-      //   max: (roomAudit: RoomAudit)=>{
-      //     return 0;
-      //   },
-      // }
     ],
     getCreepAnchor: (roomAudit)=>{
-      for (let flagName in roomAudit.flags){
-        const flagManager = roomAudit.flags[flagName];
-        if (flagManager.type === FlagType.Claim && flagManager.suffix === roomAudit.name){
-          return flagManager;
-        }
-      }
-      return;
+      return roomAudit.flags[FlagType.Claim].find(flagManager=>{
+        return flagManager.suffix === roomAudit.name;
+      });
     },
   }
 
   startClaiming(controller?:StructureController){
     const target = controller || this.room.controller;
     if (!target) return null;
-    const action = this.claimController(target);
-    if (action === ERR_INVALID_TARGET){
-      // flag?.remove(); //The flag can now be used to send remote workers
-      this.suicide(); //The creep is done with it's job, don't waste CPU on it
-      return null;
+    const manageClaimAction = (action:ScreepsReturnCode)=>{
+      //The creep is done with it's job, don't waste CPU on it
+      if (action === ERR_INVALID_TARGET){
+        this.suicide();
+        return false;
+      }
+      return this.manageActionCode(action);
+    };
+    if (this.moveWithinRange(target.pos, 1) || manageClaimAction(this.claimController(target))){
+      return target;
     }
-    const ok = this.respondToActionCode(action, target);
-    return ok;
+    return null;
   }
 
   work(){

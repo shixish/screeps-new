@@ -4,7 +4,8 @@
 //   return room.memory.sources[source.id] || (room.memory.sources[source.id] = {});
 // };
 
-import { CreepRoleTypes, maxStorageFill } from "utils/constants";
+import { FlagManager } from "flags/FlagManager";
+import { CreepRoleTypes, FlagType, maxStorageFill } from "utils/constants";
 import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor } from "utils/CreepAnchor";
 import { roomAuditCache } from "../utils/tickCache";
 
@@ -183,7 +184,10 @@ export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
       creeps,
       creepCountsByRole,
       hostileCreeps,
-      flags:{},
+      flags: Object.values(FlagType).reduce((out, key)=>{
+        out[key] = []; //initialize the flags arrays
+        return out;
+      }, {} as RoomAudit['flags']),
       constructionSites,
     };
     // console.log(`creepCountsByRole`, JSON.stringify(creepCountsByRole));

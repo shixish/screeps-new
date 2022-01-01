@@ -1,6 +1,6 @@
 import { SpawnController } from "structures/SpawnController";
-import { FlagManager } from "managers/flags";
-import { CreepRoleType } from "utils/constants";
+import { FlagManager } from "flags/FlagManager";
+import { CreepRoleType, FlagType } from "utils/constants";
 import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor } from "utils/CreepAnchor";
 
 declare global {
@@ -123,7 +123,7 @@ declare global {
     creeps:Creep[],
     creepCountsByRole:Record<CreepRoleType, number>,
     hostileCreeps:Creep[],
-    flags:Record<Flag['name'], FlagManager>,
+    flags:Record<FlagType, FlagManager[]>,
     constructionSites:ConstructionSite[],
   }
 

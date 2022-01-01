@@ -1,4 +1,4 @@
-import { FlagManager } from "managers/flags";
+import { FlagManager } from "flags/FlagManager";
 import { getRoomAudit } from "managers/room";
 import { DEBUG, maxStorageFill } from "utils/constants";
 import { CreepAnchor } from "utils/CreepAnchor";
