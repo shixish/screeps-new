@@ -19,7 +19,9 @@ export const PART_COST = {
 
 export enum FlagType{
   Claim = 'claim',
+  Build = 'build',
 };
+export const FlagTypes = Object.values(FlagType);
 export enum CreepRoleType{
   Basic = 'basic',
   Harvester = 'harvester', //Source

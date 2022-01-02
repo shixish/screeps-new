@@ -1,9 +1,11 @@
 import { FlagType } from "utils/constants";
-import { FlagManager } from "../flags/FlagManager";
 import { ClaimFlag } from "../flags/ClaimFlag";
+import { flagManagerCache } from "utils/tickCache";
+import { BuildFlag } from "flags/BuildFlag";
 
 export const FlagManagers = { //:Record<FlagType, FlagManager>
   [FlagType.Claim]: ClaimFlag,
+  [FlagType.Build]: BuildFlag,
 } as const;
 
 // const getFlagType = (flagName:Flag['name'])=>{
@@ -11,10 +13,34 @@ export const FlagManagers = { //:Record<FlagType, FlagManager>
 //   return flagType;
 // }
 
+// export getFlagFromFlagName(flagName: Flag['name']) {
+//   return this.fromFlag(Game.flags[flagName]);
+// }
+
+export function getFlagManager(flagOrName?: Flag|Flag['name']) {
+  if (!flagOrName) return;
+  let flag:Flag|undefined, flagName:Flag['name'];
+  if (flagOrName instanceof Flag){
+    flag = flagOrName;
+    flagName = flagOrName.name;
+  }else{
+    flagName = flagOrName;
+  }
+  if (flagManagerCache.has(flagName)){
+    return flagManagerCache.get(flagName);
+  }else{
+    if (!flag) flag = Game.flags[flagName];
+    const [flagType, options] = flag.name.split(':', 2) as [FlagType, string];
+    const manager = flagType in FlagManagers && new FlagManagers[flagType](flag, flagType, options) || null;
+    flagManagerCache.set(flagName, manager);
+    return manager;
+  }
+}
+
 export const manageFlags = ()=>{
   for (const flagName in Game.flags) {
     try{
-      const flagManager = FlagManager.fromFlagName(flagName);
+      const flagManager = getFlagManager(flagName);
       if (flagManager){
         flagManager.work();
       }else{

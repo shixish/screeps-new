@@ -1,5 +1,3 @@
-import { CreepAnchor } from "./CreepAnchor";
-
 export type ClaimableConstant = ResourceConstant|'repair';
 type TickCache = {
   claimedQuantities?: {
@@ -9,6 +7,7 @@ type TickCache = {
 export const objectCache = new Map<string, TickCache>();
 export const roomAuditCache = new Map<Room["name"], RoomAudit>();
 export const creepAnchorCache = new Map<Id<StructureConstant>, CreepAnchor>();
+export const flagManagerCache = new Map<Flag['name'], FlagManager|null>();
 
 const DEBUG_IDS:string[] = [];
 
@@ -32,10 +31,6 @@ export const claimAmount = (objectId:string, resourceType:ClaimableConstant, amo
   }
 };
 
-interface RoomObjectWithStore extends RoomObject{
-  id: Id<RoomObject>,
-  store: StoreDefinition,
-}
 // export const hasResourceAvailable = (object:RoomObjectWithStore, resourceType:ResourceConstant = RESOURCE_ENERGY)=>{
 //   return object.store.getUsedCapacity(resourceType) - getClaimedAmount(object.id, resourceType);
 // };
@@ -60,4 +55,5 @@ export const clearTickCache = ()=>{
   objectCache.clear();
   roomAuditCache.clear();
   creepAnchorCache.clear();
+  flagManagerCache.clear();
 };

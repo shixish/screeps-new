@@ -1,4 +1,4 @@
-import { FlagManager } from "flags/FlagManager";
+import { getFlagManager } from "managers/flags";
 import { getRoomAudit } from "managers/room";
 import { DEBUG, maxStorageFill } from "utils/constants";
 import { CreepAnchor } from "utils/CreepAnchor";
@@ -642,7 +642,7 @@ export class BasicCreep extends Creep {
   }
 
   getFlag(){
-    return this.memory.flag ? FlagManager.fromFlagName(this.memory.flag) : undefined;
+    return this.memory.flag ? getFlagManager(this.memory.flag) : undefined;
   }
 
   getAnchor(){

@@ -1,9 +1,17 @@
-import { SpawnController } from "structures/SpawnController";
-import { FlagManager } from "flags/FlagManager";
 import { CreepRoleType, FlagType } from "utils/constants";
-import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor } from "utils/CreepAnchor";
+// import { SpawnController } from "structures/SpawnController";
+// import { FlagManager } from "flags/FlagManager";
+// import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor } from "utils/CreepAnchor";
 
 declare global {
+  type CreepAnchor = import('utils/CreepAnchor').CreepAnchor;
+  type CreepControllerAnchor = import('utils/CreepAnchor').CreepControllerAnchor;
+  type CreepMineralAnchor = import('utils/CreepAnchor').CreepMineralAnchor;
+  type CreepSourceAnchor = import('utils/CreepAnchor').CreepSourceAnchor;
+
+  type SpawnController = import('structures/SpawnController').SpawnController;
+  type FlagManager = import('flags/FlagManager').FlagManager;
+
 //   /*
 //     Example types, expand on these or remove them and add your own.
 //     Note: Values, properties defined here do no fully *exist* by this type definiton alone.
@@ -108,6 +116,11 @@ declare global {
 
   interface SpawnMemory {
     sourceCount?: number;
+  }
+
+  interface RoomObjectWithStore extends RoomObject{
+    id: Id<RoomObject>,
+    store: StoreDefinition,
   }
 
   interface RoomAudit{
