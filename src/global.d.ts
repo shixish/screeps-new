@@ -82,6 +82,14 @@ declare global {
     modSpawnOptions?:(roomAudit:RoomAudit, options:MandateProps<SpawnOptions, 'memory'>, spawner:SpawnController)=>void;
     getCreepAnchor?:(roomAudit:RoomAudit)=>CreepAnchor|FlagManager|undefined;
   };
+
+  type CreepTier = {
+    cost: number,
+    requires?: (roomAudit:RoomAudit)=>boolean,
+    max?: (roomAudit:RoomAudit)=>number,
+    body: BodyPartConstant[];
+  }
+
   // interface CreepRoles{
   //   basic: CreepRole;
   //   miner: CreepRole;
@@ -106,12 +114,6 @@ declare global {
     counts: {
       [key in BodyPartConstant]?: number
     }
-  }
-
-  type CreepTier = {
-    cost: number,
-    body: BodyPartConstant[];
-    max?: (roomAudit:RoomAudit)=>number,
   }
 
   interface SpawnMemory {

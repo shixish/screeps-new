@@ -1,5 +1,5 @@
 import { CreepRoleType, USERNAME } from "utils/constants";
-import { creepCountParts, CreepRoles, getCreepName, getHeighestCreepTier } from "managers/creeps";
+import { creepCountParts, CreepRoles, getCreepName, getCreepPartsCost } from "managers/creeps";
 import { getRoomAudit } from "managers/room";
 import { FlagManager } from "flags/FlagManager";
 import { CreepAnchor, GenericAnchorType } from "utils/CreepAnchor";
@@ -73,6 +73,15 @@ export class SpawnController extends StructureSpawn{
 
       // console.log(`creepCountsByRole`, JSON.stringify(roomAudit.creepCountsByRole));
 
+
+      const getHeighestCreepTier = (tiers:CreepTier[], currentlyAffordable = false)=>{
+        const budget = currentlyAffordable ? this.room.energyAvailable : this.room.energyCapacityAvailable;
+        return tiers.reduce((heighestTier, currentTier)=>{
+          if (!currentTier.cost) currentTier.cost = getCreepPartsCost(currentTier.body);
+          return currentTier.cost <= budget && (currentTier.requires?currentTier.requires(roomAudit):true) && currentTier || heighestTier;
+        }, null as CreepTier|null);
+      };
+
       // this.spawnCreep([WORK, MOVE, CARRY], getCreepName());
       let roleToSpawn:CreepRoleType|undefined,
           creepTierToSpawn:CreepTier|undefined|null,
@@ -83,13 +92,13 @@ export class SpawnController extends StructureSpawn{
       if (roomAudit.creeps.length === 0){
         //If things get screwed up somehow just make the cheapest basic creep available to hopefully get things rolling again...
         roleToSpawn = CreepRoleType.Basic;
-        creepTierToSpawn = getHeighestCreepTier(CreepRoles.basic.config.tiers, this.room, true);
+        creepTierToSpawn = getHeighestCreepTier(CreepRoles.basic.config.tiers, true);
       }else{
         for (const rn in CreepRoles){
           try{
             const roleName = rn as CreepRoleType;
             const config = CreepRoles[roleName].config;
-            const tier = getHeighestCreepTier(config.tiers, this.room);
+            const tier = getHeighestCreepTier(config.tiers);
             if (tier){ //Creep type doesn't count if we can't yet afford to produce the lowest tier
               const count = roomAudit.creepCountsByRole[roleName];
               const getMax = tier.max || config.max;
