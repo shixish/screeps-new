@@ -1,11 +1,15 @@
-import { FlagType } from "utils/constants";
-import { ClaimFlag } from "../flags/ClaimFlag";
 import { flagManagerCache } from "utils/tickCache";
+import { FlagType } from "utils/constants";
+import { ClaimFlag } from "flags/ClaimFlag";
 import { BuildFlag } from "flags/BuildFlag";
+import { AuditFlag } from "flags/AuditFlag";
+import { PowerFlag } from "flags/PowerFlag";
 
 export const FlagManagers = { //:Record<FlagType, FlagManager>
   [FlagType.Claim]: ClaimFlag,
   [FlagType.Build]: BuildFlag,
+  [FlagType.Audit]: AuditFlag,
+  [FlagType.Power]: PowerFlag,
 } as const;
 
 // const getFlagType = (flagName:Flag['name'])=>{

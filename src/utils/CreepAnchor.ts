@@ -77,6 +77,10 @@ export class CreepAnchor<AnchorType extends GenericAnchorType = GenericAnchorTyp
     });
   }
 
+  get pos(){
+    return this.anchor.pos;
+  }
+
   get link(){
     if (this._link === undefined){
       this._link = this.anchor.pos.lookFor(LOOK_STRUCTURES).find(structure=>structure.structureType === STRUCTURE_LINK) as StructureLink || null;
