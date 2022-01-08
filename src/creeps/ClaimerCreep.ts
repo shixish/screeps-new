@@ -7,7 +7,7 @@ export class ClaimerCreep extends BasicCreep {
     max: (roomAudit: RoomAudit)=>{
       const flagManager = roomAudit.flags[FlagType.Claim].find(flagManager=>{
         //The room won't exist in Game.rooms until we've explored the room with a creep...
-        return flagManager.suffix === roomAudit.name && !flagManager.room || !flagManager.room.controller?.my;
+        return flagManager.suffix === roomAudit.room.name && !flagManager.room || !flagManager.room.controller?.my;
       });
       if (flagManager){
         return Math.max(1-flagManager.followers.length, 0);
@@ -25,7 +25,7 @@ export class ClaimerCreep extends BasicCreep {
     ],
     getCreepAnchor: (roomAudit)=>{
       return roomAudit.flags[FlagType.Claim].find(flagManager=>{
-        return flagManager.suffix === roomAudit.name;
+        return flagManager.suffix === roomAudit.room.name;
       });
     },
   }

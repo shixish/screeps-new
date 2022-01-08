@@ -11,6 +11,7 @@ declare global {
 
   type SpawnController = import('structures/SpawnController').SpawnController;
   type FlagManager = import('flags/FlagManager').FlagManager;
+  type RoomAudit = import('managers/room').RoomAudit;
 
 //   /*
 //     Example types, expand on these or remove them and add your own.
@@ -125,22 +126,23 @@ declare global {
     store: StoreDefinition,
   }
 
-  interface RoomAudit{
-    name:Room['name'],
-    controller?:CreepControllerAnchor,
-    controllerLevel:number,
-    storedEnergy:number,
-    mineral?:CreepMineralAnchor,
-    storedMineral:number,
-    sources:CreepSourceAnchor[],
-    // sourceCount: number,
-    sourceSeats:number,
-    creeps:Creep[],
-    creepCountsByRole:Record<CreepRoleType, number>,
-    hostileCreeps:Creep[],
-    flags:Record<FlagType, FlagManager[]>,
-    constructionSites:ConstructionSite[],
-  }
+  // interface RoomAudit{
+  //   name:Room['name'],
+  //   controller?:CreepControllerAnchor,
+  //   controllerLevel:number,
+  //   storedEnergy:number,
+  //   mineral?:CreepMineralAnchor,
+  //   storedMineral:number,
+  //   sources:CreepSourceAnchor[],
+  //   // sourceCount: number,
+  //   sourceSeats:number,
+  //   creeps:Creep[],
+  //   creepCountsByRole:Record<CreepRoleType, number>,
+  //   // creepQueue:
+  //   hostileCreeps:Creep[],
+  //   flags:Record<FlagType, FlagManager[]>,
+  //   constructionSites:ConstructionSite[],
+  // }
 
   interface RoomMemory{
     // structures:string[],

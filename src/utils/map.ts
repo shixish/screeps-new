@@ -36,9 +36,8 @@ export function getTerrainCostMatrix(room:Room, visualize = false){
   return matrix;
 }
 
-export function getBestCentralLocation(room:Room, visualize = false){
+export function getBestCentralLocation(room:Room, matrix:CostMatrix = getTerrainCostMatrix(room), visualize = false){
   const sources = room.find(FIND_SOURCES);
-  const matrix = getTerrainCostMatrix(room);
   let bestX:number, bestY:number, bestValue:number|undefined;
   for (let y = 0; y < 50; ++y) {
     for (let x = 0; x < 50; ++x) {

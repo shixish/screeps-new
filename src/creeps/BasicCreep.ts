@@ -498,15 +498,21 @@ export class BasicCreep extends Creep {
   //This is used to stock containers that sit next to controllers. Other tasks have higher priority so this needed to be split off.
   startStocking(storedTarget:TargetableTypes){
     const resourceType = RESOURCE_ENERGY;
-    const checkActiveCapacity = (structure:StructureContainer|StructureLab)=>{
-      //Only fill the box if the remaining free capacity is more than 200
-      return getResourceSpace(structure, resourceType) > 200;
+    const checkActiveCapacity = (structure:StructureContainer|StructureLab|StructureLink)=>{
+      //Only fill the box if the remaining free capacity is more than the creep's store capacity
+      return getResourceSpace(structure, resourceType) > this.store.getCapacity(); //Math.min(this.store.getCapacity(), structure.store.getCapacity(resourceType));
     };
     const roomAudit = getRoomAudit(this.room);
     const structure =
       storedTarget instanceof StructureContainer && checkActiveCapacity(storedTarget) && storedTarget ||
       storedTarget instanceof StructureLab && checkActiveCapacity(storedTarget) && storedTarget ||
-      roomAudit.controller?.containers.find(checkActiveCapacity)
+      roomAudit.controller?.containers.find(checkActiveCapacity) ||
+      // this.room.storage && this.room.storage.pos.findInRange(FIND_MY_STRUCTURES, 2, {
+      //   filter: (structure:StructureLink)=>{
+      //     if (structure.structureType !== STRUCTURE_LINK) return false;
+      //     return checkActiveCapacity(structure);
+      //   }
+      // })[0] as StructureLink ||
       this.pos.findClosestByRange(FIND_MY_STRUCTURES, {
         filter: (structure:StructureLab)=>{
           if (structure.structureType !== STRUCTURE_LAB) return false;

@@ -5,7 +5,7 @@
 // };
 
 import { FlagManager } from "flags/FlagManager";
-import { CreepRoleTypes, FlagType, maxStorageFill } from "utils/constants";
+import { CreepRoleType, CreepRoleTypes, FlagType, maxStorageFill } from "utils/constants";
 import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor } from "utils/CreepAnchor";
 import { roomAuditCache } from "../utils/tickCache";
 
@@ -94,25 +94,25 @@ const lookAround = function*(object:RoomObject, callback=(result:LookAtResult<Lo
 //   }
 // }
 
-const getSources = (room:Room)=>{
-  if (room.memory.sources) return room.memory.sources.map(id=>new CreepSourceAnchor(Game.getObjectById(id) as Source))
-  const sources = room.find(FIND_SOURCES);
-  room.memory.sources = sources.map(source=>source.id);
-  return sources.map(source=>new CreepSourceAnchor(source));
-};
+// const getSources = (room:Room)=>{
+//   if (room.memory.sources) return room.memory.sources.map(id=>new CreepSourceAnchor(Game.getObjectById(id) as Source))
+//   const sources = room.find(FIND_SOURCES);
+//   room.memory.sources = sources.map(source=>source.id);
+//   return sources.map(source=>new CreepSourceAnchor(source));
+// };
 
-const getMineral = (room:Room)=>{
-  if (room.memory.mineral === null) return;
-  if (room.memory.mineral) return new CreepMineralAnchor(Game.getObjectById(room.memory.mineral) as Mineral);
-  const [ mineral ] = room.find(FIND_MINERALS);
-  if (mineral){
-    room.memory.mineral = mineral.id;
-    return new CreepMineralAnchor(mineral);
-  }else{
-    room.memory.mineral = null;
-    return;
-  }
-};
+// const getMineral = (room:Room)=>{
+//   if (room.memory.mineral === null) return;
+//   if (room.memory.mineral) return new CreepMineralAnchor(Game.getObjectById(room.memory.mineral) as Mineral);
+//   const [ mineral ] = room.find(FIND_MINERALS);
+//   if (mineral){
+//     room.memory.mineral = mineral.id;
+//     return new CreepMineralAnchor(mineral);
+//   }else{
+//     room.memory.mineral = null;
+//     return;
+//   }
+// };
 
 // const getMinableMineral = (room:Room)=>{
 //   if (room.controller?.level! >= 6){
@@ -143,23 +143,51 @@ const getMineral = (room:Room)=>{
 //   }
 // };
 
-export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
-  const cached = roomAuditCache.get(room.name);
-  if (cached) return cached;
-  else{
-    // const { sourceCount, sourceSeats } = sourceAudit(room);
-    // getStorageLocation(room);
-    const creeps = room.find(FIND_MY_CREEPS);
+export class RoomAudit{
+  room:Room;
+  controller?:CreepControllerAnchor;
+  controllerLevel:number;
+  storedEnergy:number;
+  mineral?:CreepMineralAnchor;
+  storedMineral:number;
+  sources:CreepSourceAnchor[];
+  sourceSeats:number;
+  creeps:Creep[];
+  creepCountsByRole:Record<CreepRoleType, number>;
+  // creepQueue;
+  hostileCreeps:Creep[];
+  flags:Record<FlagType, FlagManager[]> = Object.values(FlagType).reduce((out, key)=>{
+    out[key] = []; //initialize the flags arrays
+    return out;
+  }, {} as RoomAudit['flags']);
+  constructionSites:ConstructionSite[];
+
+  constructor(room:Room){
+    // this.name=room.name;
+    this.room = room;
+    this.controller = room.controller && new CreepControllerAnchor(room.controller);
+    this.controllerLevel = room.controller?.level || 0;
+    this.storedEnergy = room.storage?.store.energy || 0;
+    this.mineral = this.getMineral();
+    this.storedMineral = this.mineral && room.storage?.store[this.mineral.anchor.mineralType] || 0;
+    this.sources = this.getSources();
+    this.sourceSeats = this.sources.reduce((out, source)=>out + source.totalSeats, 0);
+    this.creeps = room.find(FIND_MY_CREEPS);
+    this.creepCountsByRole = this.getCreepCountsByRole();
+    this.hostileCreeps = room.find(FIND_HOSTILE_CREEPS);
+    this.constructionSites = room.find(FIND_MY_CONSTRUCTION_SITES);
+  }
+
+  getCreepCountsByRole(){
     const creepCountsByRole = CreepRoleTypes.reduce((out, roleName)=>{
       out[roleName] = 0;
       return out;
     }, {} as any) as RoomAudit['creepCountsByRole'];
-    creeps.forEach(creep=>{
+    this.creeps.forEach(creep=>{
       const role = Memory.creeps[creep.name].role;
       creepCountsByRole[role]++;
     });
-    const hostileCreeps = room.find(FIND_HOSTILE_CREEPS);
-    const spawns = room.find(FIND_MY_SPAWNS);
+    const spawns = this.room.find(FIND_MY_SPAWNS);
     spawns.forEach(spawn=>{
       if (spawn.spawning){
         //Count spawning creeps. This is relevant when there are multiple spawns in a room. Otherwise the second spawn doesn't know that a new creep is already in production.
@@ -167,30 +195,40 @@ export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
         creepCountsByRole[role]++;
       }
     });
-    const sources = getSources(room);
-    const mineral = getMineral(room);
-    const sourceSeats = sources.reduce((out, source)=>out + source.totalSeats, 0);
-    const constructionSites = room.find(FIND_MY_CONSTRUCTION_SITES);
-    // const storagePercentage = room.storage?room.storage.store.energy/maxStorageFill(RESOURCE_ENERGY):0;
-    const audit:RoomAudit = {
-      name: room.name,
-      controller: room.controller && new CreepControllerAnchor(room.controller),
-      controllerLevel: room.controller?.level || 0,
-      storedEnergy: room.storage?.store.energy || 0,
-      mineral,
-      storedMineral: mineral && room.storage?.store[mineral.anchor.mineralType] || 0,
-      sources,
-      sourceSeats,
-      creeps,
-      creepCountsByRole,
-      hostileCreeps,
-      flags: Object.values(FlagType).reduce((out, key)=>{
-        out[key] = []; //initialize the flags arrays
-        return out;
-      }, {} as RoomAudit['flags']),
-      constructionSites,
-    };
-    // console.log(`creepCountsByRole`, JSON.stringify(creepCountsByRole));
+    return creepCountsByRole;
+  }
+
+  getSources(){
+    if (this.room.memory.sources) return this.room.memory.sources.map(id=>new CreepSourceAnchor(Game.getObjectById(id) as Source))
+    const sources = this.room.find(FIND_SOURCES);
+    this.room.memory.sources = sources.map(source=>source.id);
+    return sources.map(source=>new CreepSourceAnchor(source));
+  }
+
+  getMineral(){
+    if (this.room.memory.mineral === null) return;
+    if (this.room.memory.mineral) return new CreepMineralAnchor(Game.getObjectById(this.room.memory.mineral) as Mineral);
+    const [ mineral ] = this.room.find(FIND_MINERALS);
+    if (mineral){
+      this.room.memory.mineral = mineral.id;
+      return new CreepMineralAnchor(mineral);
+    }else{
+      this.room.memory.mineral = null;
+      return;
+    }
+  }
+
+  private _spawnQueue:any;
+  get spawnQueue(){
+    return this._spawnQueue;
+  }
+}
+
+export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
+  const cached = roomAuditCache.get(room.name);
+  if (cached) return cached;
+  else{
+    const audit = new RoomAudit(room);
     roomAuditCache.set(room.name, audit);
     return audit;
   }

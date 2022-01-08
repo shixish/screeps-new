@@ -8,7 +8,7 @@ export class RemoteWorkerCreep extends BasicCreep {
     max: (roomAudit)=>{
       const flagManager = roomAudit.flags[FlagType.Claim].find(flagManager=>{
         //The room won't exist in Game.rooms until we've explored the room with a creep...
-        return flagManager.suffix === roomAudit.name && !flagManager.room || !flagManager.room.controller?.my;
+        return flagManager.suffix === roomAudit.room.name && !flagManager.room || !flagManager.room.controller?.my;
       });
       if (flagManager){
         return Math.max(2-flagManager.followers.length, 0);
@@ -43,7 +43,7 @@ export class RemoteWorkerCreep extends BasicCreep {
     ],
     getCreepAnchor: (roomAudit)=>{
       return roomAudit.flags[FlagType.Claim].find(flagManager=>{
-        return flagManager.suffix === roomAudit.name;
+        return flagManager.suffix === roomAudit.room.name;
       });
     },
   }
