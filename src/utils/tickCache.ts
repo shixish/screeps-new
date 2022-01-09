@@ -51,6 +51,11 @@ export const getResourceSpace = (object:RoomObjectWithStore, resourceType:Resour
   return object.store.getFreeCapacity(resourceType) + getClaimedAmount(object.id, resourceType);
 };
 
+export function getRoomAudit(room:Room){
+  if (!room) throw 'Invalid room sent to getRoomAudit';
+  return roomAuditCache.get(room.name)!;
+};
+
 export const clearTickCache = ()=>{
   objectCache.clear();
   roomAuditCache.clear();

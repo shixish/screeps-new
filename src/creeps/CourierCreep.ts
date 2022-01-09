@@ -1,4 +1,3 @@
-import { getRoomAudit } from "managers/room";
 import { claimAmount, getResourceSpace } from "utils/tickCache";
 import { BasicCreep } from "./BasicCreep";
 

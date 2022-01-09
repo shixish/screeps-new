@@ -3,6 +3,9 @@ import { BasicCreep } from "./BasicCreep";
 export class MoverCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 0,
+    getCreepAnchor: (roomAudit:RoomAudit)=>{
+      return roomAudit.flags.audit.find(flagManager=>!flagManager.room);
+    },
     tiers: [
       {
         cost: 50,

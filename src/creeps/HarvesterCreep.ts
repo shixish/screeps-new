@@ -1,5 +1,5 @@
-import { getRoomAudit } from "managers/room";
 import { CreepAnchor } from "utils/CreepAnchor";
+import { getRoomAudit } from "utils/tickCache";
 import { BasicCreep } from "./BasicCreep";
 
 export class HarvesterCreep extends BasicCreep {

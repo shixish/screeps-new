@@ -1,8 +1,7 @@
 import { getFlagManager } from "managers/flags";
-import { getRoomAudit } from "managers/room";
 import { DEBUG, maxStorageFill } from "utils/constants";
 import { CreepAnchor } from "utils/CreepAnchor";
-import { claimAmount, getClaimedAmount, getResourceAvailable, getResourceSpace } from "utils/tickCache";
+import { claimAmount, getClaimedAmount, getResourceAvailable, getResourceSpace, getRoomAudit } from "utils/tickCache";
 
 export function calculateBiteSize (creep:Creep){
   return (creep.memory.counts.work || 0)*2

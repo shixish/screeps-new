@@ -1,6 +1,6 @@
 import { FlagManager } from "./FlagManager";
-import { getRoomAudit } from "../managers/room";
 import { getBestCentralLocation, getTerrainCostMatrix } from "utils/map";
+import { getRoomAudit } from "utils/tickCache";
 
 export class BuildFlag extends FlagManager {
   private _constructionType: string|undefined;

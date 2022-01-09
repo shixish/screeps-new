@@ -1,5 +1,5 @@
-import { getRoomAudit } from "managers/room";
 import { MINERALS_STORAGE_FILL } from "utils/constants";
+import { getRoomAudit } from "utils/tickCache";
 import { BasicCreep } from "./BasicCreep";
 
 export class MinerCreep extends BasicCreep {

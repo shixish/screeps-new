@@ -1,5 +1,5 @@
-import { getRoomAudit } from "managers/room";
 import { FlagType } from "utils/constants";
+import { getRoomAudit } from "utils/tickCache";
 import { BasicCreep } from "./BasicCreep";
 
 export class RemoteWorkerCreep extends BasicCreep {

@@ -1,6 +1,5 @@
-import { getRoomAudit } from "managers/room";
 import { UPGRADER_STORAGE_MIN } from "utils/constants";
-import { claimAmount } from "utils/tickCache";
+import { getRoomAudit, claimAmount } from "utils/tickCache";
 import { BasicCreep } from "./BasicCreep";
 
 export class UpgraderCreep extends BasicCreep {

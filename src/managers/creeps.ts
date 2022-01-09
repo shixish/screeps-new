@@ -7,6 +7,7 @@ import { UpgraderCreep } from "creeps/UpgraderCreep";
 import { ClaimerCreep } from "creeps/ClaimerCreep";
 import { RemoteWorkerCreep } from "creeps/RemoteWorkerCreep";
 import { MinerCreep } from "creeps/MinerCreep";
+import { random } from "utils/random";
 
 export const CreepRoles = { //:Record<CreepRoleName, typeof BasicCreep>
   [CreepRoleName.Harvester]: HarvesterCreep,
@@ -20,7 +21,7 @@ export const CreepRoles = { //:Record<CreepRoleName, typeof BasicCreep>
 } as const;
 
 export const getCreepName = (roleName = 'Creep')=>{
-  return roleName+Math.random().toString().substr(2);
+  return roleName+random();
 };
 
 export const getCreepPartsCost = (parts:BodyPartConstant[])=>{

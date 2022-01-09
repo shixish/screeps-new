@@ -1,5 +1,5 @@
+import { getRoomAudit } from "utils/tickCache";
 import { FlagManager } from "./FlagManager";
-import { getRoomAudit } from "../managers/room";
 
 export class ClaimFlag extends FlagManager {
   /* Flag name should be in the form: `claim:${roomName}` where roomName is the name of the parent room. */

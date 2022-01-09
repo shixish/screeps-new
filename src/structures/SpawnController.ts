@@ -1,8 +1,7 @@
-import { CreepRoleName, USERNAME } from "utils/constants";
 import { creepCountParts, CreepRoles, getCreepName, getCreepPartsCost } from "managers/creeps";
-import { getRoomAudit } from "managers/room";
 import { FlagManager } from "flags/FlagManager";
 import { CreepAnchor, GenericAnchorType } from "utils/CreepAnchor";
+import { getRoomAudit } from "utils/tickCache";
 
 export class SpawnController extends StructureSpawn{
   constructor(spawn:StructureSpawn){

@@ -4,124 +4,10 @@
 //   return room.memory.sources[source.id] || (room.memory.sources[source.id] = {});
 // };
 
-import { FlagManager } from "flags/FlagManager";
 import { CreepRoleName, CreepRoleNames, FlagType, maxStorageFill } from "utils/constants";
 import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor, GenericAnchorType } from "utils/CreepAnchor";
 import { roomAuditCache } from "../utils/tickCache";
 import { creepCountParts, CreepRoles, getCreepName, getCreepPartsCost } from "./creeps";
-
-// const lookAround = (object:RoomObject, callback=(result:LookAtResult<LookConstant>[])=>{})=>{
-//   if (!object || !object.room) return console.log('ERROR: invalid object passed to lookAround');
-//   for (let coord of [[-1,-1], [0,-1], [1,-1], [-1,0], [1,0], [-1,1], [0,1], [1,1]]){
-//     callback(object.room.lookAt(object.pos.x + coord[0], object.pos.y + coord[1]));
-//   }
-// };
-
-const lookAround = function*(object:RoomObject, callback=(result:LookAtResult<LookConstant>[])=>{}){
-  if (!object || !object.room) return console.log('ERROR: invalid object passed to lookAround');
-  for (let coord of [[-1,-1], [0,-1], [1,-1], [-1,0], [1,0], [-1,1], [0,1], [1,1]]){
-    yield object.room.lookAt(object.pos.x + coord[0], object.pos.y + coord[1]);
-  }
-};
-// for (let spot of lookAround(spawn)){
-//   const { terrain } = spot.find(result=>result.type === LOOK_TERRAIN) as LookAtResult<LOOK_TERRAIN>;
-
-//   if (terrain !== "wall"){
-//     room.createFlag(flagName);
-//   }
-// }
-
-// export class RoomSource extends Source implements CreepAnchor{
-//   constructor(id:Id<Source>){
-//     super(id);
-//     this.memory.occupancy = this.memory.occupancy.filter(creepName=>Boolean(Game.creeps[creepName]));
-//   }
-
-//   get memory():SourceMemory{
-//     if (!Memory.sources) Memory.sources = {};
-//     return Memory.sources[this.id] || (Memory.sources[this.id] = {
-//       occupancy: [],
-//       seats: RoomSource.getTotalSeats(this),
-//     });
-//   }
-
-//   static getTotalSeats(source:RoomSource){
-//     let seats = 0;
-//     const mapTerrain = source.room.getTerrain();
-//     for (let coord of [[-1,-1], [0,-1], [1,-1], [-1,0], [1,0], [-1,1], [0,1], [1,1]]){
-//       const terrain = mapTerrain.get(source.pos.x + coord[0], source.pos.y + coord[1]);
-//       if (terrain !== TERRAIN_MASK_WALL) seats++;
-//       // const newX = this.pos.x + coord[0], newY = this.pos.y + coord[1];
-//       // const terrain = (this.room.lookAt(newX, newY).find(result=>result.type === LOOK_TERRAIN) as LookAtResult<LOOK_TERRAIN>).terrain;
-//       // if (terrain !== "wall") sourceSeats++;
-//     }
-//     return seats;
-//   };
-
-//   get totalSeats(){
-//     return this.memory.seats;
-//   }
-
-//   get occupancy(){
-//     // this.memory.occupancy = this.memory.occupancy.filter(creepName=>Boolean(Game.creeps[creepName]));
-//     return this.memory.occupancy.length;
-//   }
-
-//   get seats(){
-//     return this.totalSeats - this.occupancy;
-//   }
-
-//   addOccupant(creepName:Creep['name']){
-//     this.memory.occupancy.push(creepName);
-//   }
-// }
-
-// export class RoomController extends StructureController implements CreepAnchor{
-//   constructor(id:Id<StructureController>){
-//     super(id);
-//     this.memory.occupancy = this.memory.occupancy.filter(creepName=>Boolean(Game.creeps[creepName]));
-//   }
-
-//   get memory():SourceMemory{
-//     if (!Memory.sources) Memory.sources = {};
-//     return Memory.sources[this.id] || (Memory.sources[this.id] = {
-//       occupancy: [],
-//       seats: RoomSource.getTotalSeats(this),
-//     });
-//   }
-
-//   addOccupant(creepName:Creep['name']){
-//     this.memory.occupancy.push(creepName);
-//   }
-// }
-
-// const getSources = (room:Room)=>{
-//   if (room.memory.sources) return room.memory.sources.map(id=>new CreepSourceAnchor(Game.getObjectById(id) as Source))
-//   const sources = room.find(FIND_SOURCES);
-//   room.memory.sources = sources.map(source=>source.id);
-//   return sources.map(source=>new CreepSourceAnchor(source));
-// };
-
-// const getMineral = (room:Room)=>{
-//   if (room.memory.mineral === null) return;
-//   if (room.memory.mineral) return new CreepMineralAnchor(Game.getObjectById(room.memory.mineral) as Mineral);
-//   const [ mineral ] = room.find(FIND_MINERALS);
-//   if (mineral){
-//     room.memory.mineral = mineral.id;
-//     return new CreepMineralAnchor(mineral);
-//   }else{
-//     room.memory.mineral = null;
-//     return;
-//   }
-// };
-
-// const getMinableMineral = (room:Room)=>{
-//   if (room.controller?.level! >= 6){
-//     const mineral = getMineral(room);
-//     if (mineral?.anchor.pos.lookFor(LOOK_STRUCTURES).find(structure=>structure.structureType === STRUCTURE_EXTRACTOR)) return mineral;
-//   }
-//   return;
-// }
 
 // const getStorageLocation = (room:Room)=>{
 //   const flagName = `${room.name}_storage`;
@@ -227,9 +113,10 @@ export class RoomAudit{
   private getSpawnableCreeps(){
     const getHeighestCreepSpawnable = (creepRoleName:CreepRoleName, currentlyAffordable = false)=>{
       const budget = currentlyAffordable ? this.room.energyAvailable : this.room.energyCapacityAvailable;
-      const tier = CreepRoles[creepRoleName].config.tiers.reduce((heighestTier, currentTier)=>{
-        if (!currentTier.cost) currentTier.cost = getCreepPartsCost(currentTier.body);
-        return currentTier.cost <= budget && (currentTier.requires?currentTier.requires(this):true) && currentTier || heighestTier;
+      const config = CreepRoles[creepRoleName].config;
+      const tier = config.tiers.reduce((heighestTier, currentTier)=>{
+        // if (!currentTier.cost) currentTier.cost = getCreepPartsCost(currentTier.body);
+        return currentTier.cost <= budget && currentTier.requires?.(this)!==false && currentTier || heighestTier;
       }, null as CreepTier|null);
       return tier && {
         role: creepRoleName,
@@ -301,13 +188,3 @@ export class RoomAudit{
     return prioritySpawnableCreep;
   }
 }
-
-export const getRoomAudit:(room:Room)=>RoomAudit = (room)=>{
-  const cached = roomAuditCache.get(room.name);
-  if (cached) return cached;
-  else{
-    const audit = new RoomAudit(room);
-    roomAuditCache.set(room.name, audit);
-    return audit;
-  }
-};
