@@ -1,4 +1,4 @@
-import { CreepRoleType, FlagType } from "utils/constants";
+import { CreepRoleName, FlagType } from "utils/constants";
 // import { SpawnController } from "structures/SpawnController";
 // import { FlagManager } from "flags/FlagManager";
 // import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor } from "utils/CreepAnchor";
@@ -100,7 +100,7 @@ declare global {
   // type CreepRoleType = keyof typeof CreepRoles;
 
   interface CreepMemory {
-    role: CreepRoleType;
+    role: CreepRoleName;
 
     // targetRoom?: Room['name'];
     anchor?: Id<RoomObject>

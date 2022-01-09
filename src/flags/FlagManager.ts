@@ -48,7 +48,7 @@ export abstract class FlagManager {
     this.memory.followers.push(creepName);
   }
 
-  get memory() {
+  get memory():FlagMemory {
     return Memory.flags[this.flag.name] || (Memory.flags[this.flag.name] = {
       followers: [],
     });

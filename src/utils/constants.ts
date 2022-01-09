@@ -24,7 +24,7 @@ export enum FlagType{
   Power = 'power',
 };
 export const FlagTypes = Object.values(FlagType);
-export enum CreepRoleType{
+export enum CreepRoleName{
   Basic = 'basic',
   Harvester = 'harvester', //Source
   Miner = 'miner', //Minerals
@@ -34,7 +34,7 @@ export enum CreepRoleType{
   Claimer = 'claimer',
   RemoteWorker = 'remote',
 };
-export const CreepRoleTypes = Object.values(CreepRoleType);
+export const CreepRoleNames = Object.values(CreepRoleName);
 
 export const USERNAME = 'ShiXish';
 export const MIN_TICKS_TO_LIVE = 500;

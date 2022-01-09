@@ -5,9 +5,10 @@
 // };
 
 import { FlagManager } from "flags/FlagManager";
-import { CreepRoleType, CreepRoleTypes, FlagType, maxStorageFill } from "utils/constants";
-import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor } from "utils/CreepAnchor";
+import { CreepRoleName, CreepRoleNames, FlagType, maxStorageFill } from "utils/constants";
+import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor, GenericAnchorType } from "utils/CreepAnchor";
 import { roomAuditCache } from "../utils/tickCache";
+import { creepCountParts, CreepRoles, getCreepName, getCreepPartsCost } from "./creeps";
 
 // const lookAround = (object:RoomObject, callback=(result:LookAtResult<LookConstant>[])=>{})=>{
 //   if (!object || !object.room) return console.log('ERROR: invalid object passed to lookAround');
@@ -143,6 +144,12 @@ const lookAround = function*(object:RoomObject, callback=(result:LookAtResult<Lo
 //   }
 // };
 
+interface SpawnableCreep{
+  role:CreepRoleName;
+  tier:CreepTier;
+  anchor?:CreepAnchor<GenericAnchorType>|FlagManager|undefined;
+}
+
 export class RoomAudit{
   room:Room;
   controller?:CreepControllerAnchor;
@@ -153,8 +160,7 @@ export class RoomAudit{
   sources:CreepSourceAnchor[];
   sourceSeats:number;
   creeps:Creep[];
-  creepCountsByRole:Record<CreepRoleType, number>;
-  // creepQueue;
+  creepCountsByRole:Record<CreepRoleName, number>;
   hostileCreeps:Creep[];
   flags:Record<FlagType, FlagManager[]> = Object.values(FlagType).reduce((out, key)=>{
     out[key] = []; //initialize the flags arrays
@@ -179,7 +185,7 @@ export class RoomAudit{
   }
 
   getCreepCountsByRole(){
-    const creepCountsByRole = CreepRoleTypes.reduce((out, roleName)=>{
+    const creepCountsByRole = CreepRoleNames.reduce((out, roleName)=>{
       out[roleName] = 0;
       return out;
     }, {} as any) as RoomAudit['creepCountsByRole'];
@@ -198,14 +204,14 @@ export class RoomAudit{
     return creepCountsByRole;
   }
 
-  getSources(){
+  private getSources(){
     if (this.room.memory.sources) return this.room.memory.sources.map(id=>new CreepSourceAnchor(Game.getObjectById(id) as Source))
     const sources = this.room.find(FIND_SOURCES);
     this.room.memory.sources = sources.map(source=>source.id);
     return sources.map(source=>new CreepSourceAnchor(source));
   }
 
-  getMineral(){
+  private getMineral(){
     if (this.room.memory.mineral === null) return;
     if (this.room.memory.mineral) return new CreepMineralAnchor(Game.getObjectById(this.room.memory.mineral) as Mineral);
     const [ mineral ] = this.room.find(FIND_MINERALS);
@@ -218,9 +224,81 @@ export class RoomAudit{
     }
   }
 
-  private _spawnQueue:any;
-  get spawnQueue(){
-    return this._spawnQueue;
+  private getSpawnableCreeps(){
+    const getHeighestCreepSpawnable = (creepRoleName:CreepRoleName, currentlyAffordable = false)=>{
+      const budget = currentlyAffordable ? this.room.energyAvailable : this.room.energyCapacityAvailable;
+      const tier = CreepRoles[creepRoleName].config.tiers.reduce((heighestTier, currentTier)=>{
+        if (!currentTier.cost) currentTier.cost = getCreepPartsCost(currentTier.body);
+        return currentTier.cost <= budget && (currentTier.requires?currentTier.requires(this):true) && currentTier || heighestTier;
+      }, null as CreepTier|null);
+      return tier && {
+        role: creepRoleName,
+        tier: tier,
+      } as SpawnableCreep || null;
+    };
+
+    if (this.hostileCreeps.length){
+      //We don't currently have logic for defender creeps. Just let everything die and save our stored energy until the invader times out.
+      return [];
+    }
+
+    if (this.creeps.length === 0){
+      //If things get screwed up somehow just make the cheapest basic creep available to hopefully get things rolling again...
+      return [getHeighestCreepSpawnable(CreepRoleName.Basic, true)!];
+    }else{
+      const spawnableCreeps:SpawnableCreep[] = [];
+      for (const rn in CreepRoles){
+        try{
+          const roleName = rn as CreepRoleName;
+          const spawnableCreep = getHeighestCreepSpawnable(roleName);
+          if (spawnableCreep) spawnableCreeps.push(spawnableCreep);
+        }catch(e:any){
+          console.log(`[${this.room.name}] RoomAudit error in getSpawnableCreeps. Role: ${rn}`, e, e.stack);
+        }
+      }
+      return spawnableCreeps;
+    }
+  }
+
+  _spawnableCreeps?:SpawnableCreep[];
+  get spawnableCreeps(){
+    return this._spawnableCreeps || (this._spawnableCreeps = this.getSpawnableCreeps());
+  }
+
+  getPrioritySpawnableCreep(){
+    let priorityPercentage:number;
+    let prioritySpawnableCreep:SpawnableCreep|undefined;
+    for (const spawnableCreep of this.spawnableCreeps){
+      try{
+        const roleName = spawnableCreep.role;
+        const config = CreepRoles[roleName].config;
+        const count = this.creepCountsByRole[roleName];
+        const getMax = spawnableCreep.tier.max || config.max;
+        if (!getMax) throw `Unable to get max count for ${roleName}`;
+        const max = getMax(this);
+        if (count < max){
+          spawnableCreep.anchor = config.getCreepAnchor?.(this)
+          if (config.getCreepAnchor){
+            const anchor = config.getCreepAnchor(this);
+            if (anchor){
+              spawnableCreep.anchor = anchor;
+            }else{
+              console.log(`Unable to find creep anchor`);
+              continue;
+            }
+          }
+
+          const percentage = count/max;
+          if (!prioritySpawnableCreep || percentage < priorityPercentage!){
+            priorityPercentage = percentage;
+            prioritySpawnableCreep = spawnableCreep;
+          }
+        }
+      }catch(e:any){
+        console.log(`[${this.room.name}] RoomAudit error in getPrioritySpawnableCreep. Role: ${spawnableCreep.role}`, e, e.stack);
+      }
+    }
+    return prioritySpawnableCreep;
   }
 }
 

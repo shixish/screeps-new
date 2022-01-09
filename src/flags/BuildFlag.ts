@@ -22,6 +22,18 @@ export class BuildFlag extends FlagManager {
       const roomAudit = getRoomAudit(room);
       roomAudit.flags[this.type].push(this);
 
+      // const sources = this.room.find(FIND_SOURCES);
+      // sources.forEach(source=>{
+      //   // this.room.createConstructionSite(source.pos.x, source.pos.y-1, STRUCTURE_ROAD); //Top
+      //   // this.room.createConstructionSite(source.pos.x+1, source.pos.y-1, STRUCTURE_ROAD); //Top Right
+      //   // this.room.createConstructionSite(source.pos.x+1, source.pos.y, STRUCTURE_ROAD); //Right
+      //   // this.room.createConstructionSite(source.pos.x+1, source.pos.y+1, STRUCTURE_ROAD); //Bottom Right
+      //   // this.room.createConstructionSite(source.pos.x, source.pos.y+1, STRUCTURE_ROAD); // Bottom
+      //   // this.room.createConstructionSite(source.pos.x-1, source.pos.y+1, STRUCTURE_ROAD); //Bottom Left
+      //   // this.room.createConstructionSite(source.pos.x-1, source.pos.y, STRUCTURE_ROAD); //Left
+      //   // this.room.createConstructionSite(source.pos.x-1, source.pos.y-1, STRUCTURE_ROAD); //Top Left
+      // });
+
       // room.visual.circle(this.pos.x,this.pos.y).line(0,0,this.pos.x,this.pos.y);
 
       // this.getTerrainMap();
