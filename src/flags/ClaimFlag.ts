@@ -1,3 +1,5 @@
+import { getBestCentralLocation, getTerrainCostMatrix } from "utils/map";
+import { random } from "utils/random";
 import { getRoomAudit } from "utils/tickCache";
 import { FlagManager } from "./FlagManager";
 
@@ -18,6 +20,14 @@ export class ClaimFlag extends FlagManager {
       this.memory.room = home.name;
       if (office?.controller?.my && office.controller.level > 2 && office.find(FIND_MY_SPAWNS).length) {
         console.log(`Finished claiming ${home.name}.`);
+        const matrix = getTerrainCostMatrix(this.room);
+        const central = getBestCentralLocation(this.room, matrix, true);
+        // this.room.createConstructionSite(central, STRUCTURE_SPAWN);
+        this.room.createFlag(central, `build:spawn:1:${random()}`);
+        this.room.createFlag(central.x-1, central.y, `build:road:0:${random()}`);
+        this.room.createFlag(central.x+1, central.y, `build:road:0:${random()}`);
+        this.room.createFlag(central.x, central.y-1, `build:road:0:${random()}`);
+        this.room.createFlag(central.x, central.y+1, `build:road:0:${random()}`);
         this.remove();
       } else {
         const roomAudit = getRoomAudit(home);
