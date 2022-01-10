@@ -1,5 +1,5 @@
 import { FlagManager } from "./FlagManager";
-import { getBestCentralLocation, getTerrainCostMatrix } from "utils/map";
+import { getBestLocations, getTerrainCostMatrix } from "utils/map";
 import { getRoomAudit } from "utils/tickCache";
 
 export class BuildFlag extends FlagManager {

@@ -60,6 +60,7 @@ declare global {
   interface FlagMemory{
     room?: Room['name'];
     followers: Creep['name'][];
+    status?: number;
   }
 
   type SpawnerCounts = {
