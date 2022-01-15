@@ -4,12 +4,14 @@ import { ClaimFlag } from "flags/ClaimFlag";
 import { BuildFlag } from "flags/BuildFlag";
 import { AuditFlag } from "flags/AuditFlag";
 import { PowerFlag } from "flags/PowerFlag";
+import { HarvestFlag } from "flags/HarvestFlag";
 
 export const FlagManagers = { //:Record<FlagType, FlagManager>
   [FlagType.Claim]: ClaimFlag,
   [FlagType.Build]: BuildFlag,
   [FlagType.Audit]: AuditFlag,
   [FlagType.Power]: PowerFlag,
+  [FlagType.Harvest]: HarvestFlag,
 } as const;
 
 // const getFlagType = (flagName:Flag['name'])=>{

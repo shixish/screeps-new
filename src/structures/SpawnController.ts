@@ -1,5 +1,5 @@
 import { creepCountParts, CreepRoles, getCreepName, getCreepPartsCost } from "managers/creeps";
-import { FlagManager } from "flags/FlagManager";
+import { FlagManager } from "flags/BasicFlag";
 import { CreepAnchor, GenericAnchorType } from "utils/CreepAnchor";
 import { getRoomAudit } from "utils/tickCache";
 

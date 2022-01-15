@@ -1,12 +1,11 @@
 import { getBestContainerLocation, getBestLocations, getTerrainCostMatrix } from "utils/map";
 import { random } from "utils/random";
 import { getRoomAudit } from "utils/tickCache";
-import { FlagManager } from "./FlagManager";
+import { FlagManager } from "./BasicFlag";
 
 enum ClaimStatus{
   Claim,
   Spawn,
-  Roads,
 }
 
 export class ClaimFlag extends FlagManager {
@@ -48,20 +47,12 @@ export class ClaimFlag extends FlagManager {
       case ClaimStatus.Spawn:
         const spawns = office?.find(FIND_MY_SPAWNS);
         if (spawns?.length){
-          const spawnPos = spawns[0].pos;
-          this.room.createConstructionSite(spawnPos.x-1, spawnPos.y, STRUCTURE_ROAD);
-          this.room.createConstructionSite(spawnPos.x+1, spawnPos.y, STRUCTURE_ROAD);
-          this.room.createConstructionSite(spawnPos.x, spawnPos.y-1, STRUCTURE_ROAD);
-          this.room.createConstructionSite(spawnPos.x, spawnPos.y+1, STRUCTURE_ROAD);
-          const sources = office!.find(FIND_SOURCES);
-          sources!.forEach(source=>{
-            const containerPos = getBestContainerLocation(source.pos, this.flag.pos);
-            this.room.createConstructionSite(containerPos.x, containerPos.y, STRUCTURE_CONTAINER);
-          });
-          this.status = ClaimStatus.Roads;
+          //Construction logic is now being handled by the room audit
+          this.remove();
+        }else{
+          const roomAudit = getRoomAudit(home);
+          roomAudit.flags[this.type].push(this);
         }
-        break;
-      case ClaimStatus.Roads:
         break;
     }
   }

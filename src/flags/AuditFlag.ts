@@ -1,4 +1,4 @@
-import { FlagManager } from "./FlagManager";
+import { FlagManager } from "./BasicFlag";
 import { getBestLocations, getBestContainerLocation, getTerrainCostMatrix } from "utils/map";
 import { random } from "utils/random";
 

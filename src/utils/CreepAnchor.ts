@@ -71,7 +71,6 @@ export class CreepAnchor<AnchorType extends GenericAnchorType = GenericAnchorTyp
 
   get memory():AnchorMemory{
     return Memory.anchors[this.id] || (Memory.anchors[this.id] = {
-      seats: countAvailableSeats(this.anchor.pos),
       occupancy: [],
       containers: [],
     });
@@ -88,20 +87,8 @@ export class CreepAnchor<AnchorType extends GenericAnchorType = GenericAnchorTyp
     return this._link;
   }
 
-  // get operational(){
-  //   return true;
-  // }
-
   get occupancy(){
     return this.memory.occupancy.length;
-  }
-
-  get totalSeats(){
-    return this.memory.seats;
-  }
-
-  get availableSeats(){
-    return this.totalSeats - this.occupancy;
   }
 
   addOccupant(creepName:Creep['name']){
@@ -131,6 +118,18 @@ export class CreepMineralAnchor extends CreepAnchor<Mineral>{
 export class CreepSourceAnchor extends CreepAnchor<Source>{
   constructor(source:Source){
     super(source);
+  }
+
+  get totalSeats(){
+    if (this.memory.seats === undefined){
+      this.memory.seats = countAvailableSeats(this.anchor.pos);
+    }
+    //We can't sustain more than 3 low level harvesters on a source
+    return Math.min(this.memory.seats, 3);
+  }
+
+  get availableSeats(){
+    return this.totalSeats - this.occupancy;
   }
 }
 

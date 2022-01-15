@@ -1,4 +1,4 @@
-import { FlagManager } from "./FlagManager";
+import { FlagManager } from "./BasicFlag";
 
 export class PowerFlag extends FlagManager {
   work() {

@@ -10,7 +10,7 @@ declare global {
   type CreepSourceAnchor = import('utils/CreepAnchor').CreepSourceAnchor;
 
   type SpawnController = import('structures/SpawnController').SpawnController;
-  type FlagManager = import('flags/FlagManager').FlagManager;
+  type FlagManager = import('flags/BasicFlag').FlagManager;
   type RoomAudit = import('managers/room').RoomAudit;
 
 //   /*
@@ -44,7 +44,7 @@ declare global {
   }
 
   interface AnchorMemory{
-    seats: number;
+    seats?: number;
     containers: Id<StructureContainer>[];
     occupancy:Creep['name'][];
   }
@@ -146,11 +146,11 @@ declare global {
   // }
 
   interface RoomMemory{
-    // structures:string[],
-    sources: Id<Source>[],
-    mineral: Id<Mineral>|null,
-    sourceCount: number,
-    sourceSeats: number, //How many standing locations around sources within the room
+    // structures:string[];
+    sources: Id<Source>[];
+    mineral: Id<Mineral>|null;
+    buildStage?: number;
+
     // sources: {
     //   [id:string]:any
     // }

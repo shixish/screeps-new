@@ -1,5 +1,7 @@
 import { FlagType } from "utils/constants";
-import { FlagManagers } from "../managers/flags";
+// import { FlagManagers } from "../managers/flags";
+
+if (!Memory.flags) Memory.flags = {} as Memory['flags']; //Flags object isn't initialized by default
 
 export abstract class FlagManager {
   flag: Flag;

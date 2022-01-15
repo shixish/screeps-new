@@ -10,7 +10,7 @@ export class HarvesterCreep extends BasicCreep {
         cost: 250,
         body: [WORK, WORK, MOVE],
         max: (roomAudit:RoomAudit)=>{
-          return Math.min(roomAudit.sourceSeats, roomAudit.sources.length*3);
+          return roomAudit.sourceSeats;
         },
       },
       {

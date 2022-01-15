@@ -74,3 +74,24 @@ export function getBestContainerLocation(pos:RoomPosition, center:RoomPosition, 
   if (visualize) room.visual.circle(bestX!, bestY!, { radius: 1, fill: '#0000FF' });
   return new RoomPosition(bestX!, bestY!, pos.roomName);
 }
+
+export function getSpawnRoadPath(spawn:StructureSpawn, goal:RoomPosition){
+  let leastRange:number|undefined;
+  //Use the closest of the diamond corners around the spawn as the start position
+  const spawnStartPos = [[0,-1], [-1, 0], [0, 1], [1, 0]].reduce((out, direction)=>{
+    const x = spawn.pos.x+direction[0], y = spawn.pos.y+direction[1];
+    const range = goal.getRangeTo(x, y);
+    if (!leastRange || leastRange > range){
+      leastRange = range;
+      out = new RoomPosition(x, y, spawn.room.name);
+    }
+    return out;
+  }, undefined as RoomPosition|undefined)!;
+  return PathFinder.search(spawnStartPos, {
+    pos: goal,
+    range: 1,
+  }, {
+    swampCost: 1, //Swamps cost the same since we will build a road over it
+    maxRooms: 1,
+  })
+}

@@ -6,6 +6,7 @@
 
 import { CreepRoleName, CreepRoleNames, FlagType, maxStorageFill } from "utils/constants";
 import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor, GenericAnchorType } from "utils/CreepAnchor";
+import { getBestContainerLocation, getSpawnRoadPath } from "utils/map";
 import { roomAuditCache } from "../utils/tickCache";
 import { creepCountParts, CreepRoles, getCreepName, getCreepPartsCost } from "./creeps";
 
@@ -68,6 +69,10 @@ export class RoomAudit{
     this.creepCountsByRole = this.getCreepCountsByRole();
     this.hostileCreeps = room.find(FIND_HOSTILE_CREEPS);
     this.constructionSites = room.find(FIND_MY_CONSTRUCTION_SITES);
+
+    if (this.controllerLevel > this.buildStage){
+      this.createConstructionSites(this.controllerLevel);
+    }
   }
 
   getCreepCountsByRole(){
@@ -88,6 +93,14 @@ export class RoomAudit{
       }
     });
     return creepCountsByRole;
+  }
+
+  get buildStage(){
+    return this.room.memory.buildStage || 0;
+  }
+
+  set buildStage(buildStage:number){
+    this.room.memory.buildStage = buildStage;
   }
 
   private getSources(){
@@ -186,5 +199,50 @@ export class RoomAudit{
       }
     }
     return prioritySpawnableCreep;
+  }
+
+  getOptimalRoadPath(){
+
+  }
+
+  createConstructionSites(controllerLevel:number){
+    const spawns = this.room.find(FIND_MY_SPAWNS); //Later stages may make use of multiple spawns
+    const spawn = spawns[0];
+    switch(controllerLevel){
+      case 1:
+        if (spawn){ //We may still be constructing the spawn
+          this.room.createConstructionSite(spawn.pos.x-1, spawn.pos.y, STRUCTURE_ROAD);
+          this.room.createConstructionSite(spawn.pos.x+1, spawn.pos.y, STRUCTURE_ROAD);
+          this.room.createConstructionSite(spawn.pos.x, spawn.pos.y-1, STRUCTURE_ROAD);
+          this.room.createConstructionSite(spawn.pos.x, spawn.pos.y+1, STRUCTURE_ROAD);
+          const sources = this.room.find(FIND_SOURCES);
+          sources.forEach(source=>{
+            const sourceContainerPos = getBestContainerLocation(source.pos, spawn.pos);
+            this.room.createConstructionSite(sourceContainerPos, STRUCTURE_CONTAINER);
+          });
+          this.buildStage = this.controllerLevel; //Progress to the next build stage
+        }
+        break;
+      case 2:
+        const sources = this.room.find(FIND_SOURCES);
+        sources.forEach(source=>{
+          const sourceRoadPath = getSpawnRoadPath(spawn, source.pos);
+          sourceRoadPath.path.forEach(pos=>{
+            this.room.createConstructionSite(pos, STRUCTURE_ROAD);
+          });
+        });
+        if (this.room.controller){
+          const controllerContainerPos = getBestContainerLocation(this.room.controller.pos, spawn.pos);
+          this.room.createConstructionSite(controllerContainerPos, STRUCTURE_CONTAINER);
+          const controllerRoadPath = getSpawnRoadPath(spawn, controllerContainerPos);
+          controllerRoadPath.path.forEach(pos=>{
+            this.room.createConstructionSite(pos, STRUCTURE_ROAD);
+          });
+        }
+        //TODO: Build extensions automatically
+
+        this.buildStage = this.controllerLevel; //Progress to the next build stage
+        break;
+    }
   }
 }

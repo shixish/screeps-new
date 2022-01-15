@@ -41,7 +41,16 @@ export class BasicCreep extends Creep {
           WORK,
           CARRY, MOVE,
           CARRY, MOVE,
-        ]
+        ],
+        max: roomAudit=>{
+          if (!roomAudit.flags.claim.length){
+            //We usually need several of these early on if we're not being supported by a parent room (Claim flag)
+            //These creeps need to upgrade the controller to at least 2 and construct early roads and containers
+            return roomAudit.sources.length * 2;
+          }else{
+            return BasicCreep.config.max!(roomAudit);
+          }
+        }
       },
       {
         cost: 400,

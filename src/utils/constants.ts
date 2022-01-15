@@ -22,6 +22,7 @@ export enum FlagType{
   Build = 'build',
   Audit = 'audit',
   Power = 'power',
+  Harvest = 'harvest',
 };
 export const FlagTypes = Object.values(FlagType);
 export enum CreepRoleName{

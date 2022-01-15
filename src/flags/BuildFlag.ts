@@ -1,4 +1,4 @@
-import { FlagManager } from "./FlagManager";
+import { FlagManager } from "./BasicFlag";
 import { getBestLocations, getTerrainCostMatrix } from "utils/map";
 import { getRoomAudit } from "utils/tickCache";
 
