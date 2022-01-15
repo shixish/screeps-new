@@ -34,7 +34,7 @@ import { creepCountParts, CreepRoles, getCreepName, getCreepPartsCost } from "./
 interface SpawnableCreep{
   role:CreepRoleName;
   tier:CreepTier;
-  anchor?:CreepAnchor<GenericAnchorType>|FlagManager|undefined;
+  anchor?:CreepAnchor<GenericAnchorType>|BasicFlag|undefined;
 }
 
 export class RoomAudit{
@@ -49,7 +49,7 @@ export class RoomAudit{
   creeps:Creep[];
   creepCountsByRole:Record<CreepRoleName, number>;
   hostileCreeps:Creep[];
-  flags:Record<FlagType, FlagManager[]> = Object.values(FlagType).reduce((out, key)=>{
+  flags:Record<FlagType, BasicFlag[]> = Object.values(FlagType).reduce((out, key)=>{
     out[key] = []; //initialize the flags arrays
     return out;
   }, {} as RoomAudit['flags']);

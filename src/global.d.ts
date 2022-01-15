@@ -1,6 +1,5 @@
 import { CreepRoleName, FlagType } from "utils/constants";
 // import { SpawnController } from "structures/SpawnController";
-// import { FlagManager } from "flags/FlagManager";
 // import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor } from "utils/CreepAnchor";
 
 declare global {
@@ -10,7 +9,7 @@ declare global {
   type CreepSourceAnchor = import('utils/CreepAnchor').CreepSourceAnchor;
 
   type SpawnController = import('structures/SpawnController').SpawnController;
-  type FlagManager = import('flags/BasicFlag').FlagManager;
+  type BasicFlag = import('flags/_BasicFlag').BasicFlag;
   type RoomAudit = import('managers/room').RoomAudit;
 
 //   /*
@@ -54,9 +53,6 @@ declare global {
     occupancy: Creep['name'][];
   }
 
-  // type FlagMangerTypes = typeof ClaimFlag;
-  // type FlagManagerName = keyof typeof FlagManagers;
-
   interface FlagMemory{
     room?: Room['name'];
     followers: Creep['name'][];
@@ -82,7 +78,7 @@ declare global {
     max?: (roomAudit:RoomAudit)=>number,
     tiers: CreepTier[],
     modSpawnOptions?:(roomAudit:RoomAudit, options:MandateProps<SpawnOptions, 'memory'>, spawner:SpawnController)=>void;
-    getCreepAnchor?:(roomAudit:RoomAudit)=>CreepAnchor|FlagManager|undefined;
+    getCreepAnchor?:(roomAudit:RoomAudit)=>CreepAnchor|BasicFlag|undefined;
   };
 
   type CreepTier = {
@@ -106,7 +102,7 @@ declare global {
     // targetRoom?: Room['name'];
     anchor?: Id<RoomObject>
     seated?: boolean;
-    flag?: FlagManager['name'];
+    flag?: BasicFlag['name'];
     target?: Target;
     action?: string;
 

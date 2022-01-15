@@ -138,31 +138,3 @@ export class CreepControllerAnchor extends CreepAnchor<StructureController>{
     super(controller);
   }
 }
-
-// export class CreepObjectAnchor<AnchorType extends Source|Structure = Source|Structure> extends CreepAnchor<AnchorType>{
-//   constructor(anchor:AnchorType){
-//     super(anchor);
-//     this.memory.containers = this.memory.containers.filter(id=>{
-//       const container = Game.getObjectById(id);
-//       if (container){
-//         this.containers.push(container);
-//       }
-//       return false;
-//     });
-//     if (!this.containers.length){
-//       this.containers = anchor.pos.findInRange(FIND_STRUCTURES, 1, {
-//         filter: structure=>{
-//           return structure.structureType === STRUCTURE_CONTAINER;
-//         }
-//       }) as StructureContainer[];
-//       this.memory.containers = this.containers.map(container=>container.id);
-//     }
-//   }
-
-//   get id(){
-//     return this.anchor.id;
-//   }
-// }
-// export class CreepFlagAnchor extends CreepAnchor<FlagManager>{
-
-// }

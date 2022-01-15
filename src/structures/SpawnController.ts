@@ -1,5 +1,5 @@
 import { creepCountParts, CreepRoles, getCreepName, getCreepPartsCost } from "managers/creeps";
-import { FlagManager } from "flags/BasicFlag";
+import { BasicFlag } from "flags/_BasicFlag";
 import { CreepAnchor, GenericAnchorType } from "utils/CreepAnchor";
 import { getRoomAudit } from "utils/tickCache";
 
@@ -48,7 +48,7 @@ export class SpawnController extends StructureSpawn{
             // office: this.room.name,
           }
         };
-        if (anchor instanceof FlagManager){
+        if (anchor instanceof BasicFlag){
           options.memory.flag = anchor.name;
           anchor.addFollower(name);
         }else if (anchor instanceof CreepAnchor){

@@ -1,6 +1,6 @@
-import { FlagManager } from "./BasicFlag";
+import { BasicFlag } from "./_BasicFlag";
 
-export abstract class RemoteFlag extends FlagManager {
+export abstract class RemoteFlag extends BasicFlag {
   /* Flag name should be in the form: `${flag.type}:${room.name}` where room is the parent (spawner) room. */
 
   get home(){

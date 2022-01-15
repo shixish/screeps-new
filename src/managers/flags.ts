@@ -6,7 +6,7 @@ import { AuditFlag } from "flags/AuditFlag";
 import { PowerFlag } from "flags/PowerFlag";
 import { HarvestFlag } from "flags/HarvestFlag";
 
-export const FlagManagers = { //:Record<FlagType, FlagManager>
+export const FlagManagers = { //:Record<FlagType, BasicFlag>
   [FlagType.Claim]: ClaimFlag,
   [FlagType.Build]: BuildFlag,
   [FlagType.Audit]: AuditFlag,

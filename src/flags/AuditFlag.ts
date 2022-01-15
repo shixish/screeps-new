@@ -1,8 +1,8 @@
-import { FlagManager } from "./BasicFlag";
+import { BasicFlag } from "./_BasicFlag";
 import { getBestLocations, getBestContainerLocation, getTerrainCostMatrix } from "utils/map";
 import { random } from "utils/random";
 
-export class AuditFlag extends FlagManager {
+export class AuditFlag extends BasicFlag {
   work() {
     if (this.room){ //If the room has vision
       const matrix = getTerrainCostMatrix(this.room);

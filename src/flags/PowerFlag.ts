@@ -1,6 +1,6 @@
-import { FlagManager } from "./BasicFlag";
+import { BasicFlag } from "./_BasicFlag";
 
-export class PowerFlag extends FlagManager {
+export class PowerFlag extends BasicFlag {
   work() {
 
   }

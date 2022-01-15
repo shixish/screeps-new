@@ -1,14 +1,14 @@
 import { getBestContainerLocation, getBestLocations, getTerrainCostMatrix } from "utils/map";
 import { random } from "utils/random";
 import { getRoomAudit } from "utils/tickCache";
-import { FlagManager } from "./BasicFlag";
+import { BasicFlag } from "./_BasicFlag";
 
 enum ClaimStatus{
   Claim,
   Spawn,
 }
 
-export class ClaimFlag extends FlagManager {
+export class ClaimFlag extends BasicFlag {
   get status(){
     return this.memory.status as ClaimStatus ?? ClaimStatus.Claim;
   }

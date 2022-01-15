@@ -1,8 +1,8 @@
-import { FlagManager } from "./BasicFlag";
+import { BasicFlag } from "./_BasicFlag";
 import { getBestLocations, getTerrainCostMatrix } from "utils/map";
 import { getRoomAudit } from "utils/tickCache";
 
-export class BuildFlag extends FlagManager {
+export class BuildFlag extends BasicFlag {
   private _constructionType: string|undefined;
   /* Flag name should be in the form: `build:${constructionType}:${random()}` where constructionType is the type of structure to be built. */
 

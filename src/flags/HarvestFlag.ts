@@ -1,9 +1,9 @@
 import { getBestContainerLocation, getBestLocations, getTerrainCostMatrix } from "utils/map";
 import { random } from "utils/random";
 import { getRoomAudit } from "utils/tickCache";
-import { FlagManager } from "./BasicFlag";
+import { BasicFlag } from "./_BasicFlag";
 
-export class HarvestFlag extends FlagManager {
+export class HarvestFlag extends BasicFlag {
   /* Flag name should be in the form: `harvest:${roomName}` where roomName is the name of the parent room. */
   work() {
     const home = this.memory.room && Game.rooms[this.memory.room] || this.suffix && Game.rooms[this.suffix];

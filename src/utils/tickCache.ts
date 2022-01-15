@@ -7,7 +7,7 @@ type TickCache = {
 export const objectCache = new Map<string, TickCache>();
 export const roomAuditCache = new Map<Room["name"], RoomAudit>();
 export const creepAnchorCache = new Map<Id<StructureConstant>, CreepAnchor>();
-export const flagManagerCache = new Map<Flag['name'], FlagManager|null>();
+export const flagManagerCache = new Map<Flag['name'], BasicFlag|null>();
 
 const DEBUG_IDS:string[] = [];
 
