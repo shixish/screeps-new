@@ -48,8 +48,6 @@ export class ClaimerCreep extends BasicCreep {
   }
 
   work(){
-    if (this.spawning) return;
-
     //The flag gets deleted once the job is done. The creep can just sit there until it's time runs out...
     const flag = this.getFlag();
     if (flag){

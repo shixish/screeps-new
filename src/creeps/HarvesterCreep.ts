@@ -49,7 +49,6 @@ export class HarvesterCreep extends BasicCreep {
   }
 
   work(){
-    if (this.spawning) return;
     // if (!this.memory.anchor){
     //   const roomAudit = getRoomAudit(this.room);
     //   const creepAnchor = MinerCreep.config.getCreepAnchor!(roomAudit);
@@ -61,7 +60,7 @@ export class HarvesterCreep extends BasicCreep {
     // }
 
     // super.work();
-    const anchor = this.getAnchor();
+    const anchor = this.getAnchorObject();
     if (anchor){
       if (!this.memory.seated){
         this.memory.seated = false; //This will disable resource spreading which will slow down these already slow creeps

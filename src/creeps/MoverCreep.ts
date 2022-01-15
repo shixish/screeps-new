@@ -31,7 +31,6 @@ export class MoverCreep extends BasicCreep {
   }
 
   work(){
-    if (this.spawning) return;
     const flag = Game.flags.Outpost1;
     if (flag){
       // console.log(`flag`, JSON.stringify(flag, null, 2));

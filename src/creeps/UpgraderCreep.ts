@@ -84,7 +84,6 @@ export class UpgraderCreep extends BasicCreep {
   }
 
   work(){
-    if (this.spawning) return;
     if (!this.memory.seated){
       this.memory.seated = false; //This will disable resource spreading which will slow down these already slow creeps
       if (this.moveWithinRange(this.room.controller!.pos, 1)) return;

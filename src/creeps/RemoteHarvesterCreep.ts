@@ -1,9 +1,10 @@
+import { HarvestFlag } from "flags/HarvestFlag";
 import { FlagType } from "utils/constants";
 import { CreepAnchor } from "utils/CreepAnchor";
 import { getRoomAudit } from "utils/tickCache";
-import { HarvesterCreep } from "./HarvesterCreep";
+import { BasicCreep } from "./BasicCreep";
 
-export class RemoteHarvesterCreep extends HarvesterCreep {
+export class RemoteHarvesterCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 2,
     tiers: [
@@ -19,57 +20,42 @@ export class RemoteHarvesterCreep extends HarvesterCreep {
       return roomAudit.flags[FlagType.Harvest].find(flagManager=>{
         return flagManager.suffix === roomAudit.room.name;
       });
-
-      // const sourceAnchor = roomAudit.sources.reduce((out:CreepAnchor<Source>|undefined, source)=>{
-      //   if (source.availableSeats > 0 && (!out || source.occupancy < out.occupancy)){
-      //     out = source;
-      //   }
-      //   return out;
-      // }, undefined);
-      // return sourceAnchor;
     },
   }
 
-  // work(){
-  //   if (this.spawning) return;
-  //   // if (!this.memory.anchor){
-  //   //   const roomAudit = getRoomAudit(this.room);
-  //   //   const creepAnchor = MinerCreep.config.getCreepAnchor!(roomAudit);
-  //   //   if (creepAnchor){
-  //   //     // console.log(`creepAnchor`, creepAnchor);
-  //   //     this.memory.anchor = creepAnchor.id;
-  //   //     creepAnchor.addOccupant(this.name);
-  //   //   }
-  //   // }
+  getRemoteSource(){
+    if (!this.room) return;
+    const roomAudit = getRoomAudit(this.room);
+    if (!this.memory.anchor){
+      const sourceAnchor = roomAudit.sources.reduce((out:CreepAnchor<Source>|undefined, source)=>{
+        if (source.availableSeats > 0 && (!out || source.occupancy < out.occupancy)){
+          out = source;
+        }
+        return out;
+      }, undefined);
+      if (!sourceAnchor) return;
+      this.memory.anchor = sourceAnchor.id;
+      sourceAnchor.addOccupant(this.name);
+      return sourceAnchor.anchor;
+    }
+    // return roomAudit.sources.find(source=>source.id === this.memory.anchor);
+    return Game.getObjectById(this.memory.anchor);
+  }
 
-  //   // super.work();
-  //   const anchor = this.getAnchor();
-  //   if (anchor){
-  //     if (!this.memory.seated){
-  //       this.memory.seated = false; //This will disable resource spreading which will slow down these already slow creeps
-  //       if (this.moveWithinRange(anchor.pos, 1)) return;
-  //       const roomAudit = getRoomAudit(this.room);
-  //       const sourceAnchor = roomAudit.sources.find(source=>source.id === this.memory.anchor);
-  //       if (!sourceAnchor!.containers.length){
-  //         //If this source doesn't have any containers near it yet just have a seat anywhere
-  //         this.memory.seated = true;
-  //       }else{
-  //         const seatContainer = sourceAnchor!.containers.find(container=>{
-  //           //If you're already over a container or there's a open container nearby
-  //           return this.pos.isEqualTo(container.pos) || !container.pos.lookFor(LOOK_CREEPS).length;
-  //         });
-  //         //Another creep might be temporarily sitting on the desired container, or there might be multiple miners but only one box.
-  //         if (seatContainer){
-  //           if (this.pos.isEqualTo(seatContainer.pos)){
-  //             this.memory.seated = true;
-  //           }else{
-  //             this.moveTo(seatContainer);
-  //             return;
-  //           }
-  //         }
-  //       }
-  //     }
-  //   }
-  //   this.startHarvesting(anchor);
-  // }
+  work(){
+    const flag = this.getFlag() as HarvestFlag;
+    if (flag){
+      //Note flag.room may not exist until we actually get there.
+      if (flag.office && this.room.name === flag.room.name){
+        const source = this.getRemoteSource();
+        if (source){
+          this.startHarvesting(source);
+        }else{
+          console.log(`[${flag.room.name}] Unable to find remote source in room.`);
+        }
+      }else{
+        this.moveTo(flag.pos);
+      }
+    }
+  }
 }

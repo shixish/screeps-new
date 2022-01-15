@@ -50,7 +50,6 @@ export class RemoteWorkerCreep extends BasicCreep {
 
   work(){
     //Basically the same thing as a basic creep but will take on more responsibilities to jump start things
-    if (this.spawning) return;
     const flag = this.getFlag();
     if (flag && flag.room.name !== this.room.name){
       this.memory.seated = false; //Prevent couriers from trying to give this creep energy while it's traveling, slowing it down, and sometimes dragging creeps into another room

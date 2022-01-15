@@ -659,7 +659,7 @@ export class BasicCreep extends Creep {
     return this.memory.flag ? getFlagManager(this.memory.flag) : undefined;
   }
 
-  getAnchor(){
+  getAnchorObject(){
     return this.memory.anchor && Game.getObjectById(this.memory.anchor);
   }
 
@@ -712,7 +712,7 @@ export class BasicCreep extends Creep {
   }
 
   idle(){
-    const anchor = this.getAnchor();
+    const anchor = this.getAnchorObject();
     if (anchor){
       this.moveTo(anchor);
     } else if (this.checkIfBadIdleLocation()){
@@ -756,8 +756,6 @@ export class BasicCreep extends Creep {
   }
 
   work():any{
-    if (this.spawning) return;
-
     const energyCapacity = this.store.getUsedCapacity(RESOURCE_ENERGY);
     const roomAudit = getRoomAudit(this.room);
 

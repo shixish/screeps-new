@@ -13,6 +13,7 @@ export const FlagManagers = { //:Record<FlagType, BasicFlag>
   [FlagType.Power]: PowerFlag,
   [FlagType.Harvest]: HarvestFlag,
 } as const;
+type FlagManagerTypes = InstanceType<typeof FlagManagers[FlagType]>;
 
 // const getFlagType = (flagName:Flag['name'])=>{
 //   const [ roomName, flagType ] = flagName.split(':');
@@ -23,7 +24,7 @@ export const FlagManagers = { //:Record<FlagType, BasicFlag>
 //   return this.fromFlag(Game.flags[flagName]);
 // }
 
-export function getFlagManager(flagOrName?: Flag|Flag['name']) {
+export function getFlagManager(flagOrName?: Flag|Flag['name']) { //:FlagManagerTypes|null|undefined
   if (!flagOrName) return;
   let flag:Flag|undefined, flagName:Flag['name'];
   if (flagOrName instanceof Flag){
