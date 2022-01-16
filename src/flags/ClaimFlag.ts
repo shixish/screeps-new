@@ -1,3 +1,4 @@
+import { FlagType } from "utils/constants";
 import { getBestContainerLocation, getBestLocations, getTerrainCostMatrix } from "utils/map";
 import { random } from "utils/random";
 import { getRoomAudit } from "utils/tickCache";
@@ -9,6 +10,8 @@ enum ClaimStatus{
 }
 
 export class ClaimFlag extends RemoteFlag {
+  type!: FlagType.Claim;
+
   get status(){
     return this.memory.status as ClaimStatus ?? ClaimStatus.Claim;
   }

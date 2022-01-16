@@ -1,9 +1,12 @@
+import { FlagType } from "utils/constants";
 import { getBestContainerLocation, getBestLocations, getTerrainCostMatrix } from "utils/map";
 import { random } from "utils/random";
 import { getRoomAudit } from "utils/tickCache";
 import { RemoteFlag } from "./_RemoteFlag";
 
 export class HarvestFlag extends RemoteFlag {
+  type!: FlagType.Harvest;
+
   /* Flag name should be in the form: `harvest:${roomName}` where roomName is the name of the parent room. */
   work() {
     const home = this.memory.room && Game.rooms[this.memory.room] || this.suffix && Game.rooms[this.suffix];

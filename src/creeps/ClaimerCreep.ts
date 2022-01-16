@@ -1,13 +1,14 @@
+import { ClaimFlag } from "flags/ClaimFlag";
 import { FlagType } from "utils/constants";
 import { BasicCreep } from "./BasicCreep";
 
-export class ClaimerCreep extends BasicCreep {
+export class ClaimerCreep extends BasicCreep<ClaimFlag> {
   static config:CreepRole = {
     authority: 0,
     max: (roomAudit: RoomAudit)=>{
       const flagManager = roomAudit.flags[FlagType.Claim].find(flagManager=>{
         //The room won't exist in Game.rooms until we've explored the room with a creep...
-        return flagManager.suffix === roomAudit.room.name && !flagManager.room || !flagManager.room.controller?.my;
+        return flagManager.home.name === roomAudit.room.name && !flagManager.office?.controller?.my;
       });
       if (flagManager){
         return Math.max(1-flagManager.followers.length, 0);
@@ -25,7 +26,7 @@ export class ClaimerCreep extends BasicCreep {
     ],
     getCreepAnchor: (roomAudit)=>{
       return roomAudit.flags[FlagType.Claim].find(flagManager=>{
-        return flagManager.suffix === roomAudit.room.name;
+        return flagManager.home.name == roomAudit.room.name;
       });
     },
   }
@@ -49,14 +50,13 @@ export class ClaimerCreep extends BasicCreep {
 
   work(){
     //The flag gets deleted once the job is done. The creep can just sit there until it's time runs out...
-    const flag = this.getFlag();
-    if (flag){
+    if (this.flag){
       //Note flag.room will not exist until we actually get there.
-      if (flag.room && this.room.name === flag.room.name){
+      if (this.flag.room && this.room.name === this.flag.room.name){
         if (this.startClaiming(this.room.controller)) return;
       }
 
-      this.moveTo(flag.pos);
+      this.moveTo(this.flag.pos);
     }
   }
 }

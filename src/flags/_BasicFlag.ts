@@ -24,6 +24,10 @@ export abstract class BasicFlag {
     return this.flag.pos;
   }
 
+  get roomName() {
+    return this.flag.pos.roomName;
+  }
+
   get room() {
     return this.flag.room!;
   }

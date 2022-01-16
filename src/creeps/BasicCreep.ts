@@ -23,7 +23,7 @@ export function calculateBiteSize (creep:Creep){
   CL7: 3100 = 2*300 + 50*50  (100 capacity) <-- This from the docs. Dunno what this capacity means 50 vs 100..?
   CL8: 3600 = 2*300 + 60*50  (200 capacity)
 */
-export class BasicCreep extends Creep {
+export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTypes> extends Creep {
   canWork:boolean = this.workCount > 0;
   canCarry:boolean = this.carryCount > 0;
 
@@ -167,8 +167,12 @@ export class BasicCreep extends Creep {
       return {
         flagName: target.name
       };
+    }else if (target instanceof RoomPosition){
+      return {
+        pos: target as Target['pos']
+      }
     }else{
-      if (!(target as any).id) return null;
+      if (!(target as any).id) return null; //RoomObject doesn't always have an id apparently
       if (target.room?.name && target.room?.name !== this.room.name){
         return {
           roomName: target.room?.name,
@@ -184,6 +188,7 @@ export class BasicCreep extends Creep {
   targetToObject(target:TargetTypes){
     if (!target) return null;
     if (target.flagName) return Game.flags[target.flagName];
+    if (target.pos) return new RoomPosition(target.pos.x, target.pos.y, target.pos.roomName);
     if (!target.id) return null;
     return Game.getObjectById(target.id);
   }
@@ -655,8 +660,10 @@ export class BasicCreep extends Creep {
     if (DEBUG) console.log(this.id, this.role, ...args);
   }
 
-  getFlag(){
-    return this.memory.flag ? getFlagManager(this.memory.flag) : undefined;
+  protected _flag:FlagManagerType|undefined|null;
+  get flag(){
+    if (this._flag === undefined) this._flag = getFlagManager(this.memory.flag) as FlagManagerType|null;
+    return this._flag;
   }
 
   getAnchorObject(){
@@ -756,7 +763,7 @@ export class BasicCreep extends Creep {
   }
 
   work():any{
-    const energyCapacity = this.store.getUsedCapacity(RESOURCE_ENERGY);
+    const energy = this.store.getUsedCapacity(RESOURCE_ENERGY);
     const roomAudit = getRoomAudit(this.room);
 
     /* this stuff deals with energy */
@@ -766,7 +773,7 @@ export class BasicCreep extends Creep {
     }
     if (this.rememberAction(this.startTakingEnergy, 'taking', ['mining'])) return;
 
-    if (energyCapacity > 0){ //Do something with the energy
+    if (energy > 0){ //Do something with the energy
       if (this.commute()) return;
       if (this.rememberAction(this.startEnergizing, 'energizing', ['upgrading', 'building', 'repairing'])) return;
       if (this.rememberAction(this.startBuilding, 'building', ['upgrading'])) return;

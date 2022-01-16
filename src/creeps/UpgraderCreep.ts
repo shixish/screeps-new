@@ -2,6 +2,12 @@ import { UPGRADER_STORAGE_MIN } from "utils/constants";
 import { getRoomAudit, claimAmount } from "utils/tickCache";
 import { BasicCreep } from "./BasicCreep";
 
+/*
+  Each source produces 10 energy per tick at max capacity
+  Upgrading takes 1 energy per tick per WORK part.
+  20 total work parts is the upper limit on upgrade speed but we need to leave some energy for other tasks.
+  TODO: We can supplement energy intake using remote miners.
+*/
 export class UpgraderCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 1,
@@ -14,6 +20,7 @@ export class UpgraderCreep extends BasicCreep {
           CARRY, CARRY,
           MOVE,
         ],
+        max: (roomAudit:RoomAudit)=>roomAudit.controller?.containers.length ? 3 : 0,
       },
       {
         cost: 650,

@@ -33,7 +33,9 @@ export enum CreepRoleName{
   Mover = 'mover',
   Upgrader = 'upgrader',
   Claimer = 'claimer',
-  RemoteWorker = 'remote',
+  RemoteHarvester = 'remote-harvester',
+  RemoteCourier = 'remote-courier',
+  RemoteWorker = 'remote-worker',
 };
 export const CreepRoleNames = Object.values(CreepRoleName);
 

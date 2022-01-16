@@ -49,7 +49,7 @@ export class RoomAudit{
   creeps:Creep[];
   creepCountsByRole:Record<CreepRoleName, number>;
   hostileCreeps:Creep[];
-  flags:Record<FlagType, BasicFlag[]> = Object.values(FlagType).reduce((out, key)=>{
+  flags:{[T in FlagType]: InstanceType<FlagManagers[T]>[]} = Object.values(FlagType).reduce((out, key)=>{
     out[key] = []; //initialize the flags arrays
     return out;
   }, {} as RoomAudit['flags']);

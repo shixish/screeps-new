@@ -1,11 +1,13 @@
 import { BasicFlag } from "./_BasicFlag";
 import { getBestLocations, getTerrainCostMatrix } from "utils/map";
 import { getRoomAudit } from "utils/tickCache";
+import { FlagType } from "utils/constants";
 
+/* Flag name should be in the form: `build:${constructionType}:${random()}` where constructionType is the type of structure to be built. */
 export class BuildFlag extends BasicFlag {
-  private _constructionType: string|undefined;
-  /* Flag name should be in the form: `build:${constructionType}:${random()}` where constructionType is the type of structure to be built. */
+  type!:FlagType.Build;
 
+  private _constructionType: string|undefined;
   get constructionType():BuildableStructureConstant|undefined{
     return this._constructionType || (this._constructionType = this.suffix?.split(':', 2)[0] as any);
   }

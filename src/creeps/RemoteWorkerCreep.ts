@@ -1,8 +1,10 @@
+import { ClaimFlag } from "flags/ClaimFlag";
 import { FlagType } from "utils/constants";
 import { getRoomAudit } from "utils/tickCache";
 import { BasicCreep } from "./BasicCreep";
 
-export class RemoteWorkerCreep extends BasicCreep {
+let lastFlagManager:ClaimFlag|undefined; //Pass the last accessed flagManager between max and getCeepAnchor functions
+export class RemoteWorkerCreep extends BasicCreep<ClaimFlag> {
   static config:CreepRole = {
     authority: 3,
     max: (roomAudit)=>{
@@ -10,6 +12,7 @@ export class RemoteWorkerCreep extends BasicCreep {
         //The room won't exist in Game.rooms until we've explored the room with a creep...
         return flagManager.suffix === roomAudit.room.name && !flagManager.room || !flagManager.room.controller?.my;
       });
+      lastFlagManager = flagManager;
       if (flagManager){
         return Math.max(2-flagManager.followers.length, 0);
       }
@@ -42,18 +45,18 @@ export class RemoteWorkerCreep extends BasicCreep {
       // }
     ],
     getCreepAnchor: (roomAudit)=>{
-      return roomAudit.flags[FlagType.Claim].find(flagManager=>{
-        return flagManager.suffix === roomAudit.room.name;
-      });
+      return lastFlagManager;
+      // return roomAudit.flags[FlagType.Claim].find(flagManager=>{
+      //   return flagManager.suffix === roomAudit.room.name;
+      // });
     },
   }
 
   work(){
     //Basically the same thing as a basic creep but will take on more responsibilities to jump start things
-    const flag = this.getFlag();
-    if (flag && flag.room.name !== this.room.name){
+    if (this.flag && this.flag.room.name !== this.room.name){
       this.memory.seated = false; //Prevent couriers from trying to give this creep energy while it's traveling, slowing it down, and sometimes dragging creeps into another room
-      this.moveTo(flag.pos);
+      this.moveTo(this.flag.pos);
       return;
     }else{
       this.memory.seated = true;

@@ -12,6 +12,10 @@ declare global {
   type BasicFlag = import('flags/_BasicFlag').BasicFlag;
   type RoomAudit = import('managers/room').RoomAudit;
 
+  type FlagManagers = typeof import('managers/flags').FlagManagers;
+  type FlagManagerTypes = InstanceType<FlagManagers[FlagType]>;
+  // type FlagManagerTypes = InstanceType<typeof import('managers/flags').FlagManagers[FlagType]>;
+
 //   /*
 //     Example types, expand on these or remove them and add your own.
 //     Note: Values, properties defined here do no fully *exist* by this type definiton alone.
@@ -66,10 +70,14 @@ declare global {
 
   interface Target{
     id?: Id<RoomObject>;
-    roomName?: Room['name'];
     flagName?: Flag['name'];
+    pos?:{
+      x: number,
+      y: number,
+      roomName: Room['name'],
+    },
   }
-  type TargetableTypes = RoomObject|Flag|null;
+  type TargetableTypes = RoomObject|RoomPosition|Flag|null;
   type TargetTypes = Target|null;
   // const ActionCallback:(storedTarget:TargetConstant)=>TargetConstant;
 
