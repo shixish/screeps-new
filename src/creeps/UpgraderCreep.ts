@@ -11,7 +11,11 @@ import { BasicCreep } from "./BasicCreep";
 export class UpgraderCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 1,
-    max: (roomAudit:RoomAudit)=>roomAudit.controller?.containers.length ? 1 : 0,
+    // max: (roomAudit:RoomAudit)=>roomAudit.controller?.containers.length ? 1 : 0,
+    max: (roomAudit:RoomAudit)=>{
+      if (!roomAudit.controller?.containers.length) return 0;
+      return 1 + roomAudit.flags.harvest.length*2;
+    },
     tiers: [
       {
         cost: 350,
@@ -29,7 +33,10 @@ export class UpgraderCreep extends BasicCreep {
           CARRY, CARRY,
           MOVE,
         ],
-        max: (roomAudit:RoomAudit)=>roomAudit.controller?.containers.length ? 4 : 0,
+        max: (roomAudit:RoomAudit)=>{
+          if (!roomAudit.controller?.containers.length) return 0;
+          return 2 + roomAudit.flags.harvest.length*2;
+        }
       },
       {
         cost: 1200,
@@ -53,7 +60,7 @@ export class UpgraderCreep extends BasicCreep {
           WORK, WORK, WORK, WORK, WORK,
           CARRY, CARRY, CARRY,
           MOVE, MOVE, MOVE,
-        ]
+        ],
       }
     ],
     getCreepAnchor: (roomAudit)=>{
