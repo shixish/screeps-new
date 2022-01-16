@@ -4,6 +4,7 @@
 //   return room.memory.sources[source.id] || (room.memory.sources[source.id] = {});
 // };
 
+import { CreepFlag } from "flags/_CreepFlag";
 import { CreepRoleName, CreepRoleNames, FlagType, maxStorageFill } from "utils/constants";
 import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor, GenericAnchorType } from "utils/CreepAnchor";
 import { getBestContainerLocation, getSpawnRoadPath } from "utils/map";
@@ -34,7 +35,8 @@ import { creepCountParts, CreepRoles, getCreepName, getCreepPartsCost } from "./
 interface SpawnableCreep{
   role:CreepRoleName;
   tier:CreepTier;
-  anchor?:CreepAnchor<GenericAnchorType>|BasicFlag|undefined;
+  anchor?:CreepAnchor<GenericAnchorType>;
+  flag?:BasicFlag;
 }
 
 export class RoomAudit{
@@ -172,12 +174,17 @@ export class RoomAudit{
       try{
         const roleName = spawnableCreep.role;
         const config = CreepRoles[roleName].config;
-        const count = this.creepCountsByRole[roleName];
-        const getMax = spawnableCreep.tier.max || config.max;
-        if (!getMax) throw `Unable to get max count for ${roleName}`;
-        const max = getMax(this);
-        if (count < max){
-          spawnableCreep.anchor = config.getCreepAnchor?.(this)
+        let currentCreepCount:number = 0;
+        let maxCreepCount:number|undefined;
+        if (config.getCreepFlag){
+          const flag = spawnableCreep.flag = config.getCreepFlag(this);
+          if (flag){
+            currentCreepCount = flag.followerRoleCounts[roleName] || 0;
+            maxCreepCount = flag.maxFollowersByRole[roleName];
+          }
+        }else{
+          currentCreepCount = this.creepCountsByRole[roleName];
+          maxCreepCount = (spawnableCreep.tier.max || config.max)?.(this) ?? 0;
           if (config.getCreepAnchor){
             const anchor = config.getCreepAnchor(this);
             if (anchor){
@@ -187,8 +194,9 @@ export class RoomAudit{
               continue;
             }
           }
-
-          const percentage = count/max;
+        }
+        if (maxCreepCount && currentCreepCount < maxCreepCount){
+          const percentage = currentCreepCount/maxCreepCount;
           if (!prioritySpawnableCreep || percentage < priorityPercentage!){
             priorityPercentage = percentage;
             prioritySpawnableCreep = spawnableCreep;

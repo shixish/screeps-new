@@ -1,5 +1,5 @@
 import { ClaimFlag } from "flags/ClaimFlag";
-import { FlagType } from "utils/constants";
+import { CreepRoleName, FlagType } from "utils/constants";
 import { BasicCreep } from "./BasicCreep";
 
 export class ClaimerCreep extends BasicCreep<ClaimFlag> {
@@ -24,9 +24,9 @@ export class ClaimerCreep extends BasicCreep<ClaimFlag> {
         ],
       },
     ],
-    getCreepAnchor: (roomAudit)=>{
+    getCreepFlag: (roomAudit)=>{
       return roomAudit.flags[FlagType.Claim].find(flagManager=>{
-        return flagManager.home.name == roomAudit.room.name;
+        return flagManager.getAvailableFollowersByRole(CreepRoleName.Claimer) > 0;
       });
     },
   }

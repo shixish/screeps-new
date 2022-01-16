@@ -1,15 +1,15 @@
-import { FlagType } from "utils/constants";
+import { CreepRoleName, FlagType } from "utils/constants";
 import { getBestContainerLocation, getBestLocations, getTerrainCostMatrix } from "utils/map";
 import { random } from "utils/random";
 import { getRoomAudit } from "utils/tickCache";
-import { RemoteFlag } from "./_RemoteFlag";
+import { CreepFlag } from "./_CreepFlag";
 
 enum ClaimStatus{
   Claim,
   Spawn,
 }
 
-export class ClaimFlag extends RemoteFlag {
+export class ClaimFlag extends CreepFlag {
   type!: FlagType.Claim;
 
   get status(){
@@ -18,6 +18,12 @@ export class ClaimFlag extends RemoteFlag {
 
   set status(status:ClaimStatus){
     this.memory.status = status;
+  }
+
+  auditOffice(){
+    // const officeAudit = this.office && getRoomAudit(this.office);
+    this.maxFollowersByRole[CreepRoleName.Claimer] = 1;
+    this.maxFollowersByRole[CreepRoleName.RemoteWorker] = 2;
   }
 
   /* Flag name should be in the form: `claim:${roomName}` where roomName is the name of the parent room. */

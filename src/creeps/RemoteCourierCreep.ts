@@ -8,23 +8,16 @@ let lastFlagManager:HarvestFlag|undefined; //Pass the last accessed flagManager 
 export class RemoteCourierCreep extends BasicCreep<HarvestFlag> {
   static config:CreepRole = {
     authority: 2,
-    max: (roomAudit: RoomAudit)=>{
-      const flagManager = roomAudit.flags[FlagType.Harvest].find(flagManager=>{
-        return flagManager.home.name == roomAudit.room.name;
-      });
-      lastFlagManager = flagManager;
-      if (flagManager){
-        //Office room may not initially have vision
-        const sourceCount = flagManager.office?.find(FIND_SOURCES).length || 1;
-        const currentCreepCount = flagManager.followerRoleCounts[CreepRoleName.RemoteCourier] || 0;
-        const max = sourceCount;// * 2;
-        return Math.max(max-currentCreepCount, 0);
-      }
-      return 0;
-    },
     tiers: [
       {
         cost: 400,
+        /*
+          TODO:
+          Add an effectiveness ratio number. The first tier is effectiveness = 1
+          Second teir might be twice as effective (double the revelant parts) so effectiveness = 2
+          The spawner/flag creep counting system can then use these units instead of
+          individual creep counts to determine how many of a particular tier to produce
+        */
         body: [
           CARRY, MOVE,
           CARRY, MOVE,
@@ -44,8 +37,10 @@ export class RemoteCourierCreep extends BasicCreep<HarvestFlag> {
       //   ],
       // },
     ],
-    getCreepAnchor: (roomAudit:RoomAudit)=>{
-      return lastFlagManager;
+    getCreepFlag: (roomAudit:RoomAudit)=>{
+      return roomAudit.flags[FlagType.Harvest].find(flagManager=>{
+        return flagManager.getAvailableFollowersByRole(CreepRoleName.RemoteCourier) > 0;
+      });
     },
   }
 
@@ -170,7 +165,7 @@ export class RemoteCourierCreep extends BasicCreep<HarvestFlag> {
   }
 
   work(){
-    if (!this.flag) throw 'Invalid flag given to RemoteCourierCreep';
+    if (!this.flag) throw `Invalid flag given to RemoteCourierCreep ${this.name}`;
     if (!this.flag.office){
       //This indicates that we don't have vision of the room yet. Just start moving towards the flag.
       this.moveTo(this.flag.pos);

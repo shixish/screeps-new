@@ -1,5 +1,5 @@
 import { ClaimFlag } from "flags/ClaimFlag";
-import { FlagType } from "utils/constants";
+import { CreepRoleName, FlagType } from "utils/constants";
 import { getRoomAudit } from "utils/tickCache";
 import { BasicCreep } from "./BasicCreep";
 
@@ -7,17 +7,17 @@ let lastFlagManager:ClaimFlag|undefined; //Pass the last accessed flagManager be
 export class RemoteWorkerCreep extends BasicCreep<ClaimFlag> {
   static config:CreepRole = {
     authority: 3,
-    max: (roomAudit)=>{
-      const flagManager = roomAudit.flags[FlagType.Claim].find(flagManager=>{
-        //The room won't exist in Game.rooms until we've explored the room with a creep...
-        return flagManager.suffix === roomAudit.room.name && !flagManager.room || !flagManager.room.controller?.my;
-      });
-      lastFlagManager = flagManager;
-      if (flagManager){
-        return Math.max(2-flagManager.followers.length, 0);
-      }
-      return 0;
-    },
+    // max: (roomAudit)=>{
+    //   const flagManager = roomAudit.flags[FlagType.Claim].find(flagManager=>{
+    //     //The room won't exist in Game.rooms until we've explored the room with a creep...
+    //     return flagManager.suffix === roomAudit.room.name && !flagManager.room || !flagManager.room.controller?.my;
+    //   });
+    //   lastFlagManager = flagManager;
+    //   if (flagManager){
+    //     return Math.max(2-flagManager.followers.length, 0);
+    //   }
+    //   return 0;
+    // },
     tiers: [
       {
         cost: 1200,
@@ -44,10 +44,14 @@ export class RemoteWorkerCreep extends BasicCreep<ClaimFlag> {
       //   ],
       // }
     ],
-    getCreepAnchor: (roomAudit)=>{
-      return lastFlagManager;
-      // return roomAudit.flags[FlagType.Claim].find(flagManager=>{
-      //   return flagManager.suffix === roomAudit.room.name;
+    getCreepFlag: (roomAudit)=>{
+      return roomAudit.flags[FlagType.Claim].find(flagManager=>{
+        return flagManager.getAvailableFollowersByRole(CreepRoleName.RemoteWorker) > 0;
+      });
+      //This is returning -Infinity if all flagManagers return undefined. Yikers.
+      // return _.max(roomAudit.flags[FlagType.Claim], flagManager=>{
+      //   //Returning undefined for zero counts will prevent _.max from returning a flagManager object.
+      //   return flagManager.getAvailableFollowersByRole(CreepRoleName.RemoteWorker) || undefined;
       // });
     },
   }

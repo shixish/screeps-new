@@ -6,7 +6,8 @@ export abstract class BasicFlag {
   flag: Flag;
   type: FlagType;
   suffix: string | undefined;
-  followerRoleCounts = {} as Record<CreepRoleName, number|undefined>;
+  followerRoleCounts = {} as Partial<Record<CreepRoleName, number>>;
+  maxFollowersByRole = {} as Partial<Record<CreepRoleName, number>>;
 
   constructor(flag: Flag, type: FlagType, suffix?: string) {
     this.flag = flag;
@@ -22,7 +23,7 @@ export abstract class BasicFlag {
     });
   }
 
-  abstract work(options?: string): void;
+  abstract work(): void;
 
   get name() {
     return this.flag.name;
@@ -44,7 +45,14 @@ export abstract class BasicFlag {
     return this.memory.followers;
   }
 
-  addFollower(creepName: Creep['name']) {
+  getAvailableFollowersByRole(creepRole:CreepRoleName){
+    const max = this.maxFollowersByRole[creepRole];
+    const count = this.followerRoleCounts[creepRole] || 0;
+    return max !== undefined ? Math.max(max-count, 0) : 0;
+  }
+
+  addFollower(creepRole:CreepRoleName, creepName: Creep['name']) {
+    this.followerRoleCounts[creepRole] = (this.followerRoleCounts[creepRole] || 0) + 1;
     this.memory.followers.push(creepName);
   }
 

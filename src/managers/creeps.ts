@@ -80,14 +80,14 @@ export const manageCreeps = ()=>{
   //Creeps will perform their actions in order of authority. Higher authority goes first.
   //This way more specialized creep types will perform/reserve their activities before basic creeps.
   for (const name of creepNamesByAuthority) {
+    const creepObj = Game.creeps[name];
     try{
-      const creepObj = Game.creeps[name];
       if (creepObj.spawning) continue;
       const CreepRole = CreepRoles[creepObj.memory.role] || CreepRoles.basic;
       const creep = new CreepRole(creepObj);
       creep.work();
     }catch(e:any){
-      console.log('creep error', e, e.stack);
+      console.log(`[${creepObj.pos.roomName}] creep ${creepObj.name} error:`, e, e.stack);
     }
 
     // var creepDiag = debug.diag("creeps." + role);

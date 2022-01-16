@@ -38,7 +38,7 @@ export class SpawnController extends StructureSpawn{
       const roomAudit = getRoomAudit(this.room);
       const spawnableCreep = roomAudit.getPrioritySpawnableCreep();
       if (spawnableCreep){
-        const { role, tier, anchor } = spawnableCreep;
+        const { role, tier, anchor, flag } = spawnableCreep;
         const name = getCreepName(role);
         const options:MandateProps<SpawnOptions, 'memory'> = {
           memory: {
@@ -48,10 +48,11 @@ export class SpawnController extends StructureSpawn{
             // office: this.room.name,
           }
         };
-        if (anchor instanceof BasicFlag){
-          options.memory.flag = anchor.name;
-          anchor.addFollower(name);
-        }else if (anchor instanceof CreepAnchor){
+        if (flag){
+          options.memory.flag = flag.name;
+          flag.addFollower(role, name);
+        }
+        if (anchor){
           options.memory.anchor = anchor.id;
           anchor.addOccupant(name);
         }

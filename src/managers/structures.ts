@@ -16,7 +16,8 @@ export const manageStructures = ()=>{
         tower.work();
       }
     }catch(e:any){
-      console.log('structure error', e, e.stack);
+      console.log(`[${structure.pos.roomName}] structure ${structure.id} error:`, e, e.stack);
+
     }
   }
 }

@@ -4,32 +4,19 @@ import { CreepAnchor } from "utils/CreepAnchor";
 import { getRoomAudit } from "utils/tickCache";
 import { BasicCreep } from "./BasicCreep";
 
-let lastFlagManager:HarvestFlag|undefined; //Pass the last accessed flagManager between max and getCeepAnchor functions
 export class RemoteHarvesterCreep extends BasicCreep<HarvestFlag> {
   static config:CreepRole = {
     authority: 2,
-    max: (roomAudit: RoomAudit)=>{
-      const flagManager = roomAudit.flags[FlagType.Harvest].find(flagManager=>{
-        return flagManager.home.name == roomAudit.room.name;
-      });
-      lastFlagManager = flagManager;
-      if (flagManager){
-        //Office room may not initially have vision
-        const sourceCount = flagManager.office?.find(FIND_SOURCES).length || 1;
-        const currentCreepCount = flagManager.followerRoleCounts[CreepRoleName.RemoteHarvester] || 0;
-        //One creep per source in the office room
-        return Math.max(sourceCount-currentCreepCount, 0);
-      }
-      return 0;
-    },
     tiers: [
       {
         cost: 400,
         body: [WORK, WORK, WORK, MOVE, MOVE],
       }
     ],
-    getCreepAnchor: (roomAudit:RoomAudit)=>{
-      return lastFlagManager;
+    getCreepFlag: (roomAudit:RoomAudit)=>{
+      return roomAudit.flags[FlagType.Harvest].find(flagManager=>{
+        return flagManager.getAvailableFollowersByRole(CreepRoleName.RemoteHarvester) > 0;
+      });
     },
   }
 
@@ -53,7 +40,7 @@ export class RemoteHarvesterCreep extends BasicCreep<HarvestFlag> {
   }
 
   work(){
-    if (!this.flag) throw 'Invalid flag given to RemoteHarvestCreep';
+    if (!this.flag) throw `Invalid flag given to RemoteHarvestCreep ${this.name}`;
     //The room may not initially have vision
     const source = this.getAnchoredSource(this.flag.office);
     if (source){

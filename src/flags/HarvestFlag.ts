@@ -1,18 +1,42 @@
-import { FlagType } from "utils/constants";
-import { getBestContainerLocation, getBestLocations, getTerrainCostMatrix } from "utils/map";
-import { random } from "utils/random";
+import { CreepRoleName, FlagType } from "utils/constants";
 import { getRoomAudit } from "utils/tickCache";
-import { RemoteFlag } from "./_RemoteFlag";
+import { CreepFlag } from "./_CreepFlag";
 
-export class HarvestFlag extends RemoteFlag {
+/* Flag name should be in the form: `harvest:${roomName}` where roomName is the name of the parent room. */
+export class HarvestFlag extends CreepFlag {
   type!: FlagType.Harvest;
 
-  /* Flag name should be in the form: `harvest:${roomName}` where roomName is the name of the parent room. */
+  auditOffice(){
+    const officeAudit = this.office && getRoomAudit(this.office);
+    if (officeAudit){
+      // console.log(`officeAudit`, officeAudit);
+      const sourceCount = officeAudit.sources.length;
+      this.maxFollowersByRole[CreepRoleName.RemoteHarvester] = sourceCount;
+      this.maxFollowersByRole[CreepRoleName.RemoteCourier] = sourceCount*3;
+    }else{
+      this.maxFollowersByRole[CreepRoleName.RemoteHarvester] = 1;
+      this.maxFollowersByRole[CreepRoleName.RemoteCourier] = 2;
+    }
+  }
+
+  // auditPaths(){
+  //   if (this.office){
+  //     const roomAudit = getRoomAudit(this.home);
+  //     // roomAudit.storage
+  //   }
+  // }
+
+  // getHarvesterMax(roomAudit:RoomAudit){
+  //   if (this.home.name !== roomAudit.room.name) return 0;
+  //   //Office room may not initially have vision
+  //   const sourceCount = this.office?.find(FIND_SOURCES).length || 1;
+  //   const currentCreepCount = this.followerRoleCounts[CreepRoleName.RemoteHarvester] || 0;
+  //   //One creep per source in the office room
+  //   return Math.max(sourceCount-currentCreepCount, 0);
+  // }
+
   work() {
-    const home = this.memory.room && Game.rooms[this.memory.room] || this.suffix && Game.rooms[this.suffix];
-    if (!home) throw `Harvest flag [${this.flag.name}] error: home isn't defined.`;
-    const office = this.flag.room;
-    const roomAudit = getRoomAudit(home);
+    const roomAudit = getRoomAudit(this.home);
     roomAudit.flags[this.type].push(this);
   }
 }

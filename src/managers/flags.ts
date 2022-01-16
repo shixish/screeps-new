@@ -53,7 +53,7 @@ export const manageFlags = ()=>{
         // console.log(`${flagName} has an unknown flag type:`, flagType);
       }
     }catch(e:any){
-      console.log('flag error', e, e.stack);
+      console.log(`Flag ${flagName} error:`, e, e.stack);
     }
   }
 }
