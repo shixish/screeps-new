@@ -15,7 +15,7 @@ export class UpgraderCreep extends BasicCreep {
     tiers: [
       {
         cost: 350,
-        body: [
+        body: [ //Uses 2*3=6 energy per tick
           WORK, WORK,
           CARRY, CARRY,
           MOVE,
@@ -23,16 +23,17 @@ export class UpgraderCreep extends BasicCreep {
         max: (roomAudit:RoomAudit)=>roomAudit.controller?.containers.length ? 3 : 0,
       },
       {
-        cost: 650,
-        body: [
-          WORK, WORK, WORK, WORK, WORK,
+        cost: 550,
+        body: [ //Uses 4*2=8 energy per tick
+          WORK, WORK, WORK, WORK,
           CARRY, CARRY,
           MOVE,
         ],
+        max: (roomAudit:RoomAudit)=>roomAudit.controller?.containers.length ? 4 : 0,
       },
       {
         cost: 1200,
-        body: [
+        body: [ //Uses 10 energy per tick
           WORK, WORK, WORK, WORK, WORK,
           WORK, WORK, WORK, WORK, WORK,
           CARRY, CARRY,
@@ -93,7 +94,7 @@ export class UpgraderCreep extends BasicCreep {
   work(){
     if (!this.memory.seated){
       this.memory.seated = false; //This will disable resource spreading which will slow down these already slow creeps
-      if (this.moveWithinRange(this.room.controller!.pos, 1)) return;
+      if (this.moveWithinRange(this.room.controller!.pos, 1, 3)) return;
       this.memory.seated = true; //The creep doesn't necessarily need to sit on a link
     }
 

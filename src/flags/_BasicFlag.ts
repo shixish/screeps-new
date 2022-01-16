@@ -1,4 +1,4 @@
-import { FlagType } from "utils/constants";
+import { CreepRoleName, FlagType } from "utils/constants";
 
 if (!Memory.flags) Memory.flags = {} as Memory['flags']; //Flags object isn't initialized by default
 
@@ -6,12 +6,20 @@ export abstract class BasicFlag {
   flag: Flag;
   type: FlagType;
   suffix: string | undefined;
+  followerRoleCounts = {} as Record<CreepRoleName, number|undefined>;
 
   constructor(flag: Flag, type: FlagType, suffix?: string) {
     this.flag = flag;
     this.type = type;
     this.suffix = suffix;
-    this.memory.followers = this.memory.followers.filter(creepName => Boolean(Game.creeps[creepName]));
+    this.memory.followers = this.memory.followers.filter(creepName => {
+      const creep = Game.creeps[creepName];
+      if (creep){
+        this.followerRoleCounts[creep.memory.role] = (this.followerRoleCounts[creep.memory.role] || 0) + 1;
+        return true;
+      }
+      return false;
+    });
   }
 
   abstract work(options?: string): void;

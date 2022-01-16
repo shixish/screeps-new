@@ -1,5 +1,5 @@
 import { HarvestFlag } from "flags/HarvestFlag";
-import { FlagType } from "utils/constants";
+import { CreepRoleName, FlagType } from "utils/constants";
 import { CreepAnchor } from "utils/CreepAnchor";
 import { getRoomAudit } from "utils/tickCache";
 import { BasicCreep } from "./BasicCreep";
@@ -15,9 +15,10 @@ export class RemoteHarvesterCreep extends BasicCreep<HarvestFlag> {
       lastFlagManager = flagManager;
       if (flagManager){
         //Office room may not initially have vision
-        const max = flagManager.office?.find(FIND_SOURCES).length || 1;
+        const sourceCount = flagManager.office?.find(FIND_SOURCES).length || 1;
+        const currentCreepCount = flagManager.followerRoleCounts[CreepRoleName.RemoteHarvester] || 0;
         //One creep per source in the office room
-        return Math.max(max-flagManager.followers.length, 0);
+        return Math.max(sourceCount-currentCreepCount, 0);
       }
       return 0;
     },

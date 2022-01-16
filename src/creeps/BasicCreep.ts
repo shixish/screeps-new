@@ -704,12 +704,14 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
 
   }
 
-  moveWithinRange(pos:RoomPosition, range:number=1){
-    if (this.pos.inRangeTo(pos, range)) return false;
+  moveWithinRange(pos:RoomPosition, preferredRange:number=1, acceptableRange?:number){
+    const range = this.pos.getRangeTo(pos);
+    if (range <= preferredRange) return false;
     const moving = this.moveTo(pos);
     if (moving === OK || moving === ERR_TIRED){
       return true;
     }else if (moving === ERR_NO_PATH){
+      if (acceptableRange && range <= acceptableRange) return false;
       this.say('stuck');
       // console.log(`[${this.room.name}] Creep ${this.name} cannot find a path while doing ${this.currentAction}...`);
     }else{
