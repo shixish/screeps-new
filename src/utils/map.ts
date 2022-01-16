@@ -94,4 +94,4 @@ export function getSpawnRoadPath(spawn:StructureSpawn, goal:RoomPosition){
     swampCost: 1, //Swamps cost the same since we will build a road over it
     maxRooms: 1,
   })
-}
+};

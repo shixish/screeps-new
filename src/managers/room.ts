@@ -201,10 +201,6 @@ export class RoomAudit{
     return prioritySpawnableCreep;
   }
 
-  getOptimalRoadPath(){
-
-  }
-
   createConstructionSites(controllerLevel:number){
     const spawns = this.room.find(FIND_MY_SPAWNS); //Later stages may make use of multiple spawns
     const spawn = spawns[0];

@@ -32,6 +32,17 @@ export class RemoteCourierCreep extends BasicCreep<HarvestFlag> {
           CARRY, MOVE,
         ],
       },
+      // {
+      //   cost: 600,
+      //   body: [
+      //     CARRY, MOVE,
+      //     CARRY, MOVE,
+      //     CARRY, MOVE,
+      //     CARRY, MOVE,
+      //     CARRY, MOVE,
+      //     CARRY, MOVE,
+      //   ],
+      // },
     ],
     getCreepAnchor: (roomAudit:RoomAudit)=>{
       return lastFlagManager;
@@ -175,8 +186,8 @@ export class RemoteCourierCreep extends BasicCreep<HarvestFlag> {
       if (this.rememberAction(this.startRemotePickup, 'pickup')) return;
     }else{
       if (this.rememberAction(this.startReturning, 'returning')) return;
-      if (this.rememberAction(this.startStocking, 'stocking')) return;
       if (this.rememberAction(this.startStoring, 'storing')) return;
+      if (this.rememberAction(this.startStocking, 'stocking')) return;
       if (isAtHome){
         this.drop(RESOURCE_ENERGY); //Lame move but ok for now
       }
