@@ -14,43 +14,47 @@ export const FlagManagers = { //:Record<FlagType, BasicFlag>
   [FlagType.Harvest]: HarvestFlag,
 } as const;
 
-// const getFlagType = (flagName:Flag['name'])=>{
-//   const [ roomName, flagType ] = flagName.split(':');
-//   return flagType;
+//This needs to be run after room audits are initialized. This will update the room audits to know about the appropriate flags.
+// export function initFlagManagers(){
+//   for (const flagName in Game.flags) {
+//     const flag = Game.flags[flagName];
+//     const [flagType, options] = flag.name.split(':', 2) as [FlagType, string];
+//     if (flagType in FlagManagers){
+//       const flagManager = new FlagManagers[flagType](flag, flagType, options);
+//       flagManagerCache.set(flag.name, flagManager);
+//     }
+//   }
 // }
 
-// export getFlagFromFlagName(flagName: Flag['name']) {
-//   return this.fromFlag(Game.flags[flagName]);
+// export function getFlagManager(flagOrName?: Flag|Flag['name']):FlagManagerTypes|null {
+//   if (!flagOrName) return null;
+//   let flag:Flag|undefined, flagName:Flag['name'];
+//   if (flagOrName instanceof Flag){
+//     flag = flagOrName;
+//     flagName = flagOrName.name;
+//   }else{
+//     flagName = flagOrName;
+//   }
+//   if (flagManagerCache.has(flagName)){
+//     return flagManagerCache.get(flagName)!;
+//   }else{
+//     if (!flag) flag = Game.flags[flagName];
+//     const [flagType, options] = flag.name.split(':', 2) as [FlagType, string];
+//     const manager = flagType in FlagManagers && new FlagManagers[flagType](flag, flagType, options) || null;
+//     flagManagerCache.set(flagName, manager);
+//     return manager;
+//   }
 // }
-
-export function getFlagManager(flagOrName?: Flag|Flag['name']):FlagManagerTypes|null {
-  if (!flagOrName) return null;
-  let flag:Flag|undefined, flagName:Flag['name'];
-  if (flagOrName instanceof Flag){
-    flag = flagOrName;
-    flagName = flagOrName.name;
-  }else{
-    flagName = flagOrName;
-  }
-  if (flagManagerCache.has(flagName)){
-    return flagManagerCache.get(flagName)!;
-  }else{
-    if (!flag) flag = Game.flags[flagName];
-    const [flagType, options] = flag.name.split(':', 2) as [FlagType, string];
-    const manager = flagType in FlagManagers && new FlagManagers[flagType](flag, flagType, options) || null;
-    flagManagerCache.set(flagName, manager);
-    return manager;
-  }
-}
 
 export const manageFlags = ()=>{
   for (const flagName in Game.flags) {
     try{
-      const flagManager = getFlagManager(flagName);
-      if (flagManager){
+      const flag = Game.flags[flagName];
+      const [flagType, options] = flag.name.split(':', 2) as [FlagType, string];
+      if (flagType in FlagManagers){
+        const flagManager = new FlagManagers[flagType](flag, flagType, options);
+        flagManagerCache.set(flag.name, flagManager);
         flagManager.work();
-      }else{
-        // console.log(`${flagName} has an unknown flag type:`, flagType);
       }
     }catch(e:any){
       console.log(`Flag ${flagName} error:`, e, e.stack);

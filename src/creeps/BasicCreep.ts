@@ -1,7 +1,6 @@
-import { getFlagManager } from "managers/flags";
 import { DEBUG, maxStorageFill } from "utils/constants";
 import { CreepAnchor } from "utils/CreepAnchor";
-import { claimAmount, getClaimedAmount, getResourceAvailable, getResourceSpace, getRoomAudit } from "utils/tickCache";
+import { claimAmount, getClaimedAmount, getFlagManager, getResourceAvailable, getResourceSpace, getRoomAudit } from "utils/tickCache";
 
 export function calculateBiteSize (creep:Creep){
   return (creep.memory.counts.work || 0)*2
@@ -660,9 +659,9 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
     if (DEBUG) console.log(this.id, this.role, ...args);
   }
 
-  protected _flag:FlagManagerType|undefined|null;
+  protected _flag:FlagManagerType|undefined;
   get flag(){
-    if (this._flag === undefined) this._flag = getFlagManager(this.memory.flag) as FlagManagerType|null;
+    if (this._flag === undefined && this.memory.flag) this._flag = getFlagManager(this.memory.flag) as FlagManagerType;
     return this._flag;
   }
 

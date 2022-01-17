@@ -30,7 +30,7 @@ export enum CreepRoleName{
   Harvester = 'harvester', //Source
   Miner = 'miner', //Minerals
   Courier = 'courier',
-  Mover = 'mover',
+  Scout = 'scout',
   Upgrader = 'upgrader',
   Claimer = 'claimer',
   RemoteHarvester = 'remote-harvester',

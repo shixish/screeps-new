@@ -1,12 +1,20 @@
 import { FlagType } from "utils/constants";
+import { getRoomAudit } from "utils/tickCache";
 import { BasicFlag } from "./_BasicFlag";
 
-export abstract class CreepFlag extends BasicFlag {
+export abstract class RemoteFlag extends BasicFlag {
   /* Flag name should be in the form: `${flag.type}:${room.name}` where room is the parent (spawner) room. */
 
   constructor(flag: Flag, type: FlagType, suffix?: string) {
     super(flag, type, suffix);
     this.auditOffice();
+    const roomAudit = getRoomAudit(this.home);
+    (roomAudit.flags[type] as BasicFlag[]).push(this);
+  }
+
+  updateRoomAudit(){
+    const roomAudit = getRoomAudit(this.home);
+    (roomAudit.flags[this.type] as BasicFlag[]).push(this);
   }
 
   abstract auditOffice(): void;

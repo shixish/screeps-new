@@ -2,14 +2,14 @@ import { CreepRoleName, FlagType } from "utils/constants";
 import { getBestContainerLocation, getBestLocations, getTerrainCostMatrix } from "utils/map";
 import { random } from "utils/random";
 import { getRoomAudit } from "utils/tickCache";
-import { CreepFlag } from "./_CreepFlag";
+import { RemoteFlag } from "./_RemoteFlag";
 
 enum ClaimStatus{
   Claim,
   Spawn,
 }
 
-export class ClaimFlag extends CreepFlag {
+export class ClaimFlag extends RemoteFlag {
   type!: FlagType.Claim;
 
   get status(){
@@ -22,7 +22,7 @@ export class ClaimFlag extends CreepFlag {
 
   auditOffice(){
     // const officeAudit = this.office && getRoomAudit(this.office);
-    this.maxFollowersByRole[CreepRoleName.Claimer] = 1;
+    this.maxFollowersByRole[CreepRoleName.Claimer] = this.office?.controller!.my ? 0 : 1;
     this.maxFollowersByRole[CreepRoleName.RemoteWorker] = 2;
   }
 
@@ -38,9 +38,6 @@ export class ClaimFlag extends CreepFlag {
           this.flag.setPosition(central);
           this.room.createConstructionSite(central, STRUCTURE_SPAWN);
           this.status = ClaimStatus.Spawn;
-        }else{
-          const roomAudit = getRoomAudit(this.home);
-          roomAudit.flags[this.type].push(this);
         }
         break;
       case ClaimStatus.Spawn:
@@ -48,9 +45,6 @@ export class ClaimFlag extends CreepFlag {
         if (spawns?.length){
           //Construction logic is now being handled by the room audit
           this.remove();
-        }else{
-          const roomAudit = getRoomAudit(this.home);
-          roomAudit.flags[this.type].push(this);
         }
         break;
     }

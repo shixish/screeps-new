@@ -7,7 +7,7 @@ type TickCache = {
 export const objectCache = new Map<string, TickCache>();
 export const roomAuditCache = new Map<Room["name"], RoomAudit>();
 export const creepAnchorCache = new Map<Id<StructureConstant>, CreepAnchor>();
-export const flagManagerCache = new Map<Flag['name'], BasicFlag|null>();
+export const flagManagerCache = new Map<Flag['name'], BasicFlag>();
 
 const DEBUG_IDS:string[] = [];
 
@@ -55,6 +55,11 @@ export function getRoomAudit(room:Room){
   if (!room) throw 'Invalid room sent to getRoomAudit';
   return roomAuditCache.get(room.name)!;
 };
+
+export function getFlagManager(flagOrName:Flag|Flag['name']){
+  const flagName = flagOrName instanceof Flag ? flagOrName.name : flagOrName;
+  return flagManagerCache.get(flagName);
+}
 
 export const clearTickCache = ()=>{
   objectCache.clear();

@@ -1,9 +1,9 @@
 import { CreepRoleName, FlagType } from "utils/constants";
 import { getRoomAudit } from "utils/tickCache";
-import { CreepFlag } from "./_CreepFlag";
+import { RemoteFlag } from "./_RemoteFlag";
 
 /* Flag name should be in the form: `harvest:${roomName}` where roomName is the name of the parent room. */
-export class HarvestFlag extends CreepFlag {
+export class HarvestFlag extends RemoteFlag {
   type!: FlagType.Harvest;
 
   auditOffice(){
@@ -36,7 +36,6 @@ export class HarvestFlag extends CreepFlag {
   // }
 
   work() {
-    const roomAudit = getRoomAudit(this.home);
-    roomAudit.flags[this.type].push(this);
+
   }
 }

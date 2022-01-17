@@ -4,7 +4,7 @@
 //   return room.memory.sources[source.id] || (room.memory.sources[source.id] = {});
 // };
 
-import { CreepFlag } from "flags/_CreepFlag";
+import { RemoteFlag } from "flags/_RemoteFlag";
 import { CreepRoleName, CreepRoleNames, FlagType, maxStorageFill } from "utils/constants";
 import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor, GenericAnchorType } from "utils/CreepAnchor";
 import { getBestContainerLocation, getSpawnRoadPath } from "utils/map";
@@ -47,7 +47,6 @@ export class RoomAudit{
   mineral?:CreepMineralAnchor;
   storedMineral:number;
   sources:CreepSourceAnchor[];
-  sourceSeats:number;
   creeps:Creep[];
   creepCountsByRole:Record<CreepRoleName, number>;
   hostileCreeps:Creep[];
@@ -66,7 +65,6 @@ export class RoomAudit{
     this.mineral = this.getMineral();
     this.storedMineral = this.mineral && room.storage?.store[this.mineral.anchor.mineralType] || 0;
     this.sources = this.getSources();
-    this.sourceSeats = this.sources.reduce((out, source)=>out + source.totalSeats, 0);
     this.creeps = room.find(FIND_MY_CREEPS);
     this.creepCountsByRole = this.getCreepCountsByRole();
     this.hostileCreeps = room.find(FIND_HOSTILE_CREEPS);
@@ -111,6 +109,16 @@ export class RoomAudit{
     this.room.memory.sources = sources.map(source=>source.id);
     return sources.map(source=>new CreepSourceAnchor(source));
   }
+
+  protected _sourceSeats:number|undefined;
+  get sourceSeats(){
+    return this._sourceSeats || (this._sourceSeats = this.sources.reduce((out, source)=>out + source.totalSeats, 0));
+  }
+
+  // protected _sourceRate:number|undefined;
+  // get sourceRate(){
+  //   return this._sourceRate || (this._sourceRate = this.sources.length * (this.room.controller?.my ? 10 : 5));
+  // }
 
   private getMineral(){
     if (this.room.memory.mineral === null) return;
@@ -248,5 +256,13 @@ export class RoomAudit{
         this.buildStage = this.controllerLevel; //Progress to the next build stage
         break;
     }
+  }
+}
+
+export function initRoomAudits(){
+  for (const roomName in Game.rooms) {
+    const room = Game.rooms[roomName];
+    const audit = new RoomAudit(room);
+    roomAuditCache.set(room.name, audit);
   }
 }

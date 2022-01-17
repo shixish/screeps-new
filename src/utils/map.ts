@@ -1,3 +1,9 @@
+/*
+  TODO:
+  Modify the result of getTerrainCostMatrix by zeroing out cells that already contain structures...
+  Maybe roads don't count..?
+  I think roads must count and I'll have to fit things in around roads and plant roads intelligently.
+*/
 export function getTerrainCostMatrix(room:Room, visualize = false){
   const terrain = room.getTerrain();
 
@@ -93,5 +99,5 @@ export function getSpawnRoadPath(spawn:StructureSpawn, goal:RoomPosition){
   }, {
     swampCost: 1, //Swamps cost the same since we will build a road over it
     maxRooms: 1,
-  })
-};
+  });
+}

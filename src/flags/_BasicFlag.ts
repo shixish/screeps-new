@@ -1,4 +1,5 @@
 import { CreepRoleName, FlagType } from "utils/constants";
+import { getRoomAudit } from "utils/tickCache";
 
 if (!Memory.flags) Memory.flags = {} as Memory['flags']; //Flags object isn't initialized by default
 
@@ -21,6 +22,12 @@ export abstract class BasicFlag {
       }
       return false;
     });
+    this.updateRoomAudit();
+  }
+
+  updateRoomAudit(){
+    const roomAudit = getRoomAudit(this.room);
+    (roomAudit.flags[this.type] as BasicFlag[]).push(this);
   }
 
   abstract work(): void;
