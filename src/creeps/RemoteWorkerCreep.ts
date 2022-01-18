@@ -20,6 +20,14 @@ export class RemoteWorkerCreep extends BasicCreep<ClaimFlag> {
     // },
     tiers: [
       {
+        cost: 550,
+        body: [
+          WORK, MOVE,
+          WORK, MOVE, CARRY,
+          WORK, MOVE, CARRY,
+        ]
+      },
+      {
         cost: 1200,
         body: [
           WORK, MOVE, CARRY,

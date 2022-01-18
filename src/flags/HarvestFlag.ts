@@ -11,6 +11,12 @@ export class HarvestFlag extends RemoteFlag {
     if (officeAudit){
       // console.log(`officeAudit`, officeAudit);
       const sourceCount = officeAudit.sources.length;
+      /*
+      TODO: Instead of specifying how many of a particular creep to spawn like this I should specify the capacity of the room somehow.
+      The problem is that this doesn't account for creep tiers, so it does the right job but doesn't bake in a sense of proper scale.
+
+      Maybe just specify custom creep parts/tier in here and feed it into a creep role to control the logic.
+      */
       this.maxFollowersByRole[CreepRoleName.RemoteHarvester] = sourceCount;
       this.maxFollowersByRole[CreepRoleName.RemoteCourier] = sourceCount*3;
     }else{

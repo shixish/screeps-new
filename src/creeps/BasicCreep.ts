@@ -322,13 +322,16 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
       }
       return containerWithMost;
     };
+
+    const roomStorage = this.room.storage && checkCapacity(this.room.storage) && this.room.storage;
+
     const storage =
       //If there are couriers let them pick up from source containers, otherwise there's congestion.
       storedTarget instanceof StructureContainer && checkCapacity(storedTarget) && storedTarget || //Upgrader will explicitly grab from it's designated container
       storedTarget instanceof StructureStorage && checkCapacity(storedTarget) && storedTarget ||
-      this.canWork && this.room.storage || //If the creep can work then favor going directly to the large storage and let couriers fill that up
+      this.canWork && roomStorage || //If the creep can work then favor going directly to the large storage and let couriers fill that up
       findSourceContainer() || //(!roomAudit.creepCountsByRole.courier || !this.canWork) &&
-      this.room.storage;
+      roomStorage;
       // this.pos.findClosestByRange(FIND_STRUCTURES, {
       //   filter: (container:StructureContainer)=>{
       //     if (container.structureType !== STRUCTURE_CONTAINER) return false;
@@ -437,6 +440,7 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
 
   startEnergizing(storedTarget:TargetableTypes){
     type EnergizeTargets = StructureSpawn|StructureExtension|StructureTower|StructureTower;
+    const roomAudit = getRoomAudit(this.room);
     const resourceType = RESOURCE_ENERGY;
     const checkCapacity = (structure:StructureSpawn|StructureExtension|StructureTower)=>{
       // structure.store.getFreeCapacity(resourceType) > getClaimedAmount(structure.id, resourceType);
@@ -450,15 +454,18 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
     };
     const targets:Partial<Record<StructureConstant, { priority:number, minRequested:number }>> = {
       [STRUCTURE_SPAWN]: {
-        priority: 0,
+        priority: 1,
         minRequested: 0,
       },
       [STRUCTURE_EXTENSION]: {
-        priority: 0,
+        priority: 1,
         minRequested: 0,
       },
-      [STRUCTURE_TOWER]: {
-        priority: 1,
+      [STRUCTURE_TOWER]: roomAudit.hostileCreeps.length ? {
+        priority: 0,
+        minRequested: 0,
+      } : {
+        priority: 2,
         minRequested: this.store.getCapacity(resourceType)*0.75,
       },
     };

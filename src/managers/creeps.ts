@@ -9,19 +9,26 @@ import { RemoteHarvesterCreep } from "creeps/RemoteHarvesterCreep";
 import { RemoteCourierCreep } from "creeps/RemoteCourierCreep";
 import { RemoteWorkerCreep } from "creeps/RemoteWorkerCreep";
 import { MinerCreep } from "creeps/MinerCreep";
+import { MeleeCreep } from "creeps/MeleeCreep";
 import { random } from "utils/random";
 
 export const CreepRoles = { //:Record<CreepRoleName, typeof BasicCreep>
+  //Combat creeps first:
+  [CreepRoleName.Melee]: MeleeCreep,
+
+  //Room maintenance creeps:
   [CreepRoleName.Harvester]: HarvesterCreep,
   [CreepRoleName.Miner]: MinerCreep,
   [CreepRoleName.Courier]: CourierCreep,
   [CreepRoleName.Scout]: ScoutCreep,
   [CreepRoleName.Upgrader]: UpgraderCreep,
+  [CreepRoleName.Basic]: BasicCreep,
+
+  //Remote creeps last:
   [CreepRoleName.Claimer]: ClaimerCreep,
   [CreepRoleName.RemoteHarvester]: RemoteHarvesterCreep,
   [CreepRoleName.RemoteCourier]: RemoteCourierCreep,
   [CreepRoleName.RemoteWorker]: RemoteWorkerCreep,
-  [CreepRoleName.Basic]: BasicCreep,
 } as const;
 
 export const getCreepName = (roleName = 'Creep')=>{

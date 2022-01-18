@@ -30,12 +30,17 @@ export enum CreepRoleName{
   Harvester = 'harvester', //Source
   Miner = 'miner', //Minerals
   Courier = 'courier',
-  Scout = 'scout',
   Upgrader = 'upgrader',
+
+  //Remote:
+  Scout = 'scout',
   Claimer = 'claimer',
   RemoteHarvester = 'remote-harvester',
   RemoteCourier = 'remote-courier',
   RemoteWorker = 'remote-worker',
+
+  //Combat:
+  Melee = 'melee',
 };
 export const CreepRoleNames = Object.values(CreepRoleName);
 

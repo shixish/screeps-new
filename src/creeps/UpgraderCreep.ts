@@ -35,7 +35,7 @@ export class UpgraderCreep extends BasicCreep {
         ],
         max: (roomAudit:RoomAudit)=>{
           if (!roomAudit.controller?.containers.length) return 0;
-          return Math.min(2 + roomAudit.flags.harvest.length*2, 5);
+          return Math.min(2 + roomAudit.flags.harvest.length, 5);
         }
       },
       {

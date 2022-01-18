@@ -29,10 +29,9 @@ export class ClaimFlag extends RemoteFlag {
   /* Flag name should be in the form: `claim:${roomName}` where roomName is the name of the parent room. */
   work() {
     // Note: this.flag.pos.findClosestByRange only works with rooms that have vision...
-    this.memory.room = this.home.name;
     switch(this.status){
       case ClaimStatus.Claim:
-        if (this.office?.controller?.my && this.office.controller.level > 2){
+        if (this.office?.controller?.my && this.office.controller.level >= 2){
           const matrix = getTerrainCostMatrix(this.room);
           const central = getBestLocations(this.room, matrix);
           this.flag.setPosition(central);
