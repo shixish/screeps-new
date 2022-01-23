@@ -69,14 +69,24 @@ export function visualizeMatrix(room:Room, matrix:CostMatrix, circles=true){
   }
 }
 
-export function getStructureCostMatrix(room:Room, maxDistance = 4){
+export function getStructureCostMatrix(room:Room, maxDistance = 4, weightedBy?:StructureConstant){
   const tempStructureLocationMatrix = new PathFinder.CostMatrix();
 
-  const structures = room.find(FIND_STRUCTURES);
   const stepSize = 1;
   const maxValue = maxDistance;
+
+  const structures = room.find(FIND_STRUCTURES);
   structures.forEach(structure=>{
-    tempStructureLocationMatrix.set(structure.pos.x, structure.pos.y, maxValue);
+    if (structure.structureType === weightedBy){
+      tempStructureLocationMatrix.set(structure.pos.x, structure.pos.y, maxValue*2);
+    }else{
+      tempStructureLocationMatrix.set(structure.pos.x, structure.pos.y, maxValue);
+    }
+  });
+
+  const constructionSites = room.find(FIND_MY_CONSTRUCTION_SITES);
+  constructionSites.forEach(constructionSite=>{
+    tempStructureLocationMatrix.set(constructionSite.pos.x, constructionSite.pos.y, maxValue);
   });
 
   const matrix = new PathFinder.CostMatrix();
@@ -110,9 +120,11 @@ export function getStructureCostMatrix(room:Room, maxDistance = 4){
   }
 
   structures.forEach(structure=>{
-    // room.visual.text(structure.structureType, structure.pos);
     matrix.set(structure.pos.x, structure.pos.y, 0);
   });
+  constructionSites.forEach(constructionSite=>{
+    matrix.set(constructionSite.pos.x, constructionSite.pos.y, 0);
+  })
 
   const blockedRange = 2;
   const blockPosition = (pos:RoomPosition)=>{
@@ -197,7 +209,7 @@ export function* diamondRingCoordinates(baseX:number, baseY:number, diamondSize 
   }
 }
 
-export function findDiamondPlacement(room:Room, structureMatrix:CostMatrix = getStructureCostMatrix(room), diamondSize = 1){
+export function findDiamondPlacement(room:Room, diamondSize = 1, structureMatrix:CostMatrix = getStructureCostMatrix(room)){
   let bestX:number|undefined, bestY:number|undefined, bestValue:number = 0;
   for (let y = 0; y < 50; ++y) {
     for (let x = 0; x < 50; ++x) {
@@ -212,16 +224,26 @@ export function findDiamondPlacement(room:Room, structureMatrix:CostMatrix = get
           valueSum += value;
         }
       }
-      // if (valueSum > 0) for (const [rx, ry] of diamondRingCoordinates(x, y, diamondSize+1)){
-      //   // room.visual.circle(rx, ry, { radius: 0.25, fill:"#FF0000" });
-      //   // const output = room.lookAt(rx,ry).find(obj=>{
-      //   //   if (obj.type !== LOOK_TERRAIN && obj.type !== LOOK_CREEPS){
-      //   //     console.log(`obj.type`, obj.type);
-      //   //   }
-      //   // });
-      // }
+      let badPlacements = 0;
+      if (valueSum > 0) for (const [rx, ry] of diamondRingCoordinates(x, y, diamondSize+1)){
+        if (structureMatrix.get(rx, ry) === 0){
+          room.visual.circle(rx, ry, { radius: 0.15, fill:"#FF0000" });
+          if (room.lookAt(rx,ry).find(obj=>obj.structure?.structureType === STRUCTURE_ROAD)){
+            valueSum += 1;
+          }else{
+            valueSum -= 2;
+            badPlacements += 1;
+          }
+        }
+        //If more than one road cannot be placed in the ring then this isn't a suitable location.
+        if (badPlacements > 1){
+          valueSum = 0;
+          break;
+        }
+      }
       if (valueSum === 0) continue;
       room.visual.circle(x, y, { radius: 0.25, fill:"#FF00FF" });
+      room.visual.text(String(valueSum), x, y);
       if (valueSum > bestValue){
         bestX = x;
         bestY = y;
@@ -230,9 +252,12 @@ export function findDiamondPlacement(room:Room, structureMatrix:CostMatrix = get
     }
   }
 
-  for (const [x, y] of diamondRingCoordinates(bestX!, bestY!, diamondSize+1)){
-    room.visual.circle(x, y, { radius: 0.25, fill:"#FF0000" });
-  }
+  // for (const [x, y] of diamondRingCoordinates(bestX!, bestY!, diamondSize+1)){
+  //   room.visual.circle(x, y, { radius: 0.25, fill:"#0000FF" });
+  // }
+
+  if (bestValue == 0) throw 'Unable to find a suitable construction diamond!';
+  return [bestX!, bestY!];
 
   // for (const [x, y] of diamondCoordinates(bestX!, bestY!, diamondSize)){
   //   // if (structureMatrix.get(x, y) === 0) break;

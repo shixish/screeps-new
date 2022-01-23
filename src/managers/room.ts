@@ -7,7 +7,7 @@
 import { RemoteFlag } from "flags/_RemoteFlag";
 import { CreepRoleName, CreepRoleNames, FlagType, maxStorageFill } from "utils/constants";
 import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor, GenericAnchorType } from "utils/CreepAnchor";
-import { getBestContainerLocation, getSpawnRoadPath } from "utils/map";
+import { diamondCoordinates, diamondRingCoordinates, findDiamondPlacement, getBestContainerLocation, getSpawnRoadPath, getStructureCostMatrix } from "utils/map";
 import { roomAuditCache } from "../utils/tickCache";
 import { creepCountParts, CreepRoles, getCreepName, getCreepPartsCost } from "./creeps";
 
@@ -75,6 +75,16 @@ export class RoomAudit{
     }catch(e:any){
       console.log(`[${room.name}] createConstructionSites error:`, e, e.stack);
     }
+    try{
+      //The building placement logic is heavy on CPU so only try to place one thing per tick.
+      const structureType = this.buildQueue.shift();
+      if (structureType){
+        this.createDiamondConstructionSites(structureType);
+      }
+    }catch(e:any){
+      //TODO: What happens if createDiamondConstructionSites fails? We'll have to fix it manually :shrug:
+      console.log(`[${room.name}] createDiamondConstructionSites error:`, e, e.stack);
+    }
   }
 
   protected _creepCountsByRole:Record<CreepRoleName, number>|undefined;
@@ -105,6 +115,10 @@ export class RoomAudit{
 
   set buildStage(buildStage:number){
     this.room.memory.buildStage = buildStage;
+  }
+
+  get buildQueue(){
+    return this.room.memory.buildQueue || (this.room.memory.buildQueue = []);
   }
 
   private getSources(){
@@ -216,6 +230,40 @@ export class RoomAudit{
     return prioritySpawnableCreep;
   }
 
+  // get maxExtensionCount(){
+  //   switch(this.room.controller?.level){
+  //     case 2:
+  //       return 5;
+  //     case 3:
+  //       return 10;
+  //     case 4:
+  //       return 20;
+  //     case 5:
+  //       return 30;
+  //     case 6:
+  //       return 40;
+  //     case 7:
+  //       return 50;
+  //     case 8:
+  //       return 60;
+  //     default:
+  //       return 0;
+  //   }
+  // }
+
+  createDiamondConstructionSites(structureType:BuildableStructureConstant){
+    const diamondSize = structureType === STRUCTURE_EXTENSION ? 1 : 0;
+    //Weight towards building next to the spawn when placing small diamonds for things like towers and storage
+    const structureMatrix = diamondSize === 0 ? getStructureCostMatrix(this.room, 4, STRUCTURE_SPAWN) : getStructureCostMatrix(this.room, 4);
+    const [x, y] = findDiamondPlacement(this.room, diamondSize, structureMatrix);
+    for (const [dx, dy] of diamondCoordinates(x, y, diamondSize)){
+      this.room.createConstructionSite(dx, dy, structureType);
+    }
+    for (const [rx, ry] of diamondRingCoordinates(x, y, diamondSize+1)){
+      this.room.createConstructionSite(rx, ry, STRUCTURE_ROAD);
+    }
+  }
+
   createConstructionSites(){
     const spawns = this.room.find(FIND_MY_SPAWNS); //Later stages may make use of multiple spawns
     const spawn = spawns[0];
@@ -257,9 +305,70 @@ export class RoomAudit{
             this.room.createConstructionSite(pos, STRUCTURE_ROAD);
           });
         }
-        //TODO: Build extensions automatically
+
+        //Build 5 extensions:
+        this.buildQueue.push(STRUCTURE_EXTENSION);
 
         this.buildStage = 3; //Progress to the next build stage
+      }
+      break;
+      case 3:{
+        this.buildQueue.push(STRUCTURE_TOWER);
+
+        //Build 5 extensions:
+        this.buildQueue.push(STRUCTURE_EXTENSION);
+
+        this.buildStage = 4; //Progress to the next build stage
+      }
+      break;
+      case 4:{
+        this.buildQueue.push(STRUCTURE_STORAGE);
+
+        //Build 10 extensions:
+        this.buildQueue.push(STRUCTURE_EXTENSION);
+        this.buildQueue.push(STRUCTURE_EXTENSION);
+
+        this.buildStage = 5; //Progress to the next build stage
+      }
+      break;
+      case 5:{
+        this.buildQueue.push(STRUCTURE_TOWER);
+
+        //Build 10 extensions:
+        this.buildQueue.push(STRUCTURE_EXTENSION);
+        this.buildQueue.push(STRUCTURE_EXTENSION);
+
+        this.buildStage = 6; //Progress to the next build stage
+      }
+      break;
+      case 6:{
+        // this.buildQueue.push(STRUCTURE_EXTRACTOR);
+
+        //Build 10 extensions:
+        this.buildQueue.push(STRUCTURE_EXTENSION);
+        this.buildQueue.push(STRUCTURE_EXTENSION);
+
+        this.buildStage = 7; //Progress to the next build stage
+      }
+      break;
+      case 7:{
+        this.buildQueue.push(STRUCTURE_SPAWN);
+
+        //Build 10 extensions:
+        this.buildQueue.push(STRUCTURE_EXTENSION);
+        this.buildQueue.push(STRUCTURE_EXTENSION);
+
+        this.buildStage = 8; //Progress to the next build stage
+      }
+      break;
+      case 8:{
+        this.buildQueue.push(STRUCTURE_SPAWN);
+
+        //Build 10 extensions:
+        this.buildQueue.push(STRUCTURE_EXTENSION);
+        this.buildQueue.push(STRUCTURE_EXTENSION);
+
+        this.buildStage = 9; //Progress to the next build stage
       }
       break;
     }

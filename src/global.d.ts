@@ -156,6 +156,7 @@ declare global {
     sources: Id<Source>[];
     mineral: Id<Mineral>|null;
     buildStage?: number;
+    buildQueue?: BuildableStructureConstant[];
 
     // sources: {
     //   [id:string]:any
