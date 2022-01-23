@@ -114,12 +114,10 @@ export function getStructureCostMatrix(room:Room, maxDistance = 4){
     matrix.set(structure.pos.x, structure.pos.y, 0);
   });
 
-  const blockedRange = 1;
+  const blockedRange = 2;
   const blockPosition = (pos:RoomPosition)=>{
-    for (let ry = -blockedRange; ry <= blockedRange; ry++){
-      for (let rx = -blockedRange; rx <= blockedRange; rx++){
-        matrix.set(pos.x+rx, pos.y+ry, 0);
-      }
+    for (const [dx, dy] of diamondCoordinates(pos.x, pos.y, blockedRange)){
+      matrix.set(dx, dy, 0);
     }
   };
 
@@ -130,7 +128,8 @@ export function getStructureCostMatrix(room:Room, maxDistance = 4){
   const terrain = room.getTerrain();
   for (let y = 0; y < 50; ++y) {
     for (let x = 0; x < 50; ++x) {
-      if (terrain.get(x, y) === TERRAIN_MASK_WALL) {
+      //We can't build too close to exits and can't build on walls
+      if (terrain.get(x, y) === TERRAIN_MASK_WALL || x < 2 || y < 2 || x > 47 || y > 47) {
         matrix.set(x, y, 0);
       }
     }
@@ -150,56 +149,97 @@ export function getStructureCostMatrix(room:Room, maxDistance = 4){
 
 // }
 
-export function findDiamondPlacement(room:Room, structureMatrix:CostMatrix = getStructureCostMatrix(room), diamondSteps = 5, roadRing = true){
-  // let bestX:number|undefined, bestY:number|undefined, bestValue:number|undefined;
-
-  const checkDiamond = (baseX:number, baseY:number)=>{
-    for (let dy = 0; dy <= diamondSteps; ++dy){
-      for (let dx = 0; dx <= diamondSteps; ++dx){
-        if (dy+dx <= diamondSteps){
-          if (dy === dx){
-            if (dy === 0){
-              room.visual.circle(baseX, baseY, { radius: 0.5 });
-            }else{
-              room.visual.circle(baseX-dx, baseY-dy, { radius: 0.25, fill:"#00FF00" });
-              room.visual.circle(baseX+dx, baseY-dy, { radius: 0.25, fill:"#00FF00" });
-              room.visual.circle(baseX-dx, baseY+dy, { radius: 0.25, fill:"#00FF00" });
-              room.visual.circle(baseX+dx, baseY+dy, { radius: 0.25, fill:"#00FF00" });
-            }
-          } else if (dy === 0){
-            room.visual.circle(baseX+dx, baseY, { radius: 0.25, fill:"#00FFFF" });
-            room.visual.circle(baseX-dx, baseY, { radius: 0.25, fill:"#00FFFF" });
-          } else if (dx === 0){
-            room.visual.circle(baseX, baseY+dy, { radius: 0.25, fill:"#00FFFF" });
-            room.visual.circle(baseX, baseY-dy, { radius: 0.25, fill:"#00FFFF" });
-          } else if (dy<dx){
-            room.visual.circle(baseX+dx, baseY+dy, { radius: 0.25, fill:"#0000FF" });
-            room.visual.circle(baseX-dx, baseY-dy, { radius: 0.25, fill:"#0000FF" });
-            room.visual.circle(baseX+dx, baseY-dy, { radius: 0.25, fill:"#0000FF" });
-            room.visual.circle(baseX-dx, baseY+dy, { radius: 0.25, fill:"#0000FF" });
-          }else if (dy>dx){
-            room.visual.circle(baseX+dx, baseY+dy, { radius: 0.25, fill:"#FF0000" });
-            room.visual.circle(baseX-dx, baseY-dy, { radius: 0.25, fill:"#FF0000" });
-            room.visual.circle(baseX+dx, baseY-dy, { radius: 0.25, fill:"#FF0000" });
-            room.visual.circle(baseX-dx, baseY+dy, { radius: 0.25, fill:"#FF0000" });
-          }
+export function* diamondCoordinates(baseX:number, baseY:number, diamondSize = 1){
+  for (let dy = 0; dy <= diamondSize; ++dy){
+    for (let dx = 0; dx <= diamondSize; ++dx){
+      if (dx === 0 && dy === 0){
+        yield [baseX, baseY];
+      } else if (dy === 0){
+        const posX = baseX+dx, negX = baseX-dx;
+        if (posX <= 49) yield [posX, baseY];
+        if (negX >= 0) yield [negX, baseY];
+      } else if (dx === 0){
+        const posY = baseY+dy, negY = baseY-dy;
+        if (posY <= 49) yield [baseX, posY];
+        if (negY >= 0) yield [baseX, negY];
+      } else if (dy+dx <= diamondSize) {
+        const posX = baseX+dx, negX = baseX-dx;
+        const posY = baseY+dy, negY = baseY-dy;
+        if (posX <= 49){
+          if (posY <= 49) yield [posX, posY];
+          if (negY >= 0) yield [posX, negY];
+        }
+        if (negX >= 0){
+          if (posY <= 49) yield [negX, posY];
+          if (negY >= 0) yield [negX, negY];
         }
       }
     }
-  };
+  }
+}
 
-  let bestX:number|undefined, bestY:number|undefined, bestValue:number|undefined;
+export function* diamondRingCoordinates(baseX:number, baseY:number, diamondSize = 2){
+  for (let dy = 0; dy <= diamondSize; ++dy){
+    for (let dx = 0; dx <= diamondSize; ++dx){
+      if (dy+dx === diamondSize){
+        const posX = baseX+dx, negX = baseX-dx;
+        const posY = baseY+dy, negY = baseY-dy;
+        if (posX <= 49){
+          if (posY <= 49) yield [posX, posY];
+          if (negY >= 0) yield [posX, negY];
+        }
+        if (negX >= 0){
+          if (posY <= 49) yield [negX, posY];
+          if (negY >= 0) yield [negX, negY];
+        }
+      }
+    }
+  }
+}
+
+export function findDiamondPlacement(room:Room, structureMatrix:CostMatrix = getStructureCostMatrix(room), diamondSize = 1){
+  let bestX:number|undefined, bestY:number|undefined, bestValue:number = 0;
   for (let y = 0; y < 50; ++y) {
     for (let x = 0; x < 50; ++x) {
-      const value = structureMatrix.get(x, y);
-      if (value === 0) continue;
-      // if (value < diamondSteps) continue;
-      bestX = x;
-      bestY = y;
+      if (structureMatrix.get(x, y) < diamondSize) continue;
+      let valueSum:number = 0;
+      for (const [dx, dy] of diamondCoordinates(x, y, diamondSize)){
+        const value = structureMatrix.get(dx, dy);
+        if (value === 0){
+          valueSum = 0;
+          break;
+        }else{
+          valueSum += value;
+        }
+      }
+      // if (valueSum > 0) for (const [rx, ry] of diamondRingCoordinates(x, y, diamondSize+1)){
+      //   // room.visual.circle(rx, ry, { radius: 0.25, fill:"#FF0000" });
+      //   // const output = room.lookAt(rx,ry).find(obj=>{
+      //   //   if (obj.type !== LOOK_TERRAIN && obj.type !== LOOK_CREEPS){
+      //   //     console.log(`obj.type`, obj.type);
+      //   //   }
+      //   // });
+      // }
+      if (valueSum === 0) continue;
+      room.visual.circle(x, y, { radius: 0.25, fill:"#FF00FF" });
+      if (valueSum > bestValue){
+        bestX = x;
+        bestY = y;
+        bestValue = valueSum;
+      }
     }
   }
 
-  checkDiamond(bestX!, bestY!);
+  for (const [x, y] of diamondRingCoordinates(bestX!, bestY!, diamondSize+1)){
+    room.visual.circle(x, y, { radius: 0.25, fill:"#FF0000" });
+  }
+
+  // for (const [x, y] of diamondCoordinates(bestX!, bestY!, diamondSize)){
+  //   // if (structureMatrix.get(x, y) === 0) break;
+  //   room.visual.circle(x, y, { radius: 0.25 });
+  // }
+
+  // checkDiamond(bestX!, bestY!);
 
   // const searchSpace = 3;
   // for (let offsetY = -searchSpace; offsetY <= searchSpace; ++offsetY){
