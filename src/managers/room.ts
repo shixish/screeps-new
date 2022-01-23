@@ -206,17 +206,17 @@ export class RoomAudit{
         }else{
           currentCreepCount = this.creepCountsByRole[roleName];
           maxCreepCount = (spawnableCreep.tier.max || config.max)?.(this) ?? 0;
+        }
+        if (maxCreepCount && currentCreepCount < maxCreepCount){
           if (config.getCreepAnchor){
             const anchor = config.getCreepAnchor(this);
             if (anchor){
               spawnableCreep.anchor = anchor;
             }else{
-              console.log(`Unable to find creep anchor`);
+              console.log(`Unable to find creep anchor for ${roleName} in ${this.room.name}`);
               continue;
             }
           }
-        }
-        if (maxCreepCount && currentCreepCount < maxCreepCount){
           const percentage = currentCreepCount/maxCreepCount;
           if (!prioritySpawnableCreep || percentage < priorityPercentage!){
             priorityPercentage = percentage;

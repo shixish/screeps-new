@@ -1,4 +1,4 @@
-import { DEBUG, maxStorageFill } from "utils/constants";
+import { CreepRoleName, CreepRoleNames, DEBUG, maxStorageFill } from "utils/constants";
 import { CreepAnchor } from "utils/CreepAnchor";
 import { claimAmount, getClaimedAmount, getFlagManager, getResourceAvailable, getResourceSpace, getRoomAudit } from "utils/tickCache";
 
@@ -30,8 +30,14 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
     authority: 1,
     max: roomAudit=>{
       if (roomAudit.creeps.length < 2) return 1;
+
+      //Don't build a ton of basic creeps in new rooms that have remote workers present.
+      const highEnd = !roomAudit.flags.claim.length ? Math.ceil(roomAudit.constructionSites.length/6) : 1;
+
       //We need a basic creep to do the initial upgrading before we build a dedicated upgrader
-      return Math.max(Math.ceil(roomAudit.constructionSites.length/6), !roomAudit.creepCountsByRole.upgrader ? 1 : 0);
+      const basicUpgrader = !roomAudit.creepCountsByRole.upgrader ? 1 : 0;
+
+      return Math.max(highEnd, basicUpgrader);
     },
     tiers: [
       {
@@ -792,7 +798,7 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
       if (this.rememberAction(this.startStoring, 'storing')) return;
     }
 
-    if (roomAudit.creepCountsByRole.harvester < roomAudit.sources.length){
+    if (roomAudit.creepCountsByRole[CreepRoleName.Harvester] < roomAudit.sourceSeats && !roomAudit.creepCountsByRole[CreepRoleName.RemoteWorker]){
       //Let the miners do it, the basic creeps are jamming things up...
       if (this.rememberAction(this.startHarvesting, 'mining')) return;
     }
