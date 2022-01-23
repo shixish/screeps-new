@@ -40,7 +40,10 @@ export class RemoteHarvesterCreep extends BasicCreep<HarvestFlag> {
   }
 
   work(){
-    if (!this.flag) throw `Invalid flag given to RemoteHarvestCreep ${this.name}`;
+    if (!this.flag){
+      this.suicide();
+      throw `Invalid flag given to RemoteHarvestCreep ${this.name}. Dying.`;
+    }
     //The room may not initially have vision
     const source = this.getAnchoredSource(this.flag.office);
     if (source){

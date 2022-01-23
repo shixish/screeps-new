@@ -56,6 +56,14 @@ export function getTerrainCostMatrix(room:Room, visualize = false){
   return matrix;
 }
 
+export function getStructureCostMatrix(room:Room, matrix:CostMatrix = getTerrainCostMatrix(room)){
+  room.find(FIND_STRUCTURES).forEach(structure=>{
+    room.visual.text(structure.structureType, structure.pos);
+  });
+}
+
+export function findDiamondPlacement(room:Room, matrix:CostMatrix){}
+
 export function getBestLocations(room:Room, matrix:CostMatrix, visualize = false){
   const sources = room.find(FIND_SOURCES);
   let bestX:number, bestY:number, bestValue:number|undefined;

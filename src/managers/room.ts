@@ -48,7 +48,6 @@ export class RoomAudit{
   storedMineral:number;
   sources:CreepSourceAnchor[];
   creeps:Creep[];
-  creepCountsByRole:Record<CreepRoleName, number>;
   hostileCreeps:Creep[];
   flags:{[T in FlagType]: InstanceType<FlagManagers[T]>[]} = Object.values(FlagType).reduce((out, key)=>{
     out[key] = []; //initialize the flags arrays
@@ -66,7 +65,6 @@ export class RoomAudit{
     this.storedMineral = this.mineral && room.storage?.store[this.mineral.anchor.mineralType] || 0;
     this.sources = this.getSources();
     this.creeps = room.find(FIND_MY_CREEPS);
-    this.creepCountsByRole = this.getCreepCountsByRole();
     this.hostileCreeps = room.find(FIND_HOSTILE_CREEPS);
     this.constructionSites = room.find(FIND_MY_CONSTRUCTION_SITES);
 
@@ -79,7 +77,9 @@ export class RoomAudit{
     }
   }
 
-  getCreepCountsByRole(){
+  protected _creepCountsByRole:Record<CreepRoleName, number>|undefined;
+  get creepCountsByRole():Record<CreepRoleName, number>{
+    if (this._creepCountsByRole) return this._creepCountsByRole;
     const creepCountsByRole = CreepRoleNames.reduce((out, roleName)=>{
       out[roleName] = 0;
       return out;
@@ -96,7 +96,7 @@ export class RoomAudit{
         creepCountsByRole[role]++;
       }
     });
-    return creepCountsByRole;
+    return this._creepCountsByRole = creepCountsByRole;
   }
 
   get buildStage(){
