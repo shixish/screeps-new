@@ -4,7 +4,7 @@
   Maybe roads don't count..?
   I think roads must count and I'll have to fit things in around roads and plant roads intelligently.
 */
-export function getTerrainCostMatrix(room:Room, visualize = false){
+export function getTerrainCostMatrix(room:Room){
   const terrain = room.getTerrain();
 
   const sources = room.find(FIND_SOURCES);
@@ -48,7 +48,6 @@ export function getTerrainCostMatrix(room:Room, visualize = false){
         matrix.get(x + 1, y) + 1,
       );
       matrix.set(x, y, value);
-      if (visualize) room.visual.circle(x, y, { radius: value / 25 });
     }
   }
 
@@ -56,13 +55,200 @@ export function getTerrainCostMatrix(room:Room, visualize = false){
   return matrix;
 }
 
-export function getStructureCostMatrix(room:Room, matrix:CostMatrix = getTerrainCostMatrix(room)){
-  room.find(FIND_STRUCTURES).forEach(structure=>{
-    room.visual.text(structure.structureType, structure.pos);
-  });
+export function visualizeMatrix(room:Room, matrix:CostMatrix, circles=true){
+  for (let y = 0; y < 50; ++y) {
+    for (let x = 0; x < 50; ++x) {
+      const value = matrix.get(x, y);
+      if (value === 0) continue;
+      if (circles){
+        room.visual.circle(x, y, { radius: value / 25 });
+      } else {
+        room.visual.text(String(value), x, y);
+      }
+    }
+  }
 }
 
-export function findDiamondPlacement(room:Room, matrix:CostMatrix){}
+export function getStructureCostMatrix(room:Room, maxDistance = 4){
+  const tempStructureLocationMatrix = new PathFinder.CostMatrix();
+
+  const structures = room.find(FIND_STRUCTURES);
+  const stepSize = 1;
+  const maxValue = maxDistance;
+  structures.forEach(structure=>{
+    tempStructureLocationMatrix.set(structure.pos.x, structure.pos.y, maxValue);
+  });
+
+  const matrix = new PathFinder.CostMatrix();
+  for (let y = 0; y < 50; ++y) {
+    for (let x = 0; x < 50; ++x) {
+      const structureValue = tempStructureLocationMatrix.get(x, y);
+      if (structureValue) {
+        matrix.set(x, y, structureValue);
+      } else {
+        matrix.set(x, y, Math.max(
+          matrix.get(x - 1, y - 1),
+          matrix.get(x, y - 1),
+          matrix.get(x + 1, y - 1),
+          matrix.get(x - 1, y),
+        ) - stepSize);
+      }
+    }
+  }
+
+  for (let y = 49; y >= 0; --y) {
+    for (let x = 49; x >= 0; --x) {
+      const value = Math.max(
+        matrix.get(x, y),
+        matrix.get(x + 1, y + 1) - stepSize,
+        matrix.get(x, y + 1) - stepSize,
+        matrix.get(x - 1, y + 1) - stepSize,
+        matrix.get(x + 1, y) - stepSize,
+      );
+      matrix.set(x, y, value);
+    }
+  }
+
+  structures.forEach(structure=>{
+    // room.visual.text(structure.structureType, structure.pos);
+    matrix.set(structure.pos.x, structure.pos.y, 0);
+  });
+
+  const blockedRange = 1;
+  const blockPosition = (pos:RoomPosition)=>{
+    for (let ry = -blockedRange; ry <= blockedRange; ry++){
+      for (let rx = -blockedRange; rx <= blockedRange; rx++){
+        matrix.set(pos.x+rx, pos.y+ry, 0);
+      }
+    }
+  };
+
+  room.find(FIND_SOURCES).forEach(source=>blockPosition(source.pos));
+  room.find(FIND_MINERALS).forEach(mineral=>blockPosition(mineral.pos));
+  if (room.controller) blockPosition(room.controller.pos);
+
+  const terrain = room.getTerrain();
+  for (let y = 0; y < 50; ++y) {
+    for (let x = 0; x < 50; ++x) {
+      if (terrain.get(x, y) === TERRAIN_MASK_WALL) {
+        matrix.set(x, y, 0);
+      }
+    }
+  }
+
+  return matrix;
+}
+// export function getStructureCostMatrix(room:Room, matrix:CostMatrix = getTerrainCostMatrix(room)){
+//   room.find(FIND_STRUCTURES).forEach(structure=>{
+//     // room.visual.text(structure.structureType, structure.pos);
+//     matrix.set(structure.pos.x, structure.pos.y, 0);
+//   });
+//   return matrix;
+// }
+
+// export function getStructureTerrainCostMatrix(room:Room, matrix:CostMatrix = getStructureCostMatrix(room)){
+
+// }
+
+export function findDiamondPlacement(room:Room, structureMatrix:CostMatrix = getStructureCostMatrix(room), diamondSteps = 5, roadRing = true){
+  // let bestX:number|undefined, bestY:number|undefined, bestValue:number|undefined;
+
+  const checkDiamond = (baseX:number, baseY:number)=>{
+    for (let dy = 0; dy <= diamondSteps; ++dy){
+      for (let dx = 0; dx <= diamondSteps; ++dx){
+        if (dy+dx <= diamondSteps){
+          if (dy === dx){
+            if (dy === 0){
+              room.visual.circle(baseX, baseY, { radius: 0.5 });
+            }else{
+              room.visual.circle(baseX-dx, baseY-dy, { radius: 0.25, fill:"#00FF00" });
+              room.visual.circle(baseX+dx, baseY-dy, { radius: 0.25, fill:"#00FF00" });
+              room.visual.circle(baseX-dx, baseY+dy, { radius: 0.25, fill:"#00FF00" });
+              room.visual.circle(baseX+dx, baseY+dy, { radius: 0.25, fill:"#00FF00" });
+            }
+          } else if (dy === 0){
+            room.visual.circle(baseX+dx, baseY, { radius: 0.25, fill:"#00FFFF" });
+            room.visual.circle(baseX-dx, baseY, { radius: 0.25, fill:"#00FFFF" });
+          } else if (dx === 0){
+            room.visual.circle(baseX, baseY+dy, { radius: 0.25, fill:"#00FFFF" });
+            room.visual.circle(baseX, baseY-dy, { radius: 0.25, fill:"#00FFFF" });
+          } else if (dy<dx){
+            room.visual.circle(baseX+dx, baseY+dy, { radius: 0.25, fill:"#0000FF" });
+            room.visual.circle(baseX-dx, baseY-dy, { radius: 0.25, fill:"#0000FF" });
+            room.visual.circle(baseX+dx, baseY-dy, { radius: 0.25, fill:"#0000FF" });
+            room.visual.circle(baseX-dx, baseY+dy, { radius: 0.25, fill:"#0000FF" });
+          }else if (dy>dx){
+            room.visual.circle(baseX+dx, baseY+dy, { radius: 0.25, fill:"#FF0000" });
+            room.visual.circle(baseX-dx, baseY-dy, { radius: 0.25, fill:"#FF0000" });
+            room.visual.circle(baseX+dx, baseY-dy, { radius: 0.25, fill:"#FF0000" });
+            room.visual.circle(baseX-dx, baseY+dy, { radius: 0.25, fill:"#FF0000" });
+          }
+        }
+      }
+    }
+  };
+
+  let bestX:number|undefined, bestY:number|undefined, bestValue:number|undefined;
+  for (let y = 0; y < 50; ++y) {
+    for (let x = 0; x < 50; ++x) {
+      const value = structureMatrix.get(x, y);
+      if (value === 0) continue;
+      // if (value < diamondSteps) continue;
+      bestX = x;
+      bestY = y;
+    }
+  }
+
+  checkDiamond(bestX!, bestY!);
+
+  // const searchSpace = 3;
+  // for (let offsetY = -searchSpace; offsetY <= searchSpace; ++offsetY){
+  //   for (let offsetX = -searchSpace; offsetX <= searchSpace; ++offsetX){
+
+  //   }
+  // }
+}
+// export function findDiamondPlacement(room:Room, diamondSize = 1, roadRing = true, terrainMatrix:CostMatrix = getTerrainCostMatrix(room), structureMatrix:CostMatrix = getStructureCostMatrix(room)){
+//   const matrix = new PathFinder.CostMatrix();
+
+//   let bestX:number|undefined, bestY:number|undefined, bestValue:number|undefined;
+//   for (let y = 0; y < 50; ++y) {
+//     for (let x = 0; x < 50; ++x) {
+//       const structureValue = structureMatrix.get(x, y);
+//       const terrainValue = terrainMatrix.get(x, y);
+//       const average = structureValue === 0 || terrainValue === 0 ? 0 : structureValue+terrainValue; //Math.pow((Math.sqrt(structureValue)+Math.sqrt(terrainValue))/2,2); //(structureValue+terrainValue)/2;
+//       if (!bestValue || average > bestValue){
+//         bestValue = average;
+//         bestX = x;
+//         bestY = y;
+//       }
+//       matrix.set(x, y, average);
+//     }
+//   }
+
+//   const sizeOffset = diamondSize-1;
+//   const checkDiamond = (offsetX:number, offsetY:number)=>{
+//     const baseX = bestX!+offsetX;
+//     const baseY = bestY!+offsetY;
+//     for (let d = -sizeOffset; d <= sizeOffset; ++d){
+//       const x = baseX+d;
+//       const y = baseY+d;
+//       room.visual.circle(x, y, { radius: 0.75, fill:"#00FF00" });
+//     }
+//   };
+
+//   // const searchSpace = 3;
+//   // for (let offsetY = -searchSpace; offsetY <= searchSpace; ++offsetY){
+//   //   for (let offsetX = -searchSpace; offsetX <= searchSpace; ++offsetX){
+
+//   //   }
+//   // }
+
+//   checkDiamond(0, 0);
+
+
+//   return matrix;
+// }
 
 export function getBestLocations(room:Room, matrix:CostMatrix, visualize = false){
   const sources = room.find(FIND_SOURCES);
