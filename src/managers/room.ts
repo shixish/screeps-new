@@ -68,15 +68,13 @@ export class RoomAudit{
     this.hostileCreeps = room.find(FIND_HOSTILE_CREEPS);
     this.constructionSites = room.find(FIND_MY_CONSTRUCTION_SITES);
 
-    try{
-      if (this.controllerLevel > this.buildStage){
-        this.createConstructionSites();
-      }
-    }catch(e:any){
-      console.log(`[${room.name}] createConstructionSites error:`, e, e.stack);
+    if (this.controller){
+      this.room.visual.text(`${this.controllerLevel} → ${this.buildStage}`, this.controller.pos.x, this.controller.pos.y+1);
     }
+
     try{
       //The building placement logic is heavy on CPU so only try to place one thing per tick.
+      //Do the build queue before createConstructionSites so that things queued will be constructed on the following tick.
       const structureType = this.buildQueue.shift();
       if (structureType){
         this.createDiamondConstructionSites(structureType);
@@ -84,6 +82,14 @@ export class RoomAudit{
     }catch(e:any){
       //TODO: What happens if createDiamondConstructionSites fails? We'll have to fix it manually :shrug:
       console.log(`[${room.name}] createDiamondConstructionSites error:`, e, e.stack);
+    }
+
+    try{
+      if (this.controllerLevel >= this.buildStage && this.constructionSites.length === 0 && this.buildQueue.length === 0){
+        this.createConstructionSites();
+      }
+    }catch(e:any){
+      console.log(`[${room.name}] createConstructionSites error:`, e, e.stack);
     }
   }
 
@@ -115,6 +121,15 @@ export class RoomAudit{
 
   set buildStage(buildStage:number){
     this.room.memory.buildStage = buildStage;
+    this.room.memory.buildSubStage = 0;
+  }
+
+  get buildSubStage(){
+    return this.room.memory.buildSubStage || 0;
+  }
+
+  set buildSubStage(buildSubStage:number){
+    this.room.memory.buildSubStage = buildSubStage;
   }
 
   get buildQueue(){
@@ -264,113 +279,227 @@ export class RoomAudit{
     }
   }
 
-  createConstructionSites(){
-    const spawns = this.room.find(FIND_MY_SPAWNS); //Later stages may make use of multiple spawns
-    const spawn = spawns[0];
-    //These basically correspond to controller level
-    switch(this.buildStage){
+  createRampartConstructionSites(){
+    this.room.find(FIND_MY_STRUCTURES, {
+      filter: structure=>structure.structureType === STRUCTURE_SPAWN || structure.structureType === STRUCTURE_TOWER || structure.structureType === STRUCTURE_STORAGE
+    }).forEach(structure=>{
+      this.room.createConstructionSite(structure.pos, STRUCTURE_RAMPART);
+    });
+  }
+
+  createConstructionSitesCL1():boolean{
+    switch(this.buildSubStage){
       case 0:{
-        //Claim flag should get the first spawn set up.
-        if (spawn){
-          this.buildStage = 1;
-        }
-      }
-      break;
-      case 1:{
+        const [ spawn ] = this.room.find(FIND_MY_SPAWNS);
         this.room.createConstructionSite(spawn.pos.x-1, spawn.pos.y, STRUCTURE_ROAD);
         this.room.createConstructionSite(spawn.pos.x+1, spawn.pos.y, STRUCTURE_ROAD);
         this.room.createConstructionSite(spawn.pos.x, spawn.pos.y-1, STRUCTURE_ROAD);
         this.room.createConstructionSite(spawn.pos.x, spawn.pos.y+1, STRUCTURE_ROAD);
+
         const sources = this.room.find(FIND_SOURCES);
         sources.forEach(source=>{
           const sourceContainerPos = getBestContainerLocation(source.pos, spawn.pos);
           this.room.createConstructionSite(sourceContainerPos, STRUCTURE_CONTAINER);
         });
-        this.buildStage = 2; //Progress to the next build stage
+
+        this.buildSubStage++;
       }
       break;
-      case 2:{
+      case 1:{
+        this.sources.forEach(source=>{
+          source.containers.forEach(container=>{
+            this.room.createConstructionSite(container.pos, STRUCTURE_RAMPART);
+          });
+        });
+        return true;
+      }
+    }
+    return false;
+  }
+
+  createConstructionSitesCL2():boolean{
+    const [ spawn ] = this.room.find(FIND_MY_SPAWNS);
+    switch(this.buildSubStage){
+      case 0:{
+        //Make an outer ring around the first spawn. This will help place towers and storage later.
+        this.room.createConstructionSite(spawn.pos.x-2, spawn.pos.y-1, STRUCTURE_ROAD);
+        this.room.createConstructionSite(spawn.pos.x-1, spawn.pos.y-2, STRUCTURE_ROAD);
+        this.room.createConstructionSite(spawn.pos.x+2, spawn.pos.y-1, STRUCTURE_ROAD);
+        this.room.createConstructionSite(spawn.pos.x+1, spawn.pos.y-2, STRUCTURE_ROAD);
+        this.room.createConstructionSite(spawn.pos.x-2, spawn.pos.y+1, STRUCTURE_ROAD);
+        this.room.createConstructionSite(spawn.pos.x-1, spawn.pos.y+2, STRUCTURE_ROAD);
+        this.room.createConstructionSite(spawn.pos.x+2, spawn.pos.y+1, STRUCTURE_ROAD);
+        this.room.createConstructionSite(spawn.pos.x+1, spawn.pos.y+2, STRUCTURE_ROAD);
+
+        this.buildSubStage++;
+      }
+      break;
+      case 1:{
+        //Need to wait for the initial construction sites to be built before proceeding since they will be used in the pathing calculations
         const sources = this.room.find(FIND_SOURCES);
         sources.forEach(source=>{
           const sourceRoadPath = getSpawnRoadPath(spawn, source.pos);
-          sourceRoadPath.path.forEach(pos=>{
-            this.room.createConstructionSite(pos, STRUCTURE_ROAD);
+          sourceRoadPath.forEach(step=>{
+            this.room.createConstructionSite(step.x, step.y, STRUCTURE_ROAD);
           });
         });
         if (this.room.controller){
+          const controllerRoadPath = getSpawnRoadPath(spawn, this.room.controller.pos);
+          controllerRoadPath.forEach(step=>{
+            this.room.createConstructionSite(step.x, step.y, STRUCTURE_ROAD);
+          });
+        }
+
+        this.buildSubStage++;
+      }
+      break;
+      case 2:{
+        if (this.room.controller){
           const controllerContainerPos = getBestContainerLocation(this.room.controller.pos, spawn.pos);
           this.room.createConstructionSite(controllerContainerPos, STRUCTURE_CONTAINER);
-          const controllerRoadPath = getSpawnRoadPath(spawn, controllerContainerPos);
-          controllerRoadPath.path.forEach(pos=>{
-            this.room.createConstructionSite(pos, STRUCTURE_ROAD);
-          });
         }
 
         //Build 5 extensions:
         this.buildQueue.push(STRUCTURE_EXTENSION);
 
-        this.buildStage = 3; //Progress to the next build stage
+        return true;
       }
-      break;
-      case 3:{
+    }
+    return false;
+  }
+
+  createConstructionSitesCL3():boolean{
+    switch(this.buildSubStage){
+      case 0:{
         this.buildQueue.push(STRUCTURE_TOWER);
 
         //Build 5 extensions:
         this.buildQueue.push(STRUCTURE_EXTENSION);
 
-        this.buildStage = 4; //Progress to the next build stage
+        this.buildSubStage++;
       }
       break;
-      case 4:{
+      case 1:{
+        this.createRampartConstructionSites(); //Build a rampart on the new tower
+        return true;
+      }
+    }
+    return false;
+  }
+
+  createConstructionSitesCL4():boolean{
+    switch(this.buildSubStage){
+      case 0:{
         this.buildQueue.push(STRUCTURE_STORAGE);
 
         //Build 10 extensions:
         this.buildQueue.push(STRUCTURE_EXTENSION);
         this.buildQueue.push(STRUCTURE_EXTENSION);
 
-        this.buildStage = 5; //Progress to the next build stage
+        this.buildSubStage++;
       }
       break;
-      case 5:{
+      case 1:{
+        this.createRampartConstructionSites(); //Build a rampart on the new storage
+        return true;
+      }
+    }
+    return false;
+  }
+
+  createConstructionSitesCL5():boolean{
+    switch(this.buildSubStage){
+      case 0:{
         this.buildQueue.push(STRUCTURE_TOWER);
 
         //Build 10 extensions:
         this.buildQueue.push(STRUCTURE_EXTENSION);
         this.buildQueue.push(STRUCTURE_EXTENSION);
 
-        this.buildStage = 6; //Progress to the next build stage
+        this.buildSubStage++;
       }
       break;
-      case 6:{
-        // this.buildQueue.push(STRUCTURE_EXTRACTOR);
-
-        //Build 10 extensions:
-        this.buildQueue.push(STRUCTURE_EXTENSION);
-        this.buildQueue.push(STRUCTURE_EXTENSION);
-
-        this.buildStage = 7; //Progress to the next build stage
+      case 1:{
+        this.createRampartConstructionSites(); //Build a rampart on the new tower
+        return true;
       }
-      break;
-      case 7:{
+    }
+    return false;
+  }
+
+  createConstructionSitesCL6():boolean{
+    // this.buildQueue.push(STRUCTURE_EXTRACTOR);
+
+    //Build 10 extensions:
+    this.buildQueue.push(STRUCTURE_EXTENSION);
+    this.buildQueue.push(STRUCTURE_EXTENSION);
+
+    return true;
+  }
+
+  createConstructionSitesCL7():boolean{
+    switch(this.buildSubStage){
+      case 0:{
         this.buildQueue.push(STRUCTURE_SPAWN);
 
         //Build 10 extensions:
         this.buildQueue.push(STRUCTURE_EXTENSION);
         this.buildQueue.push(STRUCTURE_EXTENSION);
 
-        this.buildStage = 8; //Progress to the next build stage
+        this.buildSubStage++;
       }
       break;
-      case 8:{
+      case 1:{
+        this.createRampartConstructionSites(); //Build a rampart on the new spawn
+        return true;
+      }
+    }
+    return false;
+  }
+
+  createConstructionSitesCL8():boolean{
+    switch(this.buildSubStage){
+      case 0:{
         this.buildQueue.push(STRUCTURE_SPAWN);
 
         //Build 10 extensions:
         this.buildQueue.push(STRUCTURE_EXTENSION);
         this.buildQueue.push(STRUCTURE_EXTENSION);
 
-        this.buildStage = 9; //Progress to the next build stage
+        this.buildSubStage++;
       }
       break;
+      case 1:{
+        this.createRampartConstructionSites(); //Build a rampart on the new spawn
+        return true;
+      }
+    }
+    return false;
+  }
+
+  createConstructionSites(){
+    const stageResult:boolean = (()=>{
+      switch(this.buildStage){
+        case 0:
+          const [ spawn ] = this.room.find(FIND_MY_SPAWNS);
+          //Claim flag should get the first spawn set up.
+          return Boolean(spawn);
+        case 1: return this.createConstructionSitesCL1();
+        case 2: return this.createConstructionSitesCL2();
+        case 3: return this.createConstructionSitesCL3();
+        case 4: return this.createConstructionSitesCL4();
+        case 5: return this.createConstructionSitesCL5();
+        case 6: return this.createConstructionSitesCL6();
+        case 7: return this.createConstructionSitesCL7();
+        case 8: return this.createConstructionSitesCL8();
+        default:
+          throw 'invalid this.buildStage';
+      }
+    })();
+
+    //If the callback returns true it means the stage is done and we can proceed.
+    if (stageResult){
+      this.buildStage++;
     }
   }
 }

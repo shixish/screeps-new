@@ -343,7 +343,9 @@ export function getBestContainerLocation(pos:RoomPosition, center:RoomPosition, 
   for (let coord of [[-1,-1], [0,-1], [1,-1], [-1,0], [1,0], [-1,1], [0,1], [1,1]]){
     const x = pos.x + coord[0], y = pos.y + coord[1];
     if (terrain.get(x, y) !== TERRAIN_MASK_WALL){
-      const range = center.getRangeTo(x, y);
+      const range = center.findPathTo(x, y, {
+        ignoreCreeps: true
+      }).length;//center.getRangeTo(x, y);
       if (visualize) room.visual.text(String(range), x, y);
       if (!bestRange || bestRange > range){
         bestX = x;
@@ -357,26 +359,30 @@ export function getBestContainerLocation(pos:RoomPosition, center:RoomPosition, 
 }
 
 export function getSpawnRoadPath(spawn:StructureSpawn, goal:RoomPosition){
-  let leastRange:number|undefined;
-  //Use the closest of the diamond corners around the spawn as the start position
-  const spawnStartPos = [[0,-1], [-1, 0], [0, 1], [1, 0]].reduce((out, direction)=>{
-    const x = spawn.pos.x+direction[0], y = spawn.pos.y+direction[1];
-    const range = goal.getRangeTo(x, y);
-    if (!leastRange || leastRange > range){
-      leastRange = range;
-      out = new RoomPosition(x, y, spawn.room.name);
-    }
-    return out;
-  }, undefined as RoomPosition|undefined)!;
-  return PathFinder.search(spawnStartPos, {
-    pos: goal,
+  return goal.findPathTo(spawn, {
     range: 1,
-  }, {
+    ignoreCreeps: true,
     swampCost: 1, //Swamps cost the same since we will build a road over it
-    maxRooms: 1,
   });
+  // let leastRange:number|undefined;
+  // //Use the closest of the diamond corners around the spawn as the start position
+  // const spawnStartPos = [[0,-1], [-1, 0], [0, 1], [1, 0]].reduce((out, direction)=>{
+  //   const x = spawn.pos.x+direction[0], y = spawn.pos.y+direction[1];
+  //   const range = goal.getRangeTo(x, y);
+  //   if (!leastRange || leastRange > range){
+  //     leastRange = range;
+  //     out = new RoomPosition(x, y, spawn.room.name);
+  //   }
+  //   return out;
+  // }, undefined as RoomPosition|undefined)!;
+  // return PathFinder.search(spawnStartPos, {
+  //   pos: goal,
+  //   range: 1,
+  // }, {
+  //   swampCost: 1, //Swamps cost the same since we will build a road over it
+  //   maxRooms: 1,
+  // });
 }
-
 
 export function getGrid(room:Room, central:RoomPosition, matrix:CostMatrix){
   room.visual.circle(central, { radius: 1 });
