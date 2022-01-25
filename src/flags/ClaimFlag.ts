@@ -36,6 +36,11 @@ export class ClaimFlag extends RemoteFlag {
           const central = getBestLocations(this.room, matrix);
           this.flag.setPosition(central);
           this.room.createConstructionSite(central, STRUCTURE_SPAWN);
+
+          //Clear any room progress history. We might be reclaiming the room after it's been taken out.
+          this.room.memory.buildStage = 0;
+          this.room.memory.buildSubStage = 0;
+          this.room.memory.buildQueue = [];
           this.status = ClaimStatus.Spawn;
         }
         break;
