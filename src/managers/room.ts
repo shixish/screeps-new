@@ -7,7 +7,7 @@
 import { RemoteFlag } from "flags/_RemoteFlag";
 import { CreepRoleName, CreepRoleNames, FlagType, maxStorageFill } from "utils/constants";
 import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor, GenericAnchorType } from "utils/CreepAnchor";
-import { diamondCoordinates, diamondRingCoordinates, findDiamondPlacement, getBestContainerLocation, getSpawnRoadPath, getStructureCostMatrix } from "utils/map";
+import { diamondCoordinates, diamondRingCoordinates, findDiamondPlacement, getBestCentralLocation, getBestContainerLocation, getSpawnRoadPath, getStructureCostMatrix } from "utils/map";
 import { getRoomAudit, roomAuditCache } from "../utils/tickCache";
 import { creepCountParts, CreepRoles, getCreepName, getCreepPartsCost } from "./creeps";
 
@@ -66,7 +66,7 @@ export class RoomAudit{
     this.hostileCreeps = room.find(FIND_HOSTILE_CREEPS);
     this.constructionSites = room.find(FIND_MY_CONSTRUCTION_SITES);
 
-    if (this.controller){
+    if (this.controller?.anchor.my){
       this.room.visual.text(`${this.controllerLevel} → ${this.buildStage}`, this.controller.pos.x, this.controller.pos.y+1);
     }
 
@@ -132,6 +132,26 @@ export class RoomAudit{
 
   get buildQueue(){
     return this.room.memory.buildQueue || (this.room.memory.buildQueue = []);
+  }
+
+  get center(){
+    if (!this.room.memory.center){
+      const [ spawn ] = this.room.find(FIND_MY_SPAWNS);
+      this.center = spawn && spawn.pos || getBestCentralLocation(this.room);
+    }
+    return new RoomPosition(this.room.memory.center.x, this.room.memory.center.y, this.room.name);
+  }
+
+  set center(pos:RoomPosition){
+    if (pos.roomName !== this.room.name) throw `Invalid center location. Wrong room! ${pos.roomName} !== ${this.room.name}`;
+    this.room.memory.center = { x:pos.x, y:pos.y };
+  }
+
+  //This can be used to restart a room. Might be necessary once it's destroyed and needs to be rebuilt.
+  resetRoom(){
+    this.room.memory.buildStage = 0;
+    this.room.memory.buildSubStage = 0;
+    this.room.memory.buildQueue = [];
   }
 
   private getSources(){

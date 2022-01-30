@@ -1,15 +1,42 @@
 import { CreepRoleName, FlagType } from "utils/constants";
 import { getRoomAudit } from "utils/tickCache";
-import { RemoteFlag } from "./_RemoteFlag";
+import { RemoteFlag, RemoteFlagMemory } from "./_RemoteFlag";
 
 /* Flag name should be in the form: `harvest:${roomName}` where roomName is the name of the parent room. */
-export class HarvestFlag extends RemoteFlag {
+enum HarvestStatus{
+  Audit,
+  Harvest,
+}
+
+interface HarvestFlagMemory extends RemoteFlagMemory{
+
+}
+
+export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
   type!: FlagType.Harvest;
+
+  get status(){
+    return this.memory.status as HarvestStatus ?? HarvestStatus.Audit;
+  }
+
+  set status(status:HarvestStatus){
+    this.memory.status = status;
+  }
 
   auditOffice(){
     const officeAudit = this.office && getRoomAudit(this.office);
     if (officeAudit){
-      // console.log(`officeAudit`, officeAudit);
+
+      if (this.status === HarvestStatus.Audit){
+        officeAudit.sources.forEach(source=>{
+          officeAudit.center.findPathTo(source.pos, {
+            range: 1,
+            ignoreCreeps: true,
+            swampCost: 1, //Swamps cost the same since we will build a road over it
+          });
+        });
+      }
+
       const sourceCount = officeAudit.sources.length;
       /*
       TODO: Instead of specifying how many of a particular creep to spawn like this I should specify the capacity of the room somehow.

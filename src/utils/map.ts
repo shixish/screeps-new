@@ -315,7 +315,7 @@ export function findDiamondPlacement(room:Room, diamondSize = 1, structureMatrix
 //   return matrix;
 // }
 
-export function getBestLocations(room:Room, matrix:CostMatrix, visualize = false){
+export function getBestCentralLocation(room:Room, matrix:CostMatrix = getTerrainCostMatrix(room), visualize = false){
   const sources = room.find(FIND_SOURCES);
   let bestX:number, bestY:number, bestValue:number|undefined;
   for (let y = 0; y < 50; ++y) {

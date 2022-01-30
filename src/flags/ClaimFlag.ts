@@ -1,19 +1,19 @@
 import { CreepRoleName, FlagType } from "utils/constants";
-import { getBestContainerLocation, getBestLocations, getTerrainCostMatrix } from "utils/map";
-import { random } from "utils/random";
+import { getBestCentralLocation } from "utils/map";
 import { getRoomAudit } from "utils/tickCache";
 import { RemoteFlag } from "./_RemoteFlag";
 
 enum ClaimStatus{
+  Audit,
   Claim,
-  Spawn,
+  Finish,
 }
 
 export class ClaimFlag extends RemoteFlag {
   type!: FlagType.Claim;
 
   get status(){
-    return this.memory.status as ClaimStatus ?? ClaimStatus.Claim;
+    return this.memory.status as ClaimStatus ?? ClaimStatus.Audit;
   }
 
   set status(status:ClaimStatus){
@@ -30,25 +30,28 @@ export class ClaimFlag extends RemoteFlag {
   work() {
     // Note: this.flag.pos.findClosestByRange only works with rooms that have vision...
     switch(this.status){
-      case ClaimStatus.Claim:
-        if (this.office?.controller?.my && this.office.controller.level >= 2){
-          const matrix = getTerrainCostMatrix(this.room);
-          const central = getBestLocations(this.room, matrix);
-          this.flag.setPosition(central);
-          this.room.createConstructionSite(central, STRUCTURE_SPAWN);
+      case ClaimStatus.Audit:
+        if (this.office){
+          const roomAudit = getRoomAudit(this.office);
+          const center = roomAudit.center || (roomAudit.center = getBestCentralLocation(this.room));
+          this.flag.setPosition(center);
 
-          //Clear any room progress history. We might be reclaiming the room after it's been taken out.
-          this.room.memory.buildStage = 0;
-          this.room.memory.buildSubStage = 0;
-          this.room.memory.buildQueue = [];
-          this.status = ClaimStatus.Spawn;
+          roomAudit.resetRoom();
+          this.status = ClaimStatus.Claim;
         }
         break;
-      case ClaimStatus.Spawn:
+      case ClaimStatus.Claim:
+        if (this.office?.controller?.my && this.office.controller.level >= 2){
+          const roomAudit = getRoomAudit(this.office);
+          const center = roomAudit.center = this.flag.pos; //might manually move the flag to adjust the center location while initially getting to CL2
+          this.room.createConstructionSite(center, STRUCTURE_SPAWN);
+          this.status = ClaimStatus.Finish;
+        }
+        break;
+      case ClaimStatus.Finish:
         const spawns = this.office?.find(FIND_MY_SPAWNS);
         if (spawns?.length){
-          //Construction logic is now being handled by the room audit
-          this.remove();
+          this.remove(); //Room Audit will take it from here
         }
         break;
     }

@@ -1,8 +1,12 @@
 import { FlagType } from "utils/constants";
 import { getRoomAudit } from "utils/tickCache";
-import { BasicFlag } from "./_BasicFlag";
+import { BasicFlag, BasicFlagMemory } from "./_BasicFlag";
 
-export abstract class RemoteFlag extends BasicFlag {
+export interface RemoteFlagMemory extends BasicFlagMemory{
+  home: Room['name'];
+}
+
+export abstract class RemoteFlag<AbstractFlagMemory extends RemoteFlagMemory = RemoteFlagMemory> extends BasicFlag<AbstractFlagMemory> {
   /* Flag name should be in the form: `${flag.type}:${room.name}` where room is the parent (spawner) room. */
 
   constructor(flag: Flag, type: FlagType, suffix?: string) {
@@ -21,13 +25,13 @@ export abstract class RemoteFlag extends BasicFlag {
 
   get home():Room{
     let home:Room|undefined;
-    if (this.memory.room){
-      home = Game.rooms[this.memory.room];
+    if (this.memory.home){
+      home = Game.rooms[this.memory.home];
     }else if (this.suffix){
       const roomName = this.suffix.split(':', 2)[0];
       home = Game.rooms[roomName];
       if (home){
-        this.memory.room = roomName;
+        this.memory.home = roomName;
       }
     }
     if (!home) throw `Flag [${this.flag.name}] error: home isn't defined.`;

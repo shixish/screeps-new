@@ -1,5 +1,4 @@
 import { BasicFlag } from "./_BasicFlag";
-import { getBestLocations, getTerrainCostMatrix } from "utils/map";
 import { getRoomAudit } from "utils/tickCache";
 import { FlagType } from "utils/constants";
 

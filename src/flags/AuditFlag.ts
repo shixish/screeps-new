@@ -1,5 +1,5 @@
 import { BasicFlag } from "./_BasicFlag";
-import { getBestLocations, getBestContainerLocation, getTerrainCostMatrix, getGrid, getStructureCostMatrix, visualizeMatrix, findDiamondPlacement, diamondRingCoordinates, diamondCoordinates } from "utils/map";
+import { getBestCentralLocation, getBestContainerLocation, getTerrainCostMatrix, getGrid, getStructureCostMatrix, visualizeMatrix, findDiamondPlacement, diamondRingCoordinates, diamondCoordinates } from "utils/map";
 import { random } from "utils/random";
 
 export class AuditFlag extends BasicFlag {

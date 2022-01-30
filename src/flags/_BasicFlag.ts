@@ -3,7 +3,11 @@ import { getRoomAudit } from "utils/tickCache";
 
 if (!Memory.flags) Memory.flags = {} as Memory['flags']; //Flags object isn't initialized by default
 
-export abstract class BasicFlag {
+export interface BasicFlagMemory extends FlagMemory{
+  followers: Creep['name'][];
+  status?: number;
+}
+export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = BasicFlagMemory> {
   flag: Flag;
   type: FlagType;
   suffix: string | undefined;
@@ -63,10 +67,10 @@ export abstract class BasicFlag {
     this.memory.followers.push(creepName);
   }
 
-  get memory():FlagMemory {
-    return Memory.flags[this.flag.name] || (Memory.flags[this.flag.name] = {
+  get memory():AbstractFlagMemory {
+    return (Memory.flags[this.flag.name] || (Memory.flags[this.flag.name] = {
       followers: [],
-    });
+    })) as AbstractFlagMemory;
   }
 
   remove() {

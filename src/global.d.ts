@@ -57,11 +57,11 @@ declare global {
     occupancy: Creep['name'][];
   }
 
-  interface FlagMemory{
-    room?: Room['name'];
-    followers: Creep['name'][];
-    status?: number;
-  }
+  // interface FlagMemory{
+  //   home?: Room['name'];
+  //   followers: Creep['name'][];
+  //   status?: number;
+  // }
 
   type SpawnerCounts = {
     controllerLevel: number;
@@ -153,6 +153,7 @@ declare global {
 
   interface RoomMemory{
     // structures:string[];
+    center: { x:number, y:number };
     sources: Id<Source>[];
     mineral: Id<Mineral>|null;
     buildStage?: number;
