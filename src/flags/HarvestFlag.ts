@@ -18,7 +18,7 @@ export class HarvestFlag extends RemoteFlag {
       Maybe just specify custom creep parts/tier in here and feed it into a creep role to control the logic.
       */
       this.maxFollowersByRole[CreepRoleName.RemoteHarvester] = sourceCount;
-      this.maxFollowersByRole[CreepRoleName.RemoteCourier] = sourceCount*3;
+      this.maxFollowersByRole[CreepRoleName.RemoteCourier] = sourceCount*2;
     }else{
       this.maxFollowersByRole[CreepRoleName.RemoteHarvester] = 1;
       this.maxFollowersByRole[CreepRoleName.RemoteCourier] = 2;

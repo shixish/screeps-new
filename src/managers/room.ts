@@ -8,7 +8,7 @@ import { RemoteFlag } from "flags/_RemoteFlag";
 import { CreepRoleName, CreepRoleNames, FlagType, maxStorageFill } from "utils/constants";
 import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor, GenericAnchorType } from "utils/CreepAnchor";
 import { diamondCoordinates, diamondRingCoordinates, findDiamondPlacement, getBestContainerLocation, getSpawnRoadPath, getStructureCostMatrix } from "utils/map";
-import { roomAuditCache } from "../utils/tickCache";
+import { getRoomAudit, roomAuditCache } from "../utils/tickCache";
 import { creepCountParts, CreepRoles, getCreepName, getCreepPartsCost } from "./creeps";
 
 // const getStorageLocation = (room:Room)=>{
@@ -44,7 +44,6 @@ export class RoomAudit{
   controller?:CreepControllerAnchor;
   controllerLevel:number;
   storedEnergy:number;
-  mineral?:CreepMineralAnchor;
   storedMineral:number;
   sources:CreepSourceAnchor[];
   creeps:Creep[];
@@ -61,7 +60,6 @@ export class RoomAudit{
     this.controller = room.controller && new CreepControllerAnchor(room.controller);
     this.controllerLevel = room.controller?.level || 0;
     this.storedEnergy = room.storage?.store.energy || 0;
-    this.mineral = this.getMineral();
     this.storedMineral = this.mineral && room.storage?.store[this.mineral.anchor.mineralType] || 0;
     this.sources = this.getSources();
     this.creeps = room.find(FIND_MY_CREEPS);
@@ -153,13 +151,15 @@ export class RoomAudit{
   //   return this._sourceRate || (this._sourceRate = this.sources.length * (this.room.controller?.my ? 10 : 5));
   // }
 
-  private getMineral(){
+  private _mineral:CreepMineralAnchor|undefined;
+  get mineral(){
+    if (this._mineral) return this._mineral;
     if (this.room.memory.mineral === null) return;
-    if (this.room.memory.mineral) return new CreepMineralAnchor(Game.getObjectById(this.room.memory.mineral) as Mineral);
+    if (this.room.memory.mineral) return this._mineral = new CreepMineralAnchor(Game.getObjectById(this.room.memory.mineral) as Mineral);
     const [ mineral ] = this.room.find(FIND_MINERALS);
     if (mineral){
       this.room.memory.mineral = mineral.id;
-      return new CreepMineralAnchor(mineral);
+      return this._mineral = new CreepMineralAnchor(mineral);
     }else{
       this.room.memory.mineral = null;
       return;
@@ -285,6 +285,11 @@ export class RoomAudit{
     }).forEach(structure=>{
       this.room.createConstructionSite(structure.pos, STRUCTURE_RAMPART);
     });
+    this.sources.forEach(source=>{
+      source.containers.forEach(container=>{
+        this.room.createConstructionSite(container.pos, STRUCTURE_RAMPART);
+      });
+    });
   }
 
   createConstructionSitesCL1():boolean{
@@ -306,11 +311,7 @@ export class RoomAudit{
       }
       break;
       case 1:{
-        this.sources.forEach(source=>{
-          source.containers.forEach(container=>{
-            this.room.createConstructionSite(container.pos, STRUCTURE_RAMPART);
-          });
-        });
+        this.createRampartConstructionSites();
         return true;
       }
     }
@@ -336,9 +337,9 @@ export class RoomAudit{
       break;
       case 1:{
         //Need to wait for the initial construction sites to be built before proceeding since they will be used in the pathing calculations
-        const sources = this.room.find(FIND_SOURCES);
-        sources.forEach(source=>{
-          const sourceRoadPath = getSpawnRoadPath(spawn, source.pos);
+        this.sources.forEach(source=>{
+          const [ container ] = source.containers;
+          const sourceRoadPath = getSpawnRoadPath(spawn, container?.pos || source.pos);
           sourceRoadPath.forEach(step=>{
             this.room.createConstructionSite(step.x, step.y, STRUCTURE_ROAD);
           });
@@ -427,8 +428,24 @@ export class RoomAudit{
     return false;
   }
 
+  createExtractorConstructionSites(){
+    const [ mineral ] = this.room.find(FIND_MINERALS);
+    if (mineral){
+      const [ spawn ] = this.room.find(FIND_MY_SPAWNS);
+      this.room.createConstructionSite(mineral.pos, STRUCTURE_EXTRACTOR);
+
+      const mineralContainerPos = getBestContainerLocation(mineral.pos, spawn.pos);
+      this.room.createConstructionSite(mineralContainerPos, STRUCTURE_CONTAINER);
+
+      const controllerRoadPath = getSpawnRoadPath(spawn, mineralContainerPos);
+      controllerRoadPath.forEach(step=>{
+        this.room.createConstructionSite(step.x, step.y, STRUCTURE_ROAD);
+      });
+    }
+  }
+
   createConstructionSitesCL6():boolean{
-    // this.buildQueue.push(STRUCTURE_EXTRACTOR);
+    this.createExtractorConstructionSites();
 
     //Build 10 extensions:
     this.buildQueue.push(STRUCTURE_EXTENSION);
@@ -440,6 +457,7 @@ export class RoomAudit{
   createConstructionSitesCL7():boolean{
     switch(this.buildSubStage){
       case 0:{
+        this.buildQueue.push(STRUCTURE_TOWER);
         this.buildQueue.push(STRUCTURE_SPAWN);
 
         //Build 10 extensions:

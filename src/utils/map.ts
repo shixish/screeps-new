@@ -358,9 +358,9 @@ export function getBestContainerLocation(pos:RoomPosition, center:RoomPosition, 
   return new RoomPosition(bestX!, bestY!, pos.roomName);
 }
 
-export function getSpawnRoadPath(spawn:StructureSpawn, goal:RoomPosition){
+export function getSpawnRoadPath(spawn:StructureSpawn, goal:RoomPosition, range = 1){
   return goal.findPathTo(spawn, {
-    range: 1,
+    range,
     ignoreCreeps: true,
     swampCost: 1, //Swamps cost the same since we will build a road over it
   });
