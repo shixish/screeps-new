@@ -7,6 +7,7 @@ export interface BasicFlagMemory extends FlagMemory{
   followers: Creep['name'][];
   status?: number;
 }
+
 export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = BasicFlagMemory> {
   flag: Flag;
   type: FlagType;

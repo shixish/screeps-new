@@ -42,6 +42,11 @@ export abstract class RemoteFlag<AbstractFlagMemory extends RemoteFlagMemory = R
     return this.flag.room;
   }
 
+  get roomName(){
+    //This works even if this.flag.room doesn't exist yet. (Don't have vision)
+    return this.flag.pos.roomName;
+  }
+
   // work() {
   //   const office = this.flag.room;
   //   const roomAudit = getRoomAudit(this.home);

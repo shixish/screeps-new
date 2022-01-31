@@ -52,8 +52,9 @@ export class ClaimerCreep extends BasicCreep<ClaimFlag> {
     //The flag gets deleted once the job is done. The creep can just sit there until it's time runs out...
     if (this.flag){
       //Note flag.room will not exist until we actually get there.
-      if (this.flag.room && this.room.name === this.flag.room.name){
-        if (this.startClaiming(this.room.controller)) return;
+      if (this.room.name === this.flag.roomName){
+        if (this.room.controller?.my) this.suicide();
+        else if (this.startClaiming(this.room.controller)) return;
       }
 
       this.moveTo(this.flag.pos);

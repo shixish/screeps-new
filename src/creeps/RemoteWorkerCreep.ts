@@ -66,7 +66,7 @@ export class RemoteWorkerCreep extends BasicCreep<ClaimFlag> {
 
   work(){
     //Basically the same thing as a basic creep but will take on more responsibilities to jump start things
-    if (this.flag && this.flag.room.name !== this.room.name){
+    if (this.flag && this.flag.roomName !== this.room.name){
       this.memory.seated = false; //Prevent couriers from trying to give this creep energy while it's traveling, slowing it down, and sometimes dragging creeps into another room
       this.moveTo(this.flag.pos);
       return;
