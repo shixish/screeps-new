@@ -28,14 +28,68 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     if (officeAudit){
 
       if (this.status === HarvestStatus.Audit){
-        officeAudit.sources.forEach(source=>{
-          officeAudit.center.findPathTo(source.pos, {
+        const homeAudit = getRoomAudit(this.home);
+
+        const exit = this.office?.findExitTo(this.home) as ExitConstant;
+        const getExitRange = (source:CreepSourceAnchor)=>source.anchor.pos.findClosestByRange(exit)!.getRangeTo(source);
+        //Sort the sources by range to the exit that connects rooms. This way we build the road to the closest one first, then leverage that road when connecting to the second source.
+        const sources = officeAudit.sources.sort((a, b)=>getExitRange(a) - getExitRange(b));
+
+        const paths:PathFinderPath[] = [];
+        const getPathToSource = (source:CreepSourceAnchor)=>{
+          return PathFinder.search(homeAudit.center, {
+            pos: source.pos,
             range: 1,
-            ignoreCreeps: true,
-            swampCost: 1, //Swamps cost the same since we will build a road over it
+          }, {
+            //Prefer roads which use weight 1
+            plainCost: 2,
+            swampCost: 2,
+            roomCallback: function(roomName) {
+              const room = Game.rooms[roomName];
+              if (!room) return false; //PathFinder supports searches which span multiple rooms
+              const costs = new PathFinder.CostMatrix;
+
+              room.find(FIND_STRUCTURES).forEach(function(structure) {
+                if (structure.structureType === STRUCTURE_ROAD) {
+                  // Favor roads over plain tiles
+                  costs.set(structure.pos.x, structure.pos.y, 1);
+                } else if (structure.structureType !== STRUCTURE_RAMPART || !structure.my) {
+                  costs.set(structure.pos.x, structure.pos.y, 0xff);
+                }
+              });
+
+              paths.forEach(path=>{
+                path.path.forEach(step=>{
+                  costs.set(step.x, step.y, 1); //Prefer to reuse previous paths
+                });
+              });
+
+              //This doesn't exactly work since the new construction sites don't exist until the next tick.
+              room.find(FIND_MY_CONSTRUCTION_SITES).forEach(function(site) {
+                if (site.structureType === STRUCTURE_ROAD) {
+                  costs.set(site.pos.x, site.pos.y, 1);
+                } else if (site.structureType !== STRUCTURE_RAMPART) {
+                  costs.set(site.pos.x, site.pos.y, 0xff);
+                }
+              });
+              return costs;
+            },
+          });
+        };
+
+        sources.forEach(source=>{
+          const path = getPathToSource(source);
+          paths.push(path); //This will allow the second source to use the path drawn for the first source.
+          // Room.serializePath(path);
+          path.path.forEach(step=>{
+            const room = Game.rooms[step.roomName];
+            room.createConstructionSite(step.x, step.y, STRUCTURE_ROAD);
+            room.visual.circle(step.x, step.y);
           });
         });
+        this.status = HarvestStatus.Harvest;
       }
+
 
       const sourceCount = officeAudit.sources.length;
       /*

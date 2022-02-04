@@ -12,8 +12,14 @@ export function countAvailableSeats(pos:RoomPosition){
 };
 
 if (!Memory.anchors) Memory.anchors = {};
+export interface CreepAnchorMemory{
+  seats?: number;
+  containers: Id<StructureContainer>[];
+  occupancy: Creep['name'][];
+}
+
 export type GenericAnchorType = Source|Mineral|Structure;
-export class CreepAnchor<AnchorType extends GenericAnchorType = GenericAnchorType>{
+export class CreepAnchor<AnchorType extends GenericAnchorType = GenericAnchorType, AbstractAnchorMemory extends CreepAnchorMemory = CreepAnchorMemory>{
   private _link: StructureLink | undefined | null;
 
   anchor:AnchorType;
@@ -69,11 +75,11 @@ export class CreepAnchor<AnchorType extends GenericAnchorType = GenericAnchorTyp
     return this.anchor.id;
   }
 
-  get memory():AnchorMemory{
-    return Memory.anchors[this.id] || (Memory.anchors[this.id] = {
+  get memory():AbstractAnchorMemory{
+    return (Memory.anchors[this.id] || (Memory.anchors[this.id] = {
       occupancy: [],
       containers: [],
-    });
+    })) as AbstractAnchorMemory;
   }
 
   get pos(){
@@ -115,7 +121,10 @@ export class CreepMineralAnchor extends CreepAnchor<Mineral>{
   // }
 }
 
-export class CreepSourceAnchor extends CreepAnchor<Source>{
+export interface CreepSourceAnchorMemory extends CreepAnchorMemory{
+  range?:PathFinderPath;
+}
+export class CreepSourceAnchor extends CreepAnchor<Source, CreepSourceAnchorMemory>{
   constructor(source:Source){
     super(source);
   }
@@ -126,6 +135,14 @@ export class CreepSourceAnchor extends CreepAnchor<Source>{
     }
     //We can't sustain more than 3 low level harvesters on a source
     return Math.min(this.memory.seats, 3);
+  }
+
+  get range(){
+    return this.memory.range;
+  }
+
+  set range(range:CreepSourceAnchorMemory['range']){
+    this.memory.range = range;
   }
 
   get availableSeats(){

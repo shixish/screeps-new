@@ -7,6 +7,7 @@ declare global {
   type CreepControllerAnchor = import('utils/CreepAnchor').CreepControllerAnchor;
   type CreepMineralAnchor = import('utils/CreepAnchor').CreepMineralAnchor;
   type CreepSourceAnchor = import('utils/CreepAnchor').CreepSourceAnchor;
+  type CreepAnchorMemory = import('utils/CreepAnchor').CreepAnchorMemory;
 
   type SpawnController = import('structures/SpawnController').SpawnController;
   type BasicFlag = import('flags/_BasicFlag').BasicFlag;
@@ -42,26 +43,8 @@ declare global {
     // uuid: number;
     // log: any;
     paths: any;
-    sources: {[name: string]: SourceMemory};
-    anchors: {[name: string]: AnchorMemory};
+    anchors: {[name: string]: CreepAnchorMemory};
   }
-
-  interface AnchorMemory{
-    seats?: number;
-    containers: Id<StructureContainer>[];
-    occupancy:Creep['name'][];
-  }
-
-  interface SourceMemory{
-    seats: number;
-    occupancy: Creep['name'][];
-  }
-
-  // interface FlagMemory{
-  //   home?: Room['name'];
-  //   followers: Creep['name'][];
-  //   status?: number;
-  // }
 
   type SpawnerCounts = {
     controllerLevel: number;
