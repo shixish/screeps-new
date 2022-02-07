@@ -186,6 +186,15 @@ export class RoomAudit{
     }
   }
 
+  // private _repairableRoads:StructureRoad[]|undefined;
+  // get repairableRoads(){
+  //   return this._repairableRoads || (this._repairableRoads = this.room.find(FIND_STRUCTURES, {
+  //     filter: structure=>{
+  //       return structure.structureType === STRUCTURE_ROAD && structure.hitsMax-structure.hits > 1000;
+  //     }
+  //   }) as StructureRoad[]);
+  // }
+
   private getSpawnableCreeps(){
     const getHeighestCreepSpawnable = (creepRoleName:CreepRoleName, currentlyAffordable = false)=>{
       const budget = currentlyAffordable ? this.room.energyAvailable : this.room.energyCapacityAvailable;

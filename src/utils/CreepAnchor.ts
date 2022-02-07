@@ -72,7 +72,7 @@ export class CreepAnchor<AnchorType extends GenericAnchorType = GenericAnchorTyp
   // abstract get id():Id<AnchorType>|string;
 
   get id(){
-    return this.anchor.id;
+    return this.anchor.id as Id<AnchorType>;
   }
 
   get memory():AbstractAnchorMemory{
@@ -122,7 +122,7 @@ export class CreepMineralAnchor extends CreepAnchor<Mineral>{
 }
 
 export interface CreepSourceAnchorMemory extends CreepAnchorMemory{
-  range?:PathFinderPath;
+  stepCount?:number;
 }
 export class CreepSourceAnchor extends CreepAnchor<Source, CreepSourceAnchorMemory>{
   constructor(source:Source){
@@ -137,12 +137,12 @@ export class CreepSourceAnchor extends CreepAnchor<Source, CreepSourceAnchorMemo
     return Math.min(this.memory.seats, 3);
   }
 
-  get range(){
-    return this.memory.range;
+  get stepCount(){
+    return this.memory.stepCount;
   }
 
-  set range(range:CreepSourceAnchorMemory['range']){
-    this.memory.range = range;
+  set stepCount(range:CreepSourceAnchorMemory['stepCount']){
+    this.memory.stepCount = range;
   }
 
   get availableSeats(){

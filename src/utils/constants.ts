@@ -6,6 +6,7 @@
 
 export const DEBUG = true;
 
+export const ACTIVE_PARTS = [WORK,CARRY,ATTACK,RANGED_ATTACK,HEAL,CLAIM] as const;
 export const PART_COST = {
   [MOVE]: 50,
   [WORK]: 100,

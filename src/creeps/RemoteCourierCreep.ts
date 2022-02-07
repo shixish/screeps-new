@@ -180,6 +180,7 @@ export class RemoteCourierCreep extends BasicCreep<HarvestFlag> {
       //Note: Sometimes the path may lead to other rooms so once we lock on a target it should just keep following it's known path
       if (this.rememberAction(this.startRemotePickup, 'pickup')) return;
     }else{
+      // if (this.rememberAction(this.startSpreading, 'spreading')) return;
       if (this.rememberAction(this.startReturning, 'returning')) return;
       if (this.rememberAction(this.startStoring, 'storing')) return;
       if (this.rememberAction(this.startStocking, 'stocking')) return;
