@@ -1,7 +1,7 @@
-import { CreepRoleName, FlagType } from "utils/constants";
+import { CreepRoleName } from "utils/constants";
 import { getBestCentralLocation } from "utils/map";
 import { getRoomAudit } from "utils/tickCache";
-import { RemoteFlag } from "./_RemoteFlag";
+import { RemoteFlag, RemoteFlagMemory } from "./_RemoteFlag";
 
 enum ClaimStatus{
   Audit,
@@ -9,11 +9,13 @@ enum ClaimStatus{
   Finish,
 }
 
-export class ClaimFlag extends RemoteFlag {
-  type!: FlagType.Claim;
+export interface ClaimFlagMemory extends RemoteFlagMemory{
+  status?: ClaimStatus;
+}
 
+export class ClaimFlag extends RemoteFlag<ClaimFlagMemory> {
   get status(){
-    return this.memory.status as ClaimStatus ?? ClaimStatus.Audit;
+    return this.memory.status ?? ClaimStatus.Audit;
   }
 
   set status(status:ClaimStatus){
@@ -35,8 +37,6 @@ export class ClaimFlag extends RemoteFlag {
           const roomAudit = getRoomAudit(this.office);
           const center = roomAudit.center || (roomAudit.center = getBestCentralLocation(this.office));
           this.flag.setPosition(center);
-
-          roomAudit.resetRoom();
           this.status = ClaimStatus.Claim;
         }
         break;
@@ -51,7 +51,9 @@ export class ClaimFlag extends RemoteFlag {
       case ClaimStatus.Finish:
         const spawns = this.office?.find(FIND_MY_SPAWNS);
         if (spawns?.length){
-          this.remove(); //Room Audit will take it from here
+          //The home flag will take it from here
+          this.office?.createFlag(this.flag.pos.x, this.flag.pos.y, 'home:'+this.office.name)
+          this.remove();
         }
         break;
     }

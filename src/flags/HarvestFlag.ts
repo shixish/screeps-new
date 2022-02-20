@@ -14,15 +14,14 @@ interface HarvestSourceData{
 }
 
 interface HarvestFlagMemory extends RemoteFlagMemory{
+  status?: HarvestStatus;
   sourceData:Record<string, HarvestSourceData>; //Source['id']
   totalMoveCost: number;
 }
 
 export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
-  type!: FlagType.Harvest;
-
   get status(){
-    return this.memory.status as HarvestStatus ?? HarvestStatus.Audit;
+    return this.memory.status ?? HarvestStatus.Audit;
   }
 
   set status(status:HarvestStatus){

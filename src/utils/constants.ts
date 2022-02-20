@@ -19,6 +19,7 @@ export const PART_COST = {
 } as const;
 
 export enum FlagType{
+  Home = 'home',
   Claim = 'claim',
   Build = 'build',
   Audit = 'audit',

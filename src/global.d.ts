@@ -139,9 +139,6 @@ declare global {
     center: { x:number, y:number };
     sources: Id<Source>[];
     mineral: Id<Mineral>|null;
-    buildStage?: number;
-    buildSubStage?: number;
-    buildQueue?: BuildableStructureConstant[];
 
     // sources: {
     //   [id:string]:any

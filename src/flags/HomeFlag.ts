@@ -3,8 +3,7 @@ import { BasicFlag, BasicFlagMemory } from "./_BasicFlag";
 
 // enum HomeStatus{
 //   Audit,
-//   Claim,
-//   Finish,
+//   Build,
 // }
 
 export interface HomeFlagMemory extends BasicFlagMemory{
@@ -21,7 +20,7 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
   }
 
   get buildStage(){
-    return this.memory.buildStage || 0;
+    return this.memory.buildStage ?? 0;
   }
 
   set buildStage(buildStage:number){
@@ -30,7 +29,7 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
   }
 
   get buildSubStage(){
-    return this.memory.buildSubStage || 0;
+    return this.memory.buildSubStage ?? 0;
   }
 
   set buildSubStage(buildSubStage:number){
@@ -40,6 +39,27 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
   get buildQueue(){
     return this.memory.buildQueue || (this.memory.buildQueue = []);
   }
+
+  // get maxExtensionCount(){
+  //   switch(this.room.controller?.level){
+  //     case 2:
+  //       return 5;
+  //     case 3:
+  //       return 10;
+  //     case 4:
+  //       return 20;
+  //     case 5:
+  //       return 30;
+  //     case 6:
+  //       return 40;
+  //     case 7:
+  //       return 50;
+  //     case 8:
+  //       return 60;
+  //     default:
+  //       return 0;
+  //   }
+  // }
 
   createDiamondConstructionSites(structureType:BuildableStructureConstant){
     const diamondSize = structureType === STRUCTURE_EXTENSION ? 1 : 0;
@@ -321,6 +341,5 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     }catch(e:any){
       console.log(`[${this.roomName}] createConstructionSites error:`, e, e.stack);
     }
-
   }
 }

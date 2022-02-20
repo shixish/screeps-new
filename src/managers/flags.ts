@@ -1,5 +1,6 @@
 import { flagManagerCache } from "utils/tickCache";
 import { FlagType } from "utils/constants";
+import { HomeFlag } from "flags/HomeFlag";
 import { ClaimFlag } from "flags/ClaimFlag";
 import { BuildFlag } from "flags/BuildFlag";
 import { AuditFlag } from "flags/AuditFlag";
@@ -7,6 +8,7 @@ import { PowerFlag } from "flags/PowerFlag";
 import { HarvestFlag } from "flags/HarvestFlag";
 
 export const FlagManagers = { //:Record<FlagType, BasicFlag>
+  [FlagType.Home]: HomeFlag,
   [FlagType.Claim]: ClaimFlag,
   [FlagType.Build]: BuildFlag,
   [FlagType.Audit]: AuditFlag,

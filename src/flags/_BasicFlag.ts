@@ -5,7 +5,6 @@ if (!Memory.flags) Memory.flags = {} as Memory['flags']; //Flags object isn't in
 
 export interface BasicFlagMemory extends FlagMemory{
   followers: Creep['name'][];
-  status?: number;
 }
 
 export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = BasicFlagMemory> {
