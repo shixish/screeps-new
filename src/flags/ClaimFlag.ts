@@ -33,7 +33,7 @@ export class ClaimFlag extends RemoteFlag {
       case ClaimStatus.Audit:
         if (this.office){
           const roomAudit = getRoomAudit(this.office);
-          const center = roomAudit.center || (roomAudit.center = getBestCentralLocation(this.room));
+          const center = roomAudit.center || (roomAudit.center = getBestCentralLocation(this.office));
           this.flag.setPosition(center);
 
           roomAudit.resetRoom();
@@ -44,7 +44,7 @@ export class ClaimFlag extends RemoteFlag {
         if (this.office?.controller?.my && this.office.controller.level >= 2){
           const roomAudit = getRoomAudit(this.office);
           const center = roomAudit.center = this.flag.pos; //might manually move the flag to adjust the center location while initially getting to CL2
-          this.room.createConstructionSite(center, STRUCTURE_SPAWN);
+          this.office.createConstructionSite(center, STRUCTURE_SPAWN);
           this.status = ClaimStatus.Finish;
         }
         break;

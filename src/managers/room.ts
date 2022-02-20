@@ -67,7 +67,7 @@ export class RoomAudit{
     this.constructionSites = room.find(FIND_MY_CONSTRUCTION_SITES);
 
     if (this.controller?.anchor.my){
-      this.room.visual.text(`${this.controllerLevel} → ${this.buildStage}`, this.controller.pos.x, this.controller.pos.y+1);
+      this.room.visual.text(this.buildStage > 8 ? `8` : `${this.controllerLevel} → ${this.buildStage}`, this.controller.pos.x, this.controller.pos.y+1);
     }
 
     try{

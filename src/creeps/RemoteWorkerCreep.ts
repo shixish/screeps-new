@@ -78,7 +78,7 @@ export class RemoteWorkerCreep extends BasicCreep<ClaimFlag> {
     const roomAudit = getRoomAudit(this.room);
 
     //Remote workers are usually the best miners available in an eary room, so don't bother picking up. Go straight to the source if there's room to do so.
-    if (roomAudit.creepCountsByRole[CreepRoleName.Harvester] < roomAudit.sourceSeats){
+    if (roomAudit.creepCountsByRole[CreepRoleName.Harvester]+roomAudit.creepCountsByRole[CreepRoleName.RemoteHarvester] < roomAudit.sourceSeats){
       if (this.rememberAction(this.startHarvesting, 'mining')) return;
     }
     if (this.rememberAction(this.startPickup, 'pickup')) return;

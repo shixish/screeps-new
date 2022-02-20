@@ -31,7 +31,7 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
   }
 
   updateRoomAudit(){
-    const roomAudit = getRoomAudit(this.room);
+    const roomAudit = getRoomAudit(this.home);
     (roomAudit.flags[this.type] as BasicFlag[]).push(this);
   }
 
@@ -49,7 +49,8 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
     return this.flag.pos.roomName;
   }
 
-  get room() {
+  get home() {
+    //Basic flags can only be placed within their home room.
     return this.flag.room!;
   }
 

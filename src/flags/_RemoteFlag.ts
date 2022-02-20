@@ -31,11 +31,6 @@ export abstract class RemoteFlag<AbstractFlagMemory extends RemoteFlagMemory = R
     (roomAudit.flags[type] as BasicFlag[]).push(this);
   }
 
-  updateRoomAudit(){
-    const roomAudit = getRoomAudit(this.home);
-    (roomAudit.flags[this.type] as BasicFlag[]).push(this);
-  }
-
   abstract auditOffice(): void;
 
   get home():Room{

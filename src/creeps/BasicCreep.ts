@@ -1,5 +1,4 @@
 import { CreepRoleName, CreepRoleNames, DEBUG, maxStorageFill } from "utils/constants";
-import { CreepAnchor } from "utils/CreepAnchor";
 import { claimAmount, getClaimedAmount, getFlagManager, getResourceAvailable, getResourceSpace, getRoomAudit } from "utils/tickCache";
 
 export function calculateBiteSize (creep:Creep){
@@ -781,14 +780,14 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
     const roomAudit = getRoomAudit(this.room);
 
     /* this stuff deals with energy */
-    if (!roomAudit.creepCountsByRole.courier){
+    if (!roomAudit.creepCountsByRole[CreepRoleName.Courier]){
       //Don't bother picking stuff up off the floor. Leave it to the couriers.
       if (this.rememberAction(this.startPickup, 'pickup', ['mining'])) return;
     }
     if (this.rememberAction(this.startTakingEnergy, 'taking', ['mining'])) return;
 
     if (energy > 0){ //Do something with the energy
-      if (this.commute()) return;
+      // if (this.commute()) return;
       if (this.rememberAction(this.startEnergizing, 'energizing', ['upgrading', 'building', 'repairing'])) return;
       if (this.rememberAction(this.startBuilding, 'building', ['upgrading'])) return;
       if (this.rememberAction(this.startRepairing, 'repairing', ['upgrading'])) return;
