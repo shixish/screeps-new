@@ -8,27 +8,10 @@ export interface RemoteFlagMemory extends BasicFlagMemory{
 
 export abstract class RemoteFlag<AbstractFlagMemory extends RemoteFlagMemory = RemoteFlagMemory> extends BasicFlag<AbstractFlagMemory> {
   /* Flag name should be in the form: `${flag.type}:${room.name}` where room is the parent (spawner) room. */
-  totalNeededParts = ACTIVE_PARTS.reduce((out, part)=>{
-    out[part] = 0;
-    return out;
-  }, {} as Record<typeof ACTIVE_PARTS[number], number>);
-
-  followerParts = ACTIVE_PARTS.reduce((out, part)=>{
-    out[part] = 0;
-    return out;
-  }, {} as Record<typeof ACTIVE_PARTS[number], number>);
 
   constructor(flag: Flag, type: FlagType, suffix?: string) {
     super(flag, type, suffix);
-    this.followers.forEach(followerName=>{
-      const { counts } = Memory.creeps[followerName];
-      ACTIVE_PARTS.forEach(part=>{
-        this.followerParts[part] += (counts[part] || 0);
-      });
-    });
     this.auditOffice();
-    const roomAudit = getRoomAudit(this.home);
-    (roomAudit.flags[type] as BasicFlag[]).push(this);
   }
 
   abstract auditOffice(): void;
@@ -55,10 +38,6 @@ export abstract class RemoteFlag<AbstractFlagMemory extends RemoteFlagMemory = R
   get roomName(){
     //This works even if this.flag.room doesn't exist yet. (Don't have vision)
     return this.flag.pos.roomName;
-  }
-
-  getNeededParts(part:typeof ACTIVE_PARTS[number]){
-    return this.totalNeededParts[part] - this.followerParts[part];
   }
 
   // work() {

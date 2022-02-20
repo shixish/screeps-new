@@ -98,6 +98,8 @@ export class CreepAnchor<AnchorType extends GenericAnchorType = GenericAnchorTyp
   }
 
   addOccupant(creepName:Creep['name']){
+    const creepMemory = Memory.creeps[creepName];
+    creepMemory.anchor = this.id;
     this.memory.occupancy.push(creepName);
   }
 }

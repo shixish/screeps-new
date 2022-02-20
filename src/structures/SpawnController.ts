@@ -41,19 +41,11 @@ export class SpawnController extends StructureSpawn{
         const options:MandateProps<SpawnOptions, 'memory'> = {
           memory: {
             role,
-            counts: tier.body.counts,
+            parts: tier.body.counts,
             // home: this.room.name,
             // office: this.room.name,
           }
         };
-        if (flag){
-          options.memory.flag = flag.name;
-          flag.addFollower(role, name);
-        }
-        if (anchor){
-          options.memory.anchor = anchor.id;
-          anchor.addOccupant(name);
-        }
         // if (config.modSpawnOptions) config.modSpawnOptions(roomAudit, options, this);
         if (tier.body.cost > this.room.energyAvailable) return;
         // console.log(`Creep Counts:`, JSON.stringify(roomAudit.creepCountsByRole, null, 2));
@@ -62,6 +54,12 @@ export class SpawnController extends StructureSpawn{
         roomAudit.creepCountsByRole[role]++;
         console.log(`New ${role} creep count:`, roomAudit.creepCountsByRole[role]);
         this.spawnCreep(tier.body.parts, name, options);
+        if (flag){
+          flag.addFollower(name);
+        }
+        if (anchor){
+          anchor.addOccupant(name);
+        }
       }
     }
   }

@@ -13,12 +13,6 @@ export interface HomeFlagMemory extends BasicFlagMemory{
 }
 
 export class HomeFlag extends BasicFlag<HomeFlagMemory> {
-  homeRoomAudit!:RoomAudit;
-
-  updateRoomAudit(){
-    return this.homeRoomAudit = super.updateRoomAudit();
-  }
-
   get buildStage(){
     return this.memory.buildStage ?? 0;
   }

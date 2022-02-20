@@ -106,12 +106,20 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
 
       const sourceCount = officeAudit.sources.length;
 
-      this.totalNeededParts[CLAIM] = sourceCount > 1 ? 1 : 0; //don't bother claiming rooms with only 1 source...
+      // this.totalNeededParts[CLAIM] = sourceCount > 1 ? 1 : 0; //don't bother claiming rooms with only 1 source...
+      if (sourceCount > 1){
+        this.requestedBodyPartsByRole[CreepRoleName.Claimer] = {
+          [CLAIM]: 1,
+        }
+      }
 
       // 3000 energy nodes can optimially mine at 10 energy per tick, so 1500 nodes are 5 per tick
       const energyPerTick = sourceCount*(officeAudit.controller?.anchor.my?10:5);
       const roundTrip = this.memory.totalMoveCost*2; //ticks
-      this.totalNeededParts[CARRY] = (roundTrip*energyPerTick)/50;
+      // this.totalNeededParts[CARRY] = (roundTrip*energyPerTick)/50;
+      this.requestedBodyPartsByRole[CreepRoleName.RemoteCourier] = {
+        [CARRY]: (roundTrip*energyPerTick)/50,
+      }
 
       const constructionProgress = officeAudit.constructionSites.reduce((out, structure)=>out + (structure.progressTotal-structure.progress), 0);
       const repairableHits = this.office!.find(FIND_STRUCTURES, {
@@ -129,7 +137,10 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
       //Recall that building on swamp costs a lot more so the cost isn't just a function of distance.
       const buildWork = constructionProgress && (constructionProgress/5)/500; //500 indicates that we will be up to 3 (1500/500=3) times inefficient when initially building
       const repairWork = repairableHits && (repairableHits/100)/1500; //Maximally efficient for repairing roads since it's not urgent.
-      this.totalNeededParts[WORK] = Math.ceil(Math.min(buildWork + repairWork, energyPerTick));
+      // this.totalNeededParts[WORK] = Math.ceil(Math.min(buildWork + repairWork, energyPerTick));
+      this.requestedBodyPartsByRole[CreepRoleName.RemoteHarvester] = {
+        [WORK]: Math.ceil(Math.min(buildWork + repairWork, energyPerTick)),
+      };
 
       /*
       TODO: Instead of specifying how many of a particular creep to spawn like this I should specify the capacity of the room somehow.

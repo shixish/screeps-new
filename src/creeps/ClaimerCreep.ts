@@ -47,13 +47,26 @@ export class ClaimerCreep extends BasicCreep<ClaimFlag> {
     return null;
   }
 
+  startReserving(controller?:StructureController){
+    const target = controller || this.room.controller;
+    if (!target) return null;
+    if (this.moveWithinRange(target.pos, 1) || this.manageActionCode(this.reserveController(target))){
+      return target;
+    }
+    return null;
+  }
+
   work(){
     //The flag gets deleted once the job is done. The creep can just sit there until it's time runs out...
     if (this.flag){
       //Note flag.room will not exist until we actually get there.
       if (this.room.name === this.flag.roomName){
-        if (this.room.controller?.my) this.suicide();
-        else if (this.startClaiming(this.room.controller)) return;
+        if (this.flag.type === FlagType.Claim){
+          if (this.room.controller?.my) this.suicide();
+          else if (this.startClaiming(this.room.controller)) return;
+        }else{ //Then this is a harvest flag and we just want to reserve the room
+          if (this.startReserving(this.room.controller)) return;
+        }
       }
 
       this.moveTo(this.flag.pos);

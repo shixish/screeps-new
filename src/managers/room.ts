@@ -64,7 +64,7 @@ export class RoomAudit{
     this.sources = this.getSources();
     this.creeps = room.find(FIND_MY_CREEPS);
     this.hostileCreeps = room.find(FIND_HOSTILE_CREEPS);
-    this.constructionSites = room.find(FIND_MY_CONSTRUCTION_SITES); //TODO: We can probably get rid of this. It should be moved to the flag logic
+    this.constructionSites = room.find(FIND_MY_CONSTRUCTION_SITES);
   }
 
   protected _creepCountsByRole:Record<CreepRoleName, number>|undefined;

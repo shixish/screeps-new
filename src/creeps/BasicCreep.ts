@@ -2,7 +2,7 @@ import { CreepRoleName, CreepRoleNames, DEBUG, maxStorageFill, PART_COST } from 
 import { claimAmount, getClaimedAmount, getFlagManager, getResourceAvailable, getResourceSpace, getRoomAudit } from "utils/tickCache";
 
 export function calculateBiteSize (creep:Creep){
-  return (creep.memory.counts.work || 0)*2
+  return (creep.memory.parts.work || 0)*2
 }
 
 export class CreepBody{
@@ -18,12 +18,12 @@ export class CreepBody{
     }, 0));
   }
 
-  private _counts?:CreepMemory["counts"];
+  private _counts?:CreepMemory["parts"];
   get counts(){
     return this._counts ?? (this._counts = this.parts.reduce((out, part)=>{
       out[part] = out[part] === undefined ? 1 : (out[part] as number) + 1;
       return out;
-    }, {} as CreepMemory["counts"]));
+    }, {} as CreepMemory["parts"]));
   }
 }
 
@@ -152,11 +152,11 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
   // }
 
   get workCount(){
-    return this.memory.counts.work || 0;
+    return this.memory.parts.work || 0;
   }
 
   get carryCount(){
-    return this.memory.counts.carry || 0;
+    return this.memory.parts.carry || 0;
   }
 
   get role(){
@@ -415,7 +415,7 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
     if (this.store[resourceType] === 0) return null;
     const checkCreep = (creep:Creep)=>{
       // return creep.id !== this.id && creep.memory.counts.work && creep.memory.seated !== false && creep.store.getUsedCapacity(resourceType) + getClaimedAmount(creep.id, resourceType) < creep.store.getCapacity(resourceType)*maxFillPercentage;
-      return creep.id !== this.id && creep.memory.counts.work && creep.memory.seated !== false && getResourceSpace(creep, resourceType) >= 50; //Don't bother chasing down a creep that can't accept more than 50 energy
+      return creep.id !== this.id && creep.memory.parts.work && creep.memory.seated !== false && getResourceSpace(creep, resourceType) >= 50; //Don't bother chasing down a creep that can't accept more than 50 energy
     };
     const target =
       storedTarget instanceof Creep && checkCreep(storedTarget) && storedTarget ||

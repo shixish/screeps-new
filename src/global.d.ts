@@ -102,7 +102,7 @@ declare global {
     home?: Room['name'];
     office?: Room['name'];
 
-    counts: {
+    parts: {
       [key in BodyPartConstant]?: number
     }
   }
