@@ -64,7 +64,7 @@ export class RoomAudit{
     this.sources = this.getSources();
     this.creeps = room.find(FIND_MY_CREEPS);
     this.hostileCreeps = room.find(FIND_HOSTILE_CREEPS);
-    this.constructionSites = room.find(FIND_MY_CONSTRUCTION_SITES);
+    this.constructionSites = room.find(FIND_MY_CONSTRUCTION_SITES); //TODO: We can probably get rid of this. It should be moved to the flag logic
 
     if (this.controller?.anchor.my){
       this.room.visual.text(this.buildStage > 8 ? `8` : `${this.controllerLevel} → ${this.buildStage}`, this.controller.pos.x, this.controller.pos.y+1);

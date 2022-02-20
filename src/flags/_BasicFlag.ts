@@ -33,6 +33,7 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
   updateRoomAudit(){
     const roomAudit = getRoomAudit(this.home);
     (roomAudit.flags[this.type] as BasicFlag[]).push(this);
+    return roomAudit;
   }
 
   abstract work(): void;
