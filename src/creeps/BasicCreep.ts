@@ -353,6 +353,7 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
       storedTarget instanceof StructureContainer && checkCapacity(storedTarget) && storedTarget || //Upgrader will explicitly grab from it's designated container
       storedTarget instanceof StructureStorage && checkCapacity(storedTarget) && storedTarget ||
       this.canWork && roomStorage || //If the creep can work then favor going directly to the large storage and let couriers fill that up
+      roomAudit.mineral?.containers.length && checkCapacity(roomAudit.mineral?.containers[0]) && roomAudit.mineral?.containers[0] || //Sometimes the mineral containers fill up (not sure why)
       findSourceContainer() || //(!roomAudit.creepCountsByRole.courier || !this.canWork) &&
       roomStorage;
       // this.pos.findClosestByRange(FIND_STRUCTURES, {
