@@ -2,15 +2,14 @@ import { HarvestFlag } from "flags/HarvestFlag";
 import { CreepRoleName, FlagType } from "utils/constants";
 import { CreepAnchor } from "utils/CreepAnchor";
 import { getRoomAudit } from "utils/tickCache";
-import { BasicCreep } from "./BasicCreep";
+import { BasicCreep, CreepBody } from "./BasicCreep";
 
 export class RemoteHarvesterCreep extends BasicCreep<HarvestFlag> {
   static config:CreepRole = {
     authority: 2,
     tiers: [
       {
-        cost: 400,
-        body: [WORK, WORK, WORK, MOVE, MOVE],
+        body: new CreepBody([WORK, WORK, WORK, MOVE, MOVE], 400),
       }
     ],
     getCreepFlag: (roomAudit:RoomAudit)=>{

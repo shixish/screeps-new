@@ -8,6 +8,7 @@ declare global {
   type CreepMineralAnchor = import('utils/CreepAnchor').CreepMineralAnchor;
   type CreepSourceAnchor = import('utils/CreepAnchor').CreepSourceAnchor;
   type CreepAnchorMemory = import('utils/CreepAnchor').CreepAnchorMemory;
+  type CreepBody = import('creeps/BasicCreep').CreepBody;
 
   type SpawnController = import('structures/SpawnController').SpawnController;
   type BasicFlag = import('flags/_BasicFlag').BasicFlag;
@@ -75,10 +76,9 @@ declare global {
   };
 
   type CreepTier = {
-    cost: number,
-    requires?: (roomAudit:RoomAudit)=>boolean,
-    max?: (roomAudit:RoomAudit)=>number,
-    body: BodyPartConstant[];
+    requires?: (roomAudit:RoomAudit)=>boolean;
+    max?: (roomAudit:RoomAudit)=>number;
+    body: CreepBody;
   }
 
   // interface CreepRoles{

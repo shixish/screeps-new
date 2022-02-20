@@ -1,7 +1,7 @@
 import { ClaimFlag } from "flags/ClaimFlag";
 import { CreepRoleName, FlagType } from "utils/constants";
 import { getRoomAudit } from "utils/tickCache";
-import { BasicCreep } from "./BasicCreep";
+import { BasicCreep, CreepBody } from "./BasicCreep";
 
 let lastFlagManager:ClaimFlag|undefined; //Pass the last accessed flagManager between max and getCeepAnchor functions
 export class RemoteWorkerCreep extends BasicCreep<ClaimFlag> {
@@ -20,27 +20,24 @@ export class RemoteWorkerCreep extends BasicCreep<ClaimFlag> {
     // },
     tiers: [
       {
-        cost: 550,
-        body: [
+        body: new CreepBody([
           WORK, MOVE,
           WORK, MOVE, CARRY,
           WORK, MOVE, CARRY,
-        ]
+        ], 550),
       },
       {
-        cost: 1200,
-        body: [
+        body: new CreepBody([
           WORK, MOVE, CARRY,
           WORK, MOVE, CARRY,
           WORK, MOVE, CARRY,
           WORK, MOVE, CARRY,
           WORK, MOVE, CARRY,
           WORK, MOVE, CARRY,
-        ],
+        ], 1200),
       },
       // {
-      //   cost: 1500,
-      //   body: [
+      //   body: new CreepBody([
       //     TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH,
       //     WORK, MOVE, CARRY,
       //     WORK, MOVE, CARRY,
@@ -49,7 +46,7 @@ export class RemoteWorkerCreep extends BasicCreep<ClaimFlag> {
       //     WORK, MOVE, CARRY,
       //     WORK, MOVE, CARRY,
       //     MOVE, MOVE, MOVE, MOVE
-      //   ],
+      //   ], 1500),
       // }
     ],
     getCreepFlag: (roomAudit)=>{

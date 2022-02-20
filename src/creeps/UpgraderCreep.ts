@@ -1,6 +1,6 @@
 import { UPGRADER_STORAGE_MIN } from "utils/constants";
 import { getRoomAudit, claimAmount } from "utils/tickCache";
-import { BasicCreep } from "./BasicCreep";
+import { BasicCreep, CreepBody } from "./BasicCreep";
 
 /*
   Each source produces 10 energy per tick at max capacity
@@ -18,49 +18,45 @@ export class UpgraderCreep extends BasicCreep {
     },
     tiers: [
       {
-        cost: 350,
-        body: [ //Uses 2*3=6 energy per tick
+        body: new CreepBody([ //Uses 2*3=6 energy per tick
           WORK, WORK,
           CARRY, CARRY,
           MOVE,
-        ],
+        ], 350),
         max: (roomAudit:RoomAudit)=>roomAudit.controller?.containers.length ? 3 : 0,
       },
       {
-        cost: 550,
-        body: [ //Uses 4*2=8 energy per tick
+        body: new CreepBody([ //Uses 4*2=8 energy per tick
           WORK, WORK, WORK, WORK,
           CARRY, CARRY,
           MOVE,
-        ],
+        ], 550),
         max: (roomAudit:RoomAudit)=>{
           if (!roomAudit.controller?.containers.length) return 0;
           return Math.min(2 + roomAudit.flags.harvest.length, 5);
         }
       },
       {
-        cost: 1200,
-        body: [ //Uses 10 energy per tick
+        body: new CreepBody([ //Uses 10 energy per tick
           WORK, WORK, WORK, WORK, WORK,
           WORK, WORK, WORK, WORK, WORK,
           CARRY, CARRY,
           MOVE, MOVE,
-        ],
+        ], 1200),
         // max: (roomAudit:RoomAudit)=>{
         //   //My couriers aren't bringing them enough energy to actually keep 2 of them busy
         //   return 1; //+ (roomAudit.storedEnergy > UPGRADER_STORAGE_MIN ? 1 : 0);
         // },
       },
       { //This will consume 15 energy per tick. 1 Source gives 10 energy per tick. This might be too much...
-        cost: 1800,
         requires: roomAudit=>roomAudit.storedEnergy > UPGRADER_STORAGE_MIN,
-        body: [
+        body: new CreepBody([
           WORK, WORK, WORK, WORK, WORK,
           WORK, WORK, WORK, WORK, WORK,
           WORK, WORK, WORK, WORK, WORK,
           CARRY, CARRY, CARRY,
           MOVE, MOVE, MOVE,
-        ],
+        ], 1800),
       }
     ],
     getCreepAnchor: (roomAudit)=>{

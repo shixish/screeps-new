@@ -1,8 +1,30 @@
-import { CreepRoleName, CreepRoleNames, DEBUG, maxStorageFill } from "utils/constants";
+import { CreepRoleName, CreepRoleNames, DEBUG, maxStorageFill, PART_COST } from "utils/constants";
 import { claimAmount, getClaimedAmount, getFlagManager, getResourceAvailable, getResourceSpace, getRoomAudit } from "utils/tickCache";
 
 export function calculateBiteSize (creep:Creep){
   return (creep.memory.counts.work || 0)*2
+}
+
+export class CreepBody{
+  parts: BodyPartConstant[];
+  constructor(parts:BodyPartConstant[], cost?:number){
+    this.parts = parts;
+    if (cost !== undefined) this._cost = cost;
+  }
+  private _cost?:number;
+  get cost(){
+    return this._cost ?? (this._cost = this.parts.reduce((cost, part:BodyPartConstant)=>{
+      return cost + PART_COST[part];
+    }, 0));
+  }
+
+  private _counts?:CreepMemory["counts"];
+  get counts(){
+    return this._counts ?? (this._counts = this.parts.reduce((out, part)=>{
+      out[part] = out[part] === undefined ? 1 : (out[part] as number) + 1;
+      return out;
+    }, {} as CreepMemory["counts"]));
+  }
 }
 
 //currently unused...
@@ -40,12 +62,11 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
     },
     tiers: [
       {
-        cost: 300,
-        body: [
+        body: new CreepBody([
           WORK,
           CARRY, MOVE,
           CARRY, MOVE,
-        ],
+        ], 300),
         max: roomAudit=>{
           if (!roomAudit.flags.claim.length){
             //We usually need several of these early on if we're not being supported by a parent room (Claim flag)
@@ -57,48 +78,45 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
         }
       },
       {
-        cost: 400,
-        body: [
+        body: new CreepBody([
           WORK, MOVE, CARRY,
           WORK, MOVE, CARRY,
-        ]
+        ], 400),
       },
       {
-        cost: 550,
-        body: [
+        body: new CreepBody([
           WORK, MOVE,
           WORK, MOVE, CARRY,
           WORK, MOVE, CARRY,
-        ]
+        ], 550),
       },
       {
-        cost: 1200, //CL5:1800
-        body: [
+        body: new CreepBody([
           WORK, MOVE, CARRY,
           WORK, MOVE, CARRY,
           WORK, MOVE, CARRY,
           WORK, MOVE, CARRY,
           WORK, MOVE, CARRY,
           WORK, MOVE, CARRY,
-        ]
+        ], 1200), //CL5:1800
       }
     ]
   };
   // static tiers:CreepTier[] = [
   //   {
   //     cost: 300,
-  //     body: [WORK, MOVE, CARRY, MOVE, CARRY]
+  //     body: new CreepBody([WORK, MOVE, CARRY, MOVE, CARRY]
   //   },
   //   {
   //     cost: 400,
-  //     body: [
+  //     body: new CreepBody([
   //       WORK, MOVE, CARRY,
   //       WORK, MOVE, CARRY
   //     ]
   //   },
   //   // {
   //   //   cost: 550,
-  //   //   body: [
+  //   //   body: new CreepBody([
   //   //     WORK, MOVE, CARRY,
   //   //     WORK, MOVE, CARRY,
   //   //     WORK, CARRY

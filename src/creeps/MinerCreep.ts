@@ -1,6 +1,6 @@
 import { MINERALS_STORAGE_FILL } from "utils/constants";
 import { getRoomAudit } from "utils/tickCache";
-import { BasicCreep } from "./BasicCreep";
+import { BasicCreep, CreepBody } from "./BasicCreep";
 
 export class MinerCreep extends BasicCreep {
   static config:CreepRole = {
@@ -18,19 +18,17 @@ export class MinerCreep extends BasicCreep {
     },
     tiers: [
       {
-        cost: 550,
-        body: [
+        body: new CreepBody([
           WORK, WORK, WORK, WORK, WORK, MOVE
-        ],
+        ], 550),
       },
       {
-        cost: 1700,
-        body: [
+        body: new CreepBody([
           WORK, WORK, WORK, WORK, WORK,
           WORK, WORK, WORK, WORK, WORK,
           WORK, WORK, WORK, WORK, WORK,
           MOVE, MOVE, MOVE, MOVE,
-        ],
+        ], 1700),
       }
     ],
     getCreepAnchor: (roomAudit:RoomAudit)=>{

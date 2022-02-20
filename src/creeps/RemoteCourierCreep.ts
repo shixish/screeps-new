@@ -2,7 +2,7 @@ import { HarvestFlag } from "flags/HarvestFlag";
 import { CreepRoleName, FlagType } from "utils/constants";
 import { CreepAnchor } from "utils/CreepAnchor";
 import { claimAmount, getClaimedAmount, getRoomAudit } from "utils/tickCache";
-import { BasicCreep } from "./BasicCreep";
+import { BasicCreep, CreepBody } from "./BasicCreep";
 
 let lastFlagManager:HarvestFlag|undefined; //Pass the last accessed flagManager between max and getCeepAnchor functions
 export class RemoteCourierCreep extends BasicCreep<HarvestFlag> {
@@ -10,7 +10,6 @@ export class RemoteCourierCreep extends BasicCreep<HarvestFlag> {
     authority: 2,
     tiers: [
       {
-        cost: 400,
         /*
           TODO:
           Add an effectiveness ratio number. The first tier is effectiveness = 1
@@ -18,23 +17,22 @@ export class RemoteCourierCreep extends BasicCreep<HarvestFlag> {
           The spawner/flag creep counting system can then use these units instead of
           individual creep counts to determine how many of a particular tier to produce
         */
-        body: [
+        body: new CreepBody([
           CARRY, MOVE,
           CARRY, MOVE,
           CARRY, MOVE,
           CARRY, MOVE,
-        ],
+        ], 400),
       },
       // {
-      //   cost: 600,
-      //   body: [
+      //   body: new CreepBody([
       //     CARRY, MOVE,
       //     CARRY, MOVE,
       //     CARRY, MOVE,
       //     CARRY, MOVE,
       //     CARRY, MOVE,
       //     CARRY, MOVE,
-      //   ],
+      //   ], 600),
       // },
     ],
     getCreepFlag: (roomAudit:RoomAudit)=>{

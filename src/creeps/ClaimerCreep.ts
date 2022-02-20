@@ -1,6 +1,6 @@
 import { ClaimFlag } from "flags/ClaimFlag";
 import { CreepRoleName, FlagType } from "utils/constants";
-import { BasicCreep } from "./BasicCreep";
+import { BasicCreep, CreepBody } from "./BasicCreep";
 
 export class ClaimerCreep extends BasicCreep<ClaimFlag> {
   static config:CreepRole = {
@@ -17,11 +17,10 @@ export class ClaimerCreep extends BasicCreep<ClaimFlag> {
     },
     tiers: [
       {
-        cost: 650,
-        body: [
+        body: new CreepBody([
           CLAIM,
           MOVE
-        ],
+        ], 650),
       },
     ],
     getCreepFlag: (roomAudit)=>{

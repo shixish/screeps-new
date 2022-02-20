@@ -1,6 +1,4 @@
-import { creepCountParts, CreepRoles, getCreepName, getCreepPartsCost } from "managers/creeps";
-import { BasicFlag } from "flags/_BasicFlag";
-import { CreepAnchor, GenericAnchorType } from "utils/CreepAnchor";
+import { CreepRoles, getCreepName } from "managers/creeps";
 import { getRoomAudit } from "utils/tickCache";
 
 export class SpawnController extends StructureSpawn{
@@ -43,7 +41,7 @@ export class SpawnController extends StructureSpawn{
         const options:MandateProps<SpawnOptions, 'memory'> = {
           memory: {
             role,
-            counts: creepCountParts(tier.body),
+            counts: tier.body.counts,
             // home: this.room.name,
             // office: this.room.name,
           }
@@ -57,13 +55,13 @@ export class SpawnController extends StructureSpawn{
           anchor.addOccupant(name);
         }
         // if (config.modSpawnOptions) config.modSpawnOptions(roomAudit, options, this);
-        if (tier.cost > this.room.energyAvailable) return;
+        if (tier.body.cost > this.room.energyAvailable) return;
         // console.log(`Creep Counts:`, JSON.stringify(roomAudit.creepCountsByRole, null, 2));
-        console.log(`Spawning ${role} creep (cost:${tier.cost}) in [${this.room.name}]`);// with memory:`, JSON.stringify(options, null, 2));
+        console.log(`Spawning ${role} creep (cost:${tier.body.cost}) in [${this.room.name}]`);// with memory:`, JSON.stringify(options, null, 2));
         //Inflate the number now so that any other spawns in the room don't try to build the same thing. This is only sufficient for this tick. The room audit needs to count creeps being produced in spawns.
         roomAudit.creepCountsByRole[role]++;
         console.log(`New ${role} creep count:`, roomAudit.creepCountsByRole[role]);
-        this.spawnCreep(tier.body, name, options);
+        this.spawnCreep(tier.body.parts, name, options);
       }
     }
   }

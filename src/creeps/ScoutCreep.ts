@@ -1,14 +1,13 @@
-import { BasicCreep } from "./BasicCreep";
+import { BasicCreep, CreepBody } from "./BasicCreep";
 
 export class ScoutCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 0,
     tiers: [
       {
-        cost: 50,
-        body: [
+        body: new CreepBody([
           MOVE
-        ],
+        ], 50),
         max: (roomAudit: RoomAudit)=>{
           return 0;
         },

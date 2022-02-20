@@ -1,15 +1,14 @@
 import { getRoomAudit } from "utils/tickCache";
-import { BasicCreep } from "./BasicCreep";
+import { BasicCreep, CreepBody } from "./BasicCreep";
 
 export class MeleeCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 0,
     tiers: [
       {
-        cost: 50+80,
-        body: [
+        body: new CreepBody([
           MOVE, ATTACK
-        ],
+        ], 50+80),
         max: (roomAudit: RoomAudit)=>{
           return roomAudit.hostileCreeps.length;
         },

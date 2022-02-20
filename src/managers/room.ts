@@ -9,7 +9,7 @@ import { CreepRoleName, CreepRoleNames, FlagType, maxStorageFill } from "utils/c
 import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor, GenericAnchorType } from "utils/CreepAnchor";
 import { diamondCoordinates, diamondRingCoordinates, findDiamondPlacement, getBestCentralLocation, getBestContainerLocation, getSpawnRoadPath, getStructureCostMatrix } from "utils/map";
 import { getRoomAudit, roomAuditCache } from "../utils/tickCache";
-import { creepCountParts, CreepRoles, getCreepName, getCreepPartsCost } from "./creeps";
+import { CreepRoles } from "./creeps";
 
 // const getStorageLocation = (room:Room)=>{
 //   const flagName = `${room.name}_storage`;
@@ -201,7 +201,7 @@ export class RoomAudit{
       const config = CreepRoles[creepRoleName].config;
       const tier = config.tiers.reduce((heighestTier, currentTier)=>{
         // if (!currentTier.cost) currentTier.cost = getCreepPartsCost(currentTier.body);
-        return currentTier.cost <= budget && currentTier.requires?.(this)!==false && currentTier || heighestTier;
+        return currentTier.body.cost <= budget && currentTier.requires?.(this)!==false && currentTier || heighestTier;
       }, null as CreepTier|null);
       return tier && {
         role: creepRoleName,

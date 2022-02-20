@@ -1,5 +1,5 @@
 import { claimAmount, getResourceSpace } from "utils/tickCache";
-import { BasicCreep } from "./BasicCreep";
+import { BasicCreep, CreepBody } from "./BasicCreep";
 
 export class CourierCreep extends BasicCreep {
   static config:CreepRole = {
@@ -10,36 +10,32 @@ export class CourierCreep extends BasicCreep {
     },
     tiers: [
       {
-        cost: 300,
-        body: [
+        body: new CreepBody([
           CARRY, MOVE,
           CARRY, MOVE,
           CARRY, MOVE,
-        ],
+        ], 300),
       },
       {
-        cost: 400,
-        body: [
+        body: new CreepBody([
           CARRY, MOVE,
           CARRY, MOVE,
           CARRY, MOVE,
           CARRY, MOVE,
-        ],
+        ], 400),
       },
       {
-        cost: 550,
-        body: [
+        body: new CreepBody([
           CARRY, MOVE,
           CARRY, MOVE,
           CARRY, MOVE,
           CARRY, MOVE,
           CARRY, MOVE,
           CARRY,
-        ],
+        ], 550),
       },
       {
-        cost: 1200,
-        body: [
+        body: new CreepBody([
           CARRY, MOVE,
           CARRY, MOVE,
           CARRY, MOVE,
@@ -52,7 +48,7 @@ export class CourierCreep extends BasicCreep {
           CARRY, MOVE,
           CARRY, MOVE,
           CARRY, MOVE,
-        ],
+        ], 1200),
         max: (roomAudit)=>{
           return roomAudit.sources.length;
         },

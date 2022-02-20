@@ -35,11 +35,11 @@ export const getCreepName = (roleName = 'Creep')=>{
   return roleName+'#'+random();
 };
 
-export const getCreepPartsCost = (parts:BodyPartConstant[])=>{
-  return parts.reduce((cost, part:BodyPartConstant)=>{
-    return cost + PART_COST[part];
-  }, 0);
-};
+// export const getCreepPartsCost = (parts:BodyPartConstant[])=>{
+//   return parts.reduce((cost, part:BodyPartConstant)=>{
+//     return cost + PART_COST[part];
+//   }, 0);
+// };
 
 // export const getHeighestCreepTier = (tiers:CreepTier[], room: Room, currentlyAffordable = false)=>{
 //   const budget = currentlyAffordable ? room.energyAvailable : room.energyCapacityAvailable;
@@ -69,12 +69,12 @@ export const creepCountPart = (creep:Creep, part:BodyPartConstant)=>{
   return count;
 };
 
-export const creepCountParts = (parts:BodyPartConstant[])=>{
-  return parts.reduce((out, part)=>{
-    out[part] = out[part] === undefined ? 1 : (out[part] as number) + 1;
-    return out;
-  }, {} as CreepMemory["counts"]);
-}
+// export const creepCountParts = (parts:BodyPartConstant[])=>{
+//   return parts.reduce((out, part)=>{
+//     out[part] = out[part] === undefined ? 1 : (out[part] as number) + 1;
+//     return out;
+//   }, {} as CreepMemory["counts"]);
+// }
 
 export const getCreepConfig = (creep:Creep)=>{
   return CreepRoles[creep.memory.role].config;

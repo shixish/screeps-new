@@ -1,21 +1,19 @@
 import { CreepAnchor } from "utils/CreepAnchor";
 import { getRoomAudit } from "utils/tickCache";
-import { BasicCreep } from "./BasicCreep";
+import { BasicCreep, CreepBody } from "./BasicCreep";
 
 export class HarvesterCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 2,
     tiers: [
       {
-        cost: 250,
-        body: [WORK, WORK, MOVE],
+        body: new CreepBody([WORK, WORK, MOVE], 250),
         max: (roomAudit:RoomAudit)=>{
           return roomAudit.sourceSeats;
         },
       },
       {
-        cost: 550,
-        body: [WORK, WORK, WORK, WORK, WORK, MOVE],
+        body: new CreepBody([WORK, WORK, WORK, WORK, WORK, MOVE], 550),
         max: (roomAudit:RoomAudit)=>{
           return roomAudit.sources.length;
         },
