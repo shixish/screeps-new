@@ -62,7 +62,7 @@ export class CourierCreep extends BasicCreep {
     if (this.canWork) return null; //If this is a worker don't bother giving away your resources
     if (this.store[resourceType] === 0) return null;
     const { target } = this.pos.findInRange(FIND_MY_CREEPS, 1).reduce((out, creep)=>{
-      if (creep.id !== this.id && creep.memory.parts.work && creep.memory.seated !== false){
+      if (creep.id !== this.id && creep.memory.counts.work && creep.memory.seated !== false){
         const amount = getResourceSpace(creep, resourceType);
         if (amount > out.amount){
           out.target = creep;

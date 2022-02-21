@@ -15,8 +15,9 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
 
   followerRoleCounts = {} as Partial<Record<CreepRoleName, number>>;
   maxFollowersByRole = {} as Partial<Record<CreepRoleName, number>>;
-  currentBodyPartsByRole = {} as {[key in CreepRoleName]?: CreepMemory['parts']};
-  requestedBodyPartsByRole = {} as {[key in CreepRoleName]?: CreepMemory['parts']};
+  currentBodyPartsByRole = {} as {[key in CreepRoleName]?: CreepMemory['counts']};
+  requiredBodyPartsByRole = {} as {[key in CreepRoleName]?: CreepMemory['counts']};
+  // requestedBodyPartsByRole = {} as {[key in CreepRoleName]?: CreepMemory['counts']};
 
   constructor(flag: Flag, type: FlagType, suffix?: string) {
     this.flag = flag;
@@ -58,12 +59,21 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
     return this.memory.followers;
   }
 
+  getRequestedBodyPartsByRole(roleName:CreepRoleName){
+    const requestedParts = {} as CreepMemory['counts'];
+    for (let type in this.requiredBodyPartsByRole[roleName]){
+      // console.log(`requiredBodyPartsByRole, currentBodyPartsByRole`, this.requiredBodyPartsByRole[roleName]![type as BodyPartConstant], this.currentBodyPartsByRole[roleName]![type as BodyPartConstant]);
+      requestedParts[type as BodyPartConstant] = (this.requiredBodyPartsByRole[roleName]![type as BodyPartConstant] || 0) - (this.currentBodyPartsByRole[roleName]![type as BodyPartConstant] || 0);
+    }
+    return requestedParts;
+  }
+
   private countCreep(creepName: Creep['name']){
-    const { role, parts } = Memory.creeps[creepName];
+    const { role, counts } = Memory.creeps[creepName];
     this.followerRoleCounts[role] = (this.followerRoleCounts[role] || 0) + 1;
     if (!this.currentBodyPartsByRole[role]) this.currentBodyPartsByRole[role] = {};
-    for (let type in parts){
-      this.currentBodyPartsByRole[role]![type as BodyPartConstant] = (this.currentBodyPartsByRole[role]![type as BodyPartConstant] || 0) + (parts[type as BodyPartConstant] || 0);
+    for (let type in counts){
+      this.currentBodyPartsByRole[role]![type as BodyPartConstant] = (this.currentBodyPartsByRole[role]![type as BodyPartConstant] || 0) + (counts[type as BodyPartConstant] || 0);
     }
   }
 

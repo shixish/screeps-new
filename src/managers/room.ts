@@ -4,8 +4,7 @@
 //   return room.memory.sources[source.id] || (room.memory.sources[source.id] = {});
 // };
 
-import { RemoteFlag } from "flags/_RemoteFlag";
-import { CreepRoleName, CreepRoleNames, FlagType, maxStorageFill } from "utils/constants";
+import { CreepRoleName, CreepRoleNames, FlagType } from "utils/constants";
 import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor, GenericAnchorType } from "utils/CreepAnchor";
 import { diamondCoordinates, diamondRingCoordinates, findDiamondPlacement, getBestCentralLocation, getBestContainerLocation, getSpawnRoadPath, getStructureCostMatrix } from "utils/map";
 import { getRoomAudit, roomAuditCache } from "../utils/tickCache";
@@ -143,6 +142,39 @@ export class RoomAudit{
   //   }) as StructureRoad[]);
   // }
 
+  private getSpawnableFlagCreeps(){
+    const spawnableCreeps:SpawnableCreep[] = [];
+    for (const ft in this.flags){
+      const flagType = ft as FlagType;
+      const flags = this.flags[flagType];
+      for (let flag of flags){
+        for (let rn in flag.requiredBodyPartsByRole){
+          const roleName = rn as CreepRoleName;
+          try{
+            const config = CreepRoles[roleName].config;
+            const requestedParts = flag.getRequestedBodyPartsByRole(roleName);
+            const tier = config.tiers.reduce((heighestTier, currentTier)=>{
+              for (let type in requestedParts){
+                if ((currentTier.body.counts[type as BodyPartConstant] || 0) > (requestedParts[type as BodyPartConstant] || 0)){
+                  return heighestTier;
+                }
+              }
+              return currentTier.body.cost <= this.room.energyCapacityAvailable && currentTier.requires?.(this) !== false ? currentTier : heighestTier;
+            }, null as CreepTier|null);
+            if (tier) spawnableCreeps.push({
+              role: roleName,
+              tier: tier,
+              flag: flag,
+            } as SpawnableCreep);
+          }catch(e:any){
+            console.log(`[${this.room.name}] RoomAudit error in getSpawnableCreeps. Role: ${rn}`, e, e.stack);
+          }
+        }
+      }
+    }
+    return spawnableCreeps;
+  }
+
   private getSpawnableCreeps(){
     const getHeighestCreepSpawnable = (creepRoleName:CreepRoleName, currentlyAffordable = false)=>{
       const budget = currentlyAffordable ? this.room.energyAvailable : this.room.energyCapacityAvailable;
@@ -177,6 +209,10 @@ export class RoomAudit{
 
   _spawnableCreeps?:SpawnableCreep[];
   get spawnableCreeps(){
+    const creeps = this.getSpawnableFlagCreeps();
+    if (creeps.length){
+      console.log(`TODO flag creeps`, JSON.stringify(creeps, null, 2));
+    }
     return this._spawnableCreeps || (this._spawnableCreeps = this.getSpawnableCreeps());
   }
 

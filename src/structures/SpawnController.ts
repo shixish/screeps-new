@@ -41,7 +41,7 @@ export class SpawnController extends StructureSpawn{
         const options:MandateProps<SpawnOptions, 'memory'> = {
           memory: {
             role,
-            parts: tier.body.counts,
+            counts: tier.body.counts,
             // home: this.room.name,
             // office: this.room.name,
           }

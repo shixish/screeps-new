@@ -108,7 +108,7 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
 
       // this.totalNeededParts[CLAIM] = sourceCount > 1 ? 1 : 0; //don't bother claiming rooms with only 1 source...
       if (sourceCount > 1){
-        this.requestedBodyPartsByRole[CreepRoleName.Claimer] = {
+        this.requiredBodyPartsByRole[CreepRoleName.Claimer] = {
           [CLAIM]: 1,
         }
       }
@@ -117,7 +117,7 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
       const energyPerTick = sourceCount*(officeAudit.controller?.anchor.my?10:5);
       const roundTrip = this.memory.totalMoveCost*2; //ticks
       // this.totalNeededParts[CARRY] = (roundTrip*energyPerTick)/50;
-      this.requestedBodyPartsByRole[CreepRoleName.RemoteCourier] = {
+      this.requiredBodyPartsByRole[CreepRoleName.RemoteCourier] = {
         [CARRY]: (roundTrip*energyPerTick)/50,
       }
 
@@ -138,7 +138,7 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
       const buildWork = constructionProgress && (constructionProgress/5)/500; //500 indicates that we will be up to 3 (1500/500=3) times inefficient when initially building
       const repairWork = repairableHits && (repairableHits/100)/1500; //Maximally efficient for repairing roads since it's not urgent.
       // this.totalNeededParts[WORK] = Math.ceil(Math.min(buildWork + repairWork, energyPerTick));
-      this.requestedBodyPartsByRole[CreepRoleName.RemoteHarvester] = {
+      this.requiredBodyPartsByRole[CreepRoleName.RemoteHarvester] = {
         [WORK]: Math.ceil(Math.min(buildWork + repairWork, energyPerTick)),
       };
 
