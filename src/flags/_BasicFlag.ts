@@ -11,7 +11,7 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
   flag: Flag;
   type: FlagType;
   suffix: string | undefined;
-  homeRoomAudit!:RoomAudit;
+  homeAudit!:RoomAudit;
 
   followerRoleCounts = {} as Partial<Record<CreepRoleName, number>>;
   maxFollowersByRole = {} as Partial<Record<CreepRoleName, number>>;
@@ -33,7 +33,7 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
     });
     const roomAudit = getRoomAudit(this.home);
     (roomAudit.flags[this.type] as BasicFlag[]).push(this);
-    this.homeRoomAudit = roomAudit;
+    this.homeAudit = roomAudit;
   }
 
   abstract work(): void;
@@ -63,9 +63,14 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
     const requestedParts = {} as CreepMemory['counts'];
     for (let type in this.requiredBodyPartsByRole[roleName]){
       // console.log(`requiredBodyPartsByRole, currentBodyPartsByRole`, this.requiredBodyPartsByRole[roleName]![type as BodyPartConstant], this.currentBodyPartsByRole[roleName]![type as BodyPartConstant]);
-      requestedParts[type as BodyPartConstant] = (this.requiredBodyPartsByRole[roleName]![type as BodyPartConstant] || 0) - (this.currentBodyPartsByRole[roleName]![type as BodyPartConstant] || 0);
+      requestedParts[type as BodyPartConstant] = (this.requiredBodyPartsByRole[roleName]![type as BodyPartConstant] || 0) - (this.currentBodyPartsByRole[roleName]?.[type as BodyPartConstant] || 0);
     }
     return requestedParts;
+  }
+
+  requestCreep(roleName:CreepRoleName, counts:CreepMemory['counts'], anchor?:Id<GenericAnchorType>){
+    //TODO: It'd be best if I can specify the creep's anchor object from here.
+    //This should replace this.requiredBodyPartsByRole object somehow
   }
 
   private countCreep(creepName: Creep['name']){
@@ -99,5 +104,14 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
   remove() {
     this.flag.remove();
     delete Memory.flags[this.flag.name];
+  }
+
+  toJSON(){
+    return {
+      name: this.name,
+      type: this.type,
+      room: this.roomName,
+      memory: this.memory,
+    }
   }
 }

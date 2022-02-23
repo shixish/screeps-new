@@ -22,14 +22,14 @@ export class ClaimFlag extends RemoteFlag<ClaimFlagMemory> {
     this.memory.status = status;
   }
 
-  auditOffice(){
-    // const officeAudit = this.office && getRoomAudit(this.office);
-    this.maxFollowersByRole[CreepRoleName.Claimer] = this.office?.controller!.my ? 0 : 1;
-    this.maxFollowersByRole[CreepRoleName.RemoteWorker] = 2;
+  claimCreeps(){
+
   }
 
   /* Flag name should be in the form: `claim:${roomName}` where roomName is the name of the parent room. */
   work() {
+    this.claimCreeps();
+
     // Note: this.flag.pos.findClosestByRange only works with rooms that have vision...
     switch(this.status){
       case ClaimStatus.Audit:

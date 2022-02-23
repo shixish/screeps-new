@@ -54,11 +54,11 @@ export class SpawnController extends StructureSpawn{
         roomAudit.creepCountsByRole[role]++;
         console.log(`New ${role} creep count:`, roomAudit.creepCountsByRole[role]);
         this.spawnCreep(tier.body.parts, name, options);
-        if (flag){
-          flag.addFollower(name);
-        }
         if (anchor){
           anchor.addOccupant(name);
+        }
+        if (flag){
+          flag.addFollower(name);
         }
       }
     }

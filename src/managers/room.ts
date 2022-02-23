@@ -34,7 +34,7 @@ import { CreepRoles } from "./creeps";
 interface SpawnableCreep{
   role:CreepRoleName;
   tier:CreepTier;
-  anchor?:CreepAnchor<GenericAnchorType>;
+  anchor?:CreepAnchor;
   flag?:BasicFlag;
 }
 
@@ -154,12 +154,13 @@ export class RoomAudit{
             const config = CreepRoles[roleName].config;
             const requestedParts = flag.getRequestedBodyPartsByRole(roleName);
             const tier = config.tiers.reduce((heighestTier, currentTier)=>{
+              if (currentTier.body.cost > this.room.energyCapacityAvailable || currentTier.requires?.(this) === false) return heighestTier;
               for (let type in requestedParts){
                 if ((currentTier.body.counts[type as BodyPartConstant] || 0) > (requestedParts[type as BodyPartConstant] || 0)){
                   return heighestTier;
                 }
               }
-              return currentTier.body.cost <= this.room.energyCapacityAvailable && currentTier.requires?.(this) !== false ? currentTier : heighestTier;
+              return currentTier;
             }, null as CreepTier|null);
             if (tier) spawnableCreeps.push({
               role: roleName,
@@ -167,7 +168,7 @@ export class RoomAudit{
               flag: flag,
             } as SpawnableCreep);
           }catch(e:any){
-            console.log(`[${this.room.name}] RoomAudit error in getSpawnableCreeps. Role: ${rn}`, e, e.stack);
+            console.log(`[${this.room.name}] RoomAudit error in getSpawnableFlagCreeps. Role: ${rn}`, e, e.stack);
           }
         }
       }

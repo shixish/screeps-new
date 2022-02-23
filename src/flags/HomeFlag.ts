@@ -1,3 +1,4 @@
+import { CreepRoleName } from "utils/constants";
 import { diamondCoordinates, diamondRingCoordinates, findDiamondPlacement, getBestContainerLocation, getSpawnRoadPath, getStructureCostMatrix } from "utils/map";
 import { BasicFlag, BasicFlagMemory } from "./_BasicFlag";
 
@@ -74,7 +75,7 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     }).forEach(structure=>{
       this.home.createConstructionSite(structure.pos, STRUCTURE_RAMPART);
     });
-    this.homeRoomAudit.sources.forEach(source=>{
+    this.homeAudit.sources.forEach(source=>{
       source.containers.forEach(container=>{
         this.home.createConstructionSite(container.pos, STRUCTURE_RAMPART);
       });
@@ -126,7 +127,7 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
       break;
       case 1:{
         //Need to wait for the initial construction sites to be built before proceeding since they will be used in the pathing calculations
-        this.homeRoomAudit.sources.forEach(source=>{
+        this.homeAudit.sources.forEach(source=>{
           const [ container ] = source.containers;
           const sourceRoadPath = getSpawnRoadPath(spawn, container?.pos || source.pos);
           sourceRoadPath.forEach(step=>{
@@ -310,8 +311,20 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     }
   }
 
+  claimCreeps(){
+    // this.requiredBodyPartsByRole[CreepRoleName.Harvester] = {
+    //   [WORK]: 5*this.homeAudit.sources.length,
+    // };
+
+    // this.requiredBodyPartsByRole[CreepRoleName.Courier] = {
+    //   [CARRY]: 12*this.homeAudit.sources.length,
+    // };
+  }
+
   work() {
     if (!this.home || !this.home.controller?.my) throw `Flag isn't in a valid room: ${this.roomName}`;
+
+    this.claimCreeps();
 
     const controllerLevel = this.home.controller?.level || 0;
     this.home.visual.text(this.buildStage > 8 ? `8` : `${controllerLevel} → ${this.buildStage}`, this.home.controller.pos.x, this.home.controller.pos.y+1);
@@ -329,7 +342,7 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     }
 
     try{
-      if (controllerLevel >= this.buildStage && this.homeRoomAudit.constructionSites.length === 0 && this.buildQueue.length === 0){
+      if (controllerLevel >= this.buildStage && this.homeAudit.constructionSites.length === 0 && this.buildQueue.length === 0){
         this.createConstructionSites();
       }
     }catch(e:any){

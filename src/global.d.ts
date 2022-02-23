@@ -8,6 +8,7 @@ declare global {
   type CreepMineralAnchor = import('utils/CreepAnchor').CreepMineralAnchor;
   type CreepSourceAnchor = import('utils/CreepAnchor').CreepSourceAnchor;
   type CreepAnchorMemory = import('utils/CreepAnchor').CreepAnchorMemory;
+  type GenericAnchorType = import('utils/CreepAnchor').GenericAnchorType;
   type CreepBody = import('creeps/BasicCreep').CreepBody;
 
   type SpawnController = import('structures/SpawnController').SpawnController;
@@ -81,13 +82,12 @@ declare global {
     body: CreepBody;
   }
 
-  // interface CreepRoles{
-  //   basic: CreepRole;
-  //   miner: CreepRole;
-  //   courier: CreepRole;
+  // interface SpawnableCreep{
+  //   role:CreepRoleName;
+  //   anchor?:CreepAnchor;
+  //   flag?:BasicFlag;
+  //   tier?:CreepTier;
   // }
-
-  // type CreepRoleType = keyof typeof CreepRoles;
 
   interface CreepMemory {
     role: CreepRoleName;

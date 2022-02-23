@@ -8,13 +8,12 @@ export interface RemoteFlagMemory extends BasicFlagMemory{
 
 export abstract class RemoteFlag<AbstractFlagMemory extends RemoteFlagMemory = RemoteFlagMemory> extends BasicFlag<AbstractFlagMemory> {
   /* Flag name should be in the form: `${flag.type}:${room.name}` where room is the parent (spawner) room. */
+  officeAudit?:RoomAudit;
 
   constructor(flag: Flag, type: FlagType, suffix?: string) {
     super(flag, type, suffix);
-    this.auditOffice();
+    this.officeAudit = this.office && getRoomAudit(this.office);
   }
-
-  abstract auditOffice(): void;
 
   get home():Room{
     let home:Room|undefined;
