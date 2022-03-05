@@ -1,3 +1,4 @@
+import { CreepRoles } from "managers/creeps";
 import { CreepRoleName, FlagType } from "utils/constants";
 import { getRoomAudit } from "utils/tickCache";
 
@@ -15,9 +16,9 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
 
   followerRoleCounts = {} as Partial<Record<CreepRoleName, number>>;
   maxFollowersByRole = {} as Partial<Record<CreepRoleName, number>>;
-  currentBodyPartsByRole = {} as {[key in CreepRoleName]?: CreepMemory['counts']};
-  requiredBodyPartsByRole = {} as {[key in CreepRoleName]?: CreepMemory['counts']};
-  // requestedBodyPartsByRole = {} as {[key in CreepRoleName]?: CreepMemory['counts']};
+  currentBodyPartsByRole = {} as {[key in CreepRoleName]?: CreepPartsCounts};
+  requiredBodyPartsByRole = {} as {[key in CreepRoleName]?: CreepPartsCounts};
+  // requestedBodyPartsByRole = {} as {[key in CreepRoleName]?: CreepPartsCounts};
 
   constructor(flag: Flag, type: FlagType, suffix?: string) {
     this.flag = flag;
@@ -59,8 +60,31 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
     return this.memory.followers;
   }
 
+  getHighestSpawnableCreep(roleName:CreepRoleName, requestedParts:CreepPartsCounts, anchor?:CreepAnchor):SpawnableCreep|null{
+    const config = CreepRoles[roleName].config;
+    const tier = config.tiers.reduce((heighestTier, currentTier)=>{
+      if (currentTier.body.cost > this.homeAudit.room.energyCapacityAvailable || currentTier.requires?.(this.homeAudit) === false) return heighestTier;
+      for (let type in requestedParts){
+        if ((currentTier.body.counts[type as BodyPartConstant] || 0) > (requestedParts[type as BodyPartConstant] || 0)){
+          return heighestTier;
+        }
+      }
+      return currentTier;
+    }, null as CreepTier|null);
+    return tier ? {
+      role: roleName,
+      tier: tier,
+      flag: this,
+      anchor,
+    } as SpawnableCreep : null;
+  }
+
+  getRequestedCreep():SpawnableCreep|null{
+    return null;
+  }
+
   getRequestedBodyPartsByRole(roleName:CreepRoleName){
-    const requestedParts = {} as CreepMemory['counts'];
+    const requestedParts = {} as CreepPartsCounts;
     for (let type in this.requiredBodyPartsByRole[roleName]){
       // console.log(`requiredBodyPartsByRole, currentBodyPartsByRole`, this.requiredBodyPartsByRole[roleName]![type as BodyPartConstant], this.currentBodyPartsByRole[roleName]![type as BodyPartConstant]);
       requestedParts[type as BodyPartConstant] = (this.requiredBodyPartsByRole[roleName]![type as BodyPartConstant] || 0) - (this.currentBodyPartsByRole[roleName]?.[type as BodyPartConstant] || 0);
@@ -68,7 +92,7 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
     return requestedParts;
   }
 
-  requestCreep(roleName:CreepRoleName, counts:CreepMemory['counts'], anchor?:Id<GenericAnchorType>){
+  requestCreep(roleName:CreepRoleName, counts:CreepPartsCounts, anchor?:Id<GenericAnchorType>){
     //TODO: It'd be best if I can specify the creep's anchor object from here.
     //This should replace this.requiredBodyPartsByRole object somehow
   }

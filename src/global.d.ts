@@ -82,12 +82,16 @@ declare global {
     body: CreepBody;
   }
 
-  // interface SpawnableCreep{
-  //   role:CreepRoleName;
-  //   anchor?:CreepAnchor;
-  //   flag?:BasicFlag;
-  //   tier?:CreepTier;
-  // }
+  interface SpawnableCreep{
+    role:CreepRoleName;
+    tier:CreepTier;
+    anchor?:CreepAnchor;
+    flag?:BasicFlag;
+  }
+
+  type CreepPartsCounts = {
+    [key in BodyPartConstant]?: number
+  }
 
   interface CreepMemory {
     role: CreepRoleName;
@@ -102,9 +106,7 @@ declare global {
     home?: Room['name'];
     office?: Room['name'];
 
-    counts: {
-      [key in BodyPartConstant]?: number
-    }
+    counts: CreepPartsCounts
   }
 
   interface SpawnMemory {

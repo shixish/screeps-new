@@ -20,12 +20,12 @@ export class HarvesterCreep extends BasicCreep {
       }
     ],
     getCreepAnchor: (roomAudit:RoomAudit)=>{
-      const sourceAnchor = roomAudit.sources.reduce((out:CreepAnchor<Source>|undefined, source)=>{
+      const sourceAnchor = roomAudit.sources.reduce((out, source)=>{
         if (source.availableSeats > 0 && (!out || source.occupancy < out.occupancy)){
           out = source;
         }
         return out;
-      }, undefined);
+      }, undefined as CreepSourceAnchor|undefined);
       return sourceAnchor;
     },
     // modSpawnOptions: (roomAudit, options, spawner)=>{

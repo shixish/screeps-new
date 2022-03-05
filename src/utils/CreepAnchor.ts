@@ -97,6 +97,34 @@ export class CreepAnchor<AnchorType extends GenericAnchorType = GenericAnchorTyp
     return this.memory.occupancy.length;
   }
 
+  getOccupantBodyParts(){
+    return this.memory.occupancy.reduce((out, occupant)=>{
+      const counts = Memory.creeps[occupant].counts;
+      for (let c in counts){
+        out[c as BodyPartConstant] = (out[c as BodyPartConstant] || 0) + (counts[c as BodyPartConstant] || 0);
+      }
+      return out;
+    }, {} as CreepPartsCounts);
+  }
+
+  // checkOccupantParts(requiredParts:CreepPartsCounts){
+  //   for (const occupant of this.memory.occupancy){
+  //     const counts = Memory.creeps[occupant].counts;
+  //     let done = true;
+  //     for (let p in requiredParts){
+  //       if ((requiredParts[p as BodyPartConstant]! -= (counts[p as BodyPartConstant] || 0)) > 0){
+  //         done = false;
+  //       }
+  //     }
+  //     if (done) return true;
+  //   }
+  //   return false;
+  // }
+
+  // get neededBodyParts(){
+  //   return {} as CreepPartsCounts;
+  // }
+
   addOccupant(creepName:Creep['name']){
     const creepMemory = Memory.creeps[creepName];
     creepMemory.anchor = this.id;
@@ -124,7 +152,7 @@ export class CreepMineralAnchor extends CreepAnchor<Mineral>{
 }
 
 export interface CreepSourceAnchorMemory extends CreepAnchorMemory{
-  stepCount?:number;
+
 }
 export class CreepSourceAnchor extends CreepAnchor<Source, CreepSourceAnchorMemory>{
   constructor(source:Source){
@@ -139,12 +167,21 @@ export class CreepSourceAnchor extends CreepAnchor<Source, CreepSourceAnchorMemo
     return Math.min(this.memory.seats, 3);
   }
 
-  get stepCount(){
-    return this.memory.stepCount;
+  get maxWorkParts(){
+    switch(this.anchor.energyCapacity){
+      case 3000: return 5;
+      case 4000: return 7; //Dunno?
+      // case 1500: return 4;
+      default: return 4;
+    }
   }
 
-  set stepCount(range:CreepSourceAnchorMemory['stepCount']){
-    this.memory.stepCount = range;
+  getNeededHarvesterParts(){
+    const parts = this.getOccupantBodyParts();
+    const neededWork = this.maxWorkParts - (parts[WORK] || 0);
+    return neededWork ? {
+      [WORK]: neededWork,
+    } as CreepPartsCounts : null;
   }
 
   get availableSeats(){

@@ -32,6 +32,20 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     return this.memory.sourceData || (this.memory.sourceData = {});
   }
 
+  getRequestedCreep(){
+    const sourceAnchor = this.homeAudit.sources.reduce((out, source)=>{
+      if (source.availableSeats > 0 && (!out || source.occupancy < out.occupancy)){
+        out = source;
+      }
+      return out;
+    }, undefined as CreepSourceAnchor|undefined);
+    if (sourceAnchor){
+      const parts = sourceAnchor.getNeededHarvesterParts();
+      if (parts) return this.getHighestSpawnableCreep(CreepRoleName.Harvester, parts, sourceAnchor);
+    }
+    return null;
+  }
+
   audit(){
     if (this.status !== HarvestStatus.Audit || !this.officeAudit) return;
 

@@ -311,14 +311,31 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     }
   }
 
-  claimCreeps(){
-    // this.requiredBodyPartsByRole[CreepRoleName.Harvester] = {
-    //   [WORK]: 5*this.homeAudit.sources.length,
-    // };
+  getRequestedCreep(){
+    const sourceAnchor = this.homeAudit.sources.reduce((out, source)=>{
+      if (source.availableSeats > 0 && (!out || source.occupancy < out.occupancy)){
+        out = source;
+      }
+      return out;
+    }, undefined as CreepSourceAnchor|undefined);
+    if (sourceAnchor){
+      const parts = sourceAnchor.getNeededHarvesterParts();
+      if (parts) return this.getHighestSpawnableCreep(CreepRoleName.Harvester, parts, sourceAnchor);
+    }
 
-    // this.requiredBodyPartsByRole[CreepRoleName.Courier] = {
-    //   [CARRY]: 12*this.homeAudit.sources.length,
-    // };
+    // Math.min(this.homeAudit.creepCountsByRole.harvester*2, this.homeAudit.sources.length*2);
+
+    return null;
+  }
+
+  claimCreeps(){
+    this.requiredBodyPartsByRole[CreepRoleName.Harvester] = {
+      [WORK]: 5*this.homeAudit.sources.length,
+    };
+
+    this.requiredBodyPartsByRole[CreepRoleName.Courier] = {
+      [CARRY]: 12*this.homeAudit.sources.length,
+    };
   }
 
   work() {

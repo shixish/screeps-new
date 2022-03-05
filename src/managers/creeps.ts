@@ -82,6 +82,25 @@ export const creepCountPart = (creep:Creep, part:BodyPartConstant)=>{
   return count;
 };
 
+// export const getSpawnableCreep = (roleName:CreepRoleName, requestedParts:CreepPartsCounts, roomAudit:RoomAudit, flag?:BasicFlag, anchor?:CreepAnchor)=>{
+//   const config = CreepRoles[roleName].config;
+//   const tier = config.tiers.reduce((heighestTier, currentTier)=>{
+//     if (currentTier.body.cost > roomAudit.room.energyCapacityAvailable || currentTier.requires?.(roomAudit) === false) return heighestTier;
+//     for (let type in requestedParts){
+//       if ((currentTier.body.counts[type as BodyPartConstant] || 0) > (requestedParts[type as BodyPartConstant] || 0)){
+//         return heighestTier;
+//       }
+//     }
+//     return currentTier;
+//   }, null as CreepTier|null);
+//   return tier ? {
+//     role: roleName,
+//     tier: tier,
+//     anchor,
+//     flag,
+//   } as SpawnableCreep : null;
+// };
+
 // export const creepCountParts = (parts:BodyPartConstant[])=>{
 //   return parts.reduce((out, part)=>{
 //     out[part] = out[part] === undefined ? 1 : (out[part] as number) + 1;
