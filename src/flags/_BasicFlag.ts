@@ -23,7 +23,7 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
   constructor(flagName: Flag['name'], type: FlagType, suffix?: string) {
     this.flagName = flagName;
     this.type = type;
-    this.suffix = suffix;
+    this.suffix = this.parseSuffix(suffix);
     this.memory.followers = this.memory.followers.filter(creepName => {
       const creep = Game.creeps[creepName];
       if (creep){
@@ -35,6 +35,11 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
     const roomAudit = getRoomAudit(this.home);
     (roomAudit.flags[this.type] as BasicFlag[]).push(this);
     this.homeAudit = roomAudit;
+  }
+
+  parseSuffix(suffix?: string){
+    //Used by remote flags
+    return suffix;
   }
 
   abstract work(): void;

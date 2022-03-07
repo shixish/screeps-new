@@ -1,5 +1,4 @@
 import { CreepRoleName, FlagType } from "utils/constants";
-import { getRoomAudit } from "utils/tickCache";
 import { RemoteFlag, RemoteFlagMemory } from "./_RemoteFlag";
 
 /* Flag name should be in the form: `harvest:${roomName}` where roomName is the name of the parent room. */
@@ -52,7 +51,7 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     const exit = this.office?.findExitTo(this.home) as ExitConstant;
     const getExitRange = (source:CreepSourceAnchor)=>source.anchor.pos.findClosestByRange(exit)!.getRangeTo(source);
     //Sort the sources by range to the exit that connects rooms. This way we build the road to the closest one first, then leverage that road when connecting to the second source.
-    const sources = this.officeAudit.sources.sort((a, b)=>getExitRange(a) - getExitRange(b));
+    const sources = this.office !== this.home ? this.officeAudit.sources.sort((a, b)=>getExitRange(a) - getExitRange(b)) : this.officeAudit.sources;
 
     const paths:PathFinderPath[] = [];
     const getPathToSource = (source:CreepSourceAnchor)=>{

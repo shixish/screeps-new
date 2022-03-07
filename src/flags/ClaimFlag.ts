@@ -22,6 +22,11 @@ export class ClaimFlag extends RemoteFlag<ClaimFlagMemory> {
     this.memory.status = status;
   }
 
+  static initializeHomeRoom(roomAudit:RoomAudit){
+    roomAudit.room.createFlag(roomAudit.center, 'home:'+roomAudit.room.name);
+    roomAudit.room.createFlag(roomAudit.center, 'harvest:'+roomAudit.room.name);
+  }
+
   claimCreeps(){
 
   }
@@ -34,26 +39,27 @@ export class ClaimFlag extends RemoteFlag<ClaimFlagMemory> {
     switch(this.status){
       case ClaimStatus.Audit:
         if (this.office){
-          const roomAudit = getRoomAudit(this.office);
-          const center = roomAudit.center || (roomAudit.center = getBestCentralLocation(this.office));
-          this.flag.setPosition(center);
+          this.flag.setPosition(this.officeAudit!.center);
           this.status = ClaimStatus.Claim;
         }
         break;
       case ClaimStatus.Claim:
         if (this.office?.controller?.my && this.office.controller.level >= 2){
-          const roomAudit = getRoomAudit(this.office);
-          const center = roomAudit.center = this.flag.pos; //might manually move the flag to adjust the center location while initially getting to CL2
+          const center = this.officeAudit!.center = this.flag.pos; //might manually move the flag to adjust the center location while initially getting to CL2
           this.office.createConstructionSite(center, STRUCTURE_SPAWN);
           this.status = ClaimStatus.Finish;
         }
         break;
       case ClaimStatus.Finish:
-        const spawns = this.office?.find(FIND_MY_SPAWNS);
-        if (spawns?.length){
-          //The home flag will take it from here
-          this.office?.createFlag(this.flag.pos.x, this.flag.pos.y, 'home:'+this.office.name)
+        if (this.office){
+          if (this.office?.find(FIND_MY_SPAWNS)?.length){
+            //The home flag will take it from here
+            ClaimFlag.initializeHomeRoom(this.officeAudit!);
+            this.remove();
+          }
+        }else{
           this.remove();
+          throw `Room was likely destroyed`;
         }
         break;
     }

@@ -1,3 +1,4 @@
+import { ClaimFlag } from "flags/ClaimFlag";
 import { getRoomAudit } from "utils/tickCache";
 
 export function initialize(){
@@ -5,7 +6,7 @@ export function initialize(){
   const firstRoomName = Object.keys(Game.rooms)[0];
   const roomAudit = getRoomAudit(Game.rooms[firstRoomName]);
   if (roomAudit){
-    roomAudit.room.createFlag(roomAudit.center, 'home:'+roomAudit.room.name);
+    ClaimFlag.initializeHomeRoom(roomAudit);
     Memory.initialized = true;
   }
 }
