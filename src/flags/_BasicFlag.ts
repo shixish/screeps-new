@@ -9,7 +9,7 @@ export interface BasicFlagMemory extends FlagMemory{
 }
 
 export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = BasicFlagMemory> {
-  flag: Flag;
+  flagName: Flag['name'];
   type: FlagType;
   suffix: string | undefined;
   homeAudit!:RoomAudit;
@@ -20,8 +20,8 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
   requiredBodyPartsByRole = {} as {[key in CreepRoleName]?: CreepPartsCounts};
   // requestedBodyPartsByRole = {} as {[key in CreepRoleName]?: CreepPartsCounts};
 
-  constructor(flag: Flag, type: FlagType, suffix?: string) {
-    this.flag = flag;
+  constructor(flagName: Flag['name'], type: FlagType, suffix?: string) {
+    this.flagName = flagName;
     this.type = type;
     this.suffix = suffix;
     this.memory.followers = this.memory.followers.filter(creepName => {
@@ -39,8 +39,18 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
 
   abstract work(): void;
 
+  get flag(){
+    return Game.flags[this.flagName];
+  }
+
+  get memory():AbstractFlagMemory {
+    return (Memory.flags[this.flagName] || (Memory.flags[this.flagName] = {
+      followers: [],
+    })) as AbstractFlagMemory;
+  }
+
   get name() {
-    return this.flag.name;
+    return this.flagName;
   }
 
   get pos() {
@@ -119,15 +129,9 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
     this.memory.followers.push(creepName);
   }
 
-  get memory():AbstractFlagMemory {
-    return (Memory.flags[this.flag.name] || (Memory.flags[this.flag.name] = {
-      followers: [],
-    })) as AbstractFlagMemory;
-  }
-
   remove() {
-    this.flag.remove();
-    delete Memory.flags[this.flag.name];
+    if (this.flag) this.flag.remove();
+    delete Memory.flags[this.flagName];
   }
 
   toJSON(){

@@ -47,18 +47,15 @@ export const FlagManagers = { //:Record<FlagType, BasicFlag>
 //     return manager;
 //   }
 // }
+export const getFlagManager = (flagName:Flag['name'])=>{
+  const [flagType, options] = flagName.split(':', 2) as [FlagType, string];
+  return flagType in FlagManagers ? new FlagManagers[flagType](flagName, flagType, options) : undefined;
+};
 
 export const manageFlags = ()=>{
-  const flagNames = {} as Record<string, boolean>;
-  const getFlagManager = (flag:Flag)=>{
-    if (!flag) return;
-    const [flagType, options] = flag.name.split(':', 2) as [FlagType, string];
-    return flagType in FlagManagers ? new FlagManagers[flagType](flag, flagType, options) : undefined;
-  };
   for (const flagName in Game.flags) {
-    flagNames[flagName] = true;
     try{
-      const flagManager = getFlagManager(Game.flags[flagName]);
+      const flagManager = getFlagManager(flagName);
       if (flagManager){
         flagManagerCache.set(flagName, flagManager);
         flagManager.work();
@@ -69,10 +66,11 @@ export const manageFlags = ()=>{
   }
   //Cleanup junk memory
   for (const flagName in Memory.flags){
-    if (!flagNames[flagName]){
+    if (!(flagName in Game.flags)){
       //Clean up memeory and do whatever teardown is appropriate for the flag.
-      const flagManager = getFlagManager(Game.flags[flagName]);
+      const flagManager = getFlagManager(flagName);
       if (flagManager) flagManager.remove();
+      else delete Memory.flags[flagName];
     }
   }
 }

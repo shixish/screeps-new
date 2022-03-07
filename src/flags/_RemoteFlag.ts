@@ -10,8 +10,8 @@ export abstract class RemoteFlag<AbstractFlagMemory extends RemoteFlagMemory = R
   /* Flag name should be in the form: `${flag.type}:${room.name}` where room is the parent (spawner) room. */
   officeAudit?:RoomAudit;
 
-  constructor(flag: Flag, type: FlagType, suffix?: string) {
-    super(flag, type, suffix);
+  constructor(flagName: Flag['name'], type: FlagType, suffix?: string) {
+    super(flagName, type, suffix);
     this.officeAudit = this.office && getRoomAudit(this.office);
   }
 

@@ -44,8 +44,9 @@ declare global {
   interface Memory {
     // uuid: number;
     // log: any;
-    paths: any;
+    // paths: any;
     anchors: {[name: string]: CreepAnchorMemory};
+    initialized: boolean;
   }
 
   type SpawnerCounts = {
