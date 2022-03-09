@@ -47,7 +47,7 @@ export const FlagManagers = { //:Record<FlagType, BasicFlag>
 //     return manager;
 //   }
 // }
-export const getFlagManager = (flagName:Flag['name'])=>{
+export const initFlagManager = (flagName:Flag['name'])=>{
   const [flagType, options] = flagName.split(':', 2) as [FlagType, string];
   return flagType in FlagManagers ? new FlagManagers[flagType](flagName, flagType, options) : undefined;
 };
@@ -55,7 +55,7 @@ export const getFlagManager = (flagName:Flag['name'])=>{
 export const manageFlags = ()=>{
   for (const flagName in Game.flags) {
     try{
-      const flagManager = getFlagManager(flagName);
+      const flagManager = initFlagManager(flagName);
       if (flagManager){
         flagManagerCache.set(flagName, flagManager);
         flagManager.work();
@@ -67,10 +67,8 @@ export const manageFlags = ()=>{
   //Cleanup junk memory
   for (const flagName in Memory.flags){
     if (!(flagName in Game.flags)){
-      //Clean up memeory and do whatever teardown is appropriate for the flag.
-      const flagManager = getFlagManager(flagName);
-      if (flagManager) flagManager.remove();
-      else delete Memory.flags[flagName];
+      //See the flag cleanup happening on tickCache as well
+      delete Memory.flags[flagName];
     }
   }
 }

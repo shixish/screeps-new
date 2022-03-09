@@ -24,7 +24,8 @@ export class ClaimFlag extends RemoteFlag<ClaimFlagMemory> {
 
   static initializeHomeRoom(roomAudit:RoomAudit){
     roomAudit.room.createFlag(roomAudit.center, 'home:'+roomAudit.room.name);
-    roomAudit.room.createFlag(roomAudit.center, 'harvest:'+roomAudit.room.name);
+    const source = roomAudit.sources[0];
+    roomAudit.room.createFlag(source.pos, 'harvest:'+roomAudit.room.name);
   }
 
   claimCreeps(){

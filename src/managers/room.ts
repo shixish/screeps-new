@@ -218,7 +218,8 @@ export class RoomAudit{
         return {
           role: sc.role,
           flag: sc.flag?.name,
-          anchor: sc.anchor?.id,
+          tier: sc.tier?.body.parts,
+          cohort: sc.cohort?.id,
         }
       }), null, 2));
     }

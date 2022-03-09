@@ -9,10 +9,13 @@ declare global {
   type CreepSourceAnchor = import('utils/CreepAnchor').CreepSourceAnchor;
   type CreepAnchorMemory = import('utils/CreepAnchor').CreepAnchorMemory;
   type GenericAnchorType = import('utils/CreepAnchor').GenericAnchorType;
+  type BasicCreep = import('creeps/BasicCreep').BasicCreep;
   type CreepBody = import('creeps/BasicCreep').CreepBody;
 
   type SpawnController = import('structures/SpawnController').SpawnController;
   type BasicFlag = import('flags/_BasicFlag').BasicFlag;
+  type Cohort = import('utils/Cohort').Cohort;
+  type CohortMemory = import('utils/Cohort').CohortMemory;
   type RoomAudit = import('managers/room').RoomAudit;
 
   type FlagManagers = typeof import('managers/flags').FlagManagers;
@@ -46,6 +49,7 @@ declare global {
     // log: any;
     // paths: any;
     anchors: {[name: string]: CreepAnchorMemory};
+    cohorts: {[name: string]: CohortMemory};
     initialized: boolean;
   }
 
@@ -87,6 +91,7 @@ declare global {
     role:CreepRoleName;
     tier:CreepTier;
     anchor?:CreepAnchor;
+    cohort?:Cohort;
     flag?:BasicFlag;
   }
 
@@ -98,7 +103,7 @@ declare global {
     role: CreepRoleName;
 
     // targetRoom?: Room['name'];
-    anchor?: Id<RoomObject>
+    anchor?: Id<RoomObject>;
     seated?: boolean;
     flag?: BasicFlag['name'];
     target?: Target;

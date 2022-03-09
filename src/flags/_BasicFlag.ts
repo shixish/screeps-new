@@ -75,7 +75,7 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
     return this.memory.followers;
   }
 
-  getHighestSpawnableCreep(roleName:CreepRoleName, requestedParts:CreepPartsCounts, anchor?:CreepAnchor):SpawnableCreep|null{
+  getHighestSpawnableCreep(roleName:CreepRoleName, requestedParts:CreepPartsCounts, cohort?:Cohort):SpawnableCreep|null{
     const config = CreepRoles[roleName].config;
     const tier = config.tiers.reduce((heighestTier, currentTier)=>{
       if (currentTier.body.cost > this.homeAudit.room.energyCapacityAvailable || currentTier.requires?.(this.homeAudit) === false) return heighestTier;
@@ -90,7 +90,7 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
       role: roleName,
       tier: tier,
       flag: this,
-      anchor,
+      cohort,
     } as SpawnableCreep : null;
   }
 
@@ -127,14 +127,14 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
     return max !== undefined ? Math.max(max-count, 0) : 0;
   }
 
-  addFollower(creepName: Creep['name']) {
+  addFollower(creepName: Creep['name']){
     const creepMemory = Memory.creeps[creepName];
     creepMemory.flag = this.name;
     this.countCreep(creepName);
     this.memory.followers.push(creepName);
   }
 
-  remove() {
+  remove(){
     if (this.flag) this.flag.remove();
     delete Memory.flags[this.flagName];
   }

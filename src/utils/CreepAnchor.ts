@@ -1,3 +1,5 @@
+import { Cohort } from "./Cohort";
+
 export function countAvailableSeats(pos:RoomPosition){
   let seats = 0;
   const mapTerrain = Game.rooms[pos.roomName].getTerrain();
@@ -12,18 +14,25 @@ export function countAvailableSeats(pos:RoomPosition){
 };
 
 if (!Memory.anchors) Memory.anchors = {};
-export interface CreepAnchorMemory{
+export interface CreepAnchorMemory extends CohortMemory{
   seats?: number;
-  containers: Id<StructureContainer>[];
-  occupancy: Creep['name'][];
+  containers?: Id<StructureContainer>[];
+  occupancy?: Creep['name'][]; //Deprecated but necessary for now until I ship this live
 }
 
 export type GenericAnchorType = Source|Mineral|Structure;
-export class CreepAnchor<AnchorType extends GenericAnchorType = GenericAnchorType, AbstractAnchorMemory extends CreepAnchorMemory = CreepAnchorMemory>{
+export class CreepAnchor<
+  AnchorType extends GenericAnchorType = GenericAnchorType,
+  AbstractCreep extends BasicCreep = BasicCreep,
+  AbstractAnchorMemory extends CreepAnchorMemory = CreepAnchorMemory
+> extends Cohort<
+  AbstractCreep,
+  AbstractAnchorMemory
+>{
   private _link: StructureLink | undefined | null;
 
+  id!:Id<RoomObject>;
   anchor:AnchorType;
-  containers: StructureContainer[] = [];
   // getCapacity = ()=>{
   //   return this.containers.reduce((out, container)=>{
   //     return out + container.store.getCapacity(RESOURCE_ENERGY);
@@ -49,37 +58,12 @@ export class CreepAnchor<AnchorType extends GenericAnchorType = GenericAnchorTyp
   // }
 
   constructor(anchor:AnchorType){
+    super(anchor.id);
     this.anchor = anchor;
-    this.memory.occupancy = this.memory.occupancy.filter(creepName=>Boolean(Game.creeps[creepName]));
-    this.memory.containers = this.memory.containers.filter(id=>{
-      const container = Game.getObjectById(id);
-      if (container){
-        this.containers.push(container);
-        return true;
-      }
-      return false;
-    });
-    if (!this.containers.length){
-      this.containers = anchor.pos.findInRange(FIND_STRUCTURES, 1, { //Needs to be distance 1 since controller is sometimes close to sources that will also have a container
-        filter: structure=>{
-          return structure.structureType === STRUCTURE_CONTAINER;
-        }
-      }) as StructureContainer[];
-      this.memory.containers = this.containers.map(container=>container.id);
+    if (this.memory.occupancy){
+      this.memory.occupancy.forEach(creepName=>this.push(creepName));
+      delete this.memory.occupancy;
     }
-  }
-
-  // abstract get id():Id<AnchorType>|string;
-
-  get id(){
-    return this.anchor.id as Id<AnchorType>;
-  }
-
-  get memory():AbstractAnchorMemory{
-    return (Memory.anchors[this.id] || (Memory.anchors[this.id] = {
-      occupancy: [],
-      containers: [],
-    })) as AbstractAnchorMemory;
   }
 
   get pos(){
@@ -93,18 +77,29 @@ export class CreepAnchor<AnchorType extends GenericAnchorType = GenericAnchorTyp
     return this._link;
   }
 
-  get occupancy(){
-    return this.memory.occupancy.length;
-  }
-
-  getOccupantBodyParts(){
-    return this.memory.occupancy.reduce((out, occupant)=>{
-      const counts = Memory.creeps[occupant].counts;
-      for (let c in counts){
-        out[c as BodyPartConstant] = (out[c as BodyPartConstant] || 0) + (counts[c as BodyPartConstant] || 0);
+  private _containers:StructureContainer[]|undefined;
+  get containers(){
+    if (!this._containers){
+      this._containers = [];
+      this.memory.containers = (this.memory.containers || []).filter(id=>{
+        const container = Game.getObjectById(id);
+        if (container){
+          this._containers!.push(container);
+          return true;
+        }
+        return false;
+      });
+      if (!this._containers.length){
+        this._containers = this.anchor.pos.findInRange(FIND_STRUCTURES, 1, { //Needs to be distance 1 since controller is sometimes close to sources that will also have a container
+          filter: structure=>{
+            return structure.structureType === STRUCTURE_CONTAINER;
+          }
+        }) as StructureContainer[];
+        this.memory.containers = this.containers.map(container=>container.id);
       }
-      return out;
-    }, {} as CreepPartsCounts);
+    }
+    return this._containers;
+    // return this.memory.containers || (this.memory.containers = {} as AbstractAnchorMemory['containers']);
   }
 
   // checkOccupantParts(requiredParts:CreepPartsCounts){
@@ -128,7 +123,7 @@ export class CreepAnchor<AnchorType extends GenericAnchorType = GenericAnchorTyp
   addOccupant(creepName:Creep['name']){
     const creepMemory = Memory.creeps[creepName];
     creepMemory.anchor = this.id;
-    this.memory.occupancy.push(creepName);
+    this.push(creepName);
   }
 }
 
@@ -154,7 +149,7 @@ export class CreepMineralAnchor extends CreepAnchor<Mineral>{
 export interface CreepSourceAnchorMemory extends CreepAnchorMemory{
 
 }
-export class CreepSourceAnchor extends CreepAnchor<Source, CreepSourceAnchorMemory>{
+export class CreepSourceAnchor extends CreepAnchor<Source, BasicCreep, CreepSourceAnchorMemory>{
   constructor(source:Source){
     super(source);
   }
@@ -177,8 +172,7 @@ export class CreepSourceAnchor extends CreepAnchor<Source, CreepSourceAnchorMemo
   }
 
   getNeededHarvesterParts(){
-    const parts = this.getOccupantBodyParts();
-    const neededWork = this.maxWorkParts - (parts[WORK] || 0);
+    const neededWork = this.maxWorkParts - (this.counts[WORK] || 0);
     return neededWork ? {
       [WORK]: neededWork,
     } as CreepPartsCounts : null;

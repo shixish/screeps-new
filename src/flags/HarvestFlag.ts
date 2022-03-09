@@ -40,7 +40,7 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     }, undefined as CreepSourceAnchor|undefined);
     if (sourceAnchor){
       const parts = sourceAnchor.getNeededHarvesterParts();
-      if (parts) return this.getHighestSpawnableCreep(CreepRoleName.Harvester, parts, sourceAnchor);
+      if (parts) return this.getHighestSpawnableCreep(CreepRoleName.RemoteHarvester, parts, sourceAnchor);
     }
     return null;
   }
@@ -162,7 +162,7 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
       Maybe just specify custom creep parts/tier in here and feed it into a creep role to control the logic.
       */
       this.maxFollowersByRole[CreepRoleName.RemoteHarvester] = sourceCount;
-      this.maxFollowersByRole[CreepRoleName.RemoteCourier] = sourceCount*2;
+      this.maxFollowersByRole[CreepRoleName.RemoteCourier] = 0;//sourceCount*2;
     }else{
       this.maxFollowersByRole[CreepRoleName.RemoteHarvester] = 1;
       this.maxFollowersByRole[CreepRoleName.RemoteCourier] = 2;

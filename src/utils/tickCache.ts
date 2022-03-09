@@ -65,5 +65,10 @@ export const clearTickCache = ()=>{
   objectCache.clear();
   roomAuditCache.clear();
   creepAnchorCache.clear();
+  flagManagerCache.forEach(flagManager=>{
+    if (!flagManager.flag){
+      flagManager.remove();
+    }
+  });
   flagManagerCache.clear();
 };
