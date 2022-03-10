@@ -1,4 +1,4 @@
-import { CreepRoleName, FlagType } from "utils/constants";
+import { CreepPriority, CreepRoleName, FlagType } from "utils/constants";
 import { RemoteFlag, RemoteFlagMemory } from "./_RemoteFlag";
 
 /* Flag name should be in the form: `harvest:${roomName}` where roomName is the name of the parent room. */
@@ -31,8 +31,9 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     return this.memory.sourceData || (this.memory.sourceData = {});
   }
 
-  getRequestedCreep(){
+  getRequestedCreep(currentPriorityLevel:CreepPriority){
     if (!this.officeAudit) return null;
+    if (currentPriorityLevel < CreepPriority.Normal) return null;
 
     //Take care of one source at a time. This way we can get it into production asap, funding other things.
     for (const sourceAnchor of this.officeAudit.sources){

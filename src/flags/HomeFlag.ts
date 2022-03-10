@@ -330,20 +330,20 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     return null;
   }
 
-  claimCreeps(){
-    this.requiredBodyPartsByRole[CreepRoleName.Harvester] = {
-      [WORK]: 5*this.homeAudit.sources.length,
-    };
+  // claimCreeps(){
+  //   this.requiredBodyPartsByRole[CreepRoleName.Harvester] = {
+  //     [WORK]: 5*this.homeAudit.sources.length,
+  //   };
 
-    this.requiredBodyPartsByRole[CreepRoleName.Courier] = {
-      [CARRY]: 12*this.homeAudit.sources.length,
-    };
-  }
+  //   this.requiredBodyPartsByRole[CreepRoleName.Courier] = {
+  //     [CARRY]: 12*this.homeAudit.sources.length,
+  //   };
+  // }
 
   work() {
     if (!this.home || !this.home.controller?.my) throw `Flag isn't in a valid room: ${this.roomName}`;
 
-    this.claimCreeps();
+    // this.claimCreeps();
 
     const controllerLevel = this.home.controller?.level || 0;
     this.home.visual.text(this.buildStage > 8 ? `8` : `${controllerLevel} → ${this.buildStage}`, this.home.controller.pos.x, this.home.controller.pos.y+1);

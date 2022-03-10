@@ -1,4 +1,4 @@
-import { CreepRoleName, FlagType } from "utils/constants";
+import { CreepRoleName, FlagType, CreepPriority } from "utils/constants";
 // import { SpawnController } from "structures/SpawnController";
 // import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor } from "utils/CreepAnchor";
 
@@ -88,11 +88,12 @@ declare global {
   }
 
   interface SpawnableCreep{
-    role:CreepRoleName;
-    tier:CreepTier;
-    anchor?:CreepAnchor;
-    cohort?:Cohort;
-    flag?:BasicFlag;
+    priority?: CreepPriority;
+    role: CreepRoleName;
+    tier: CreepTier;
+    anchor?: CreepAnchor;
+    cohort?: Cohort;
+    flag?: BasicFlag;
   }
 
   type CreepPartsCounts = {

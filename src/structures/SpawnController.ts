@@ -34,18 +34,30 @@ export class SpawnController extends StructureSpawn{
   work(){
     if (!this.spawning){
       const roomAudit = getRoomAudit(this.room);
-      const spawnableCreep = roomAudit.getPrioritySpawnableCreep();
+      // const spawnableCreep = roomAudit.getPrioritySpawnableCreep();
+      const spawnableCreep = roomAudit.getHighestSpawnableFlagCreep();
       if (spawnableCreep){
-        const { role, tier, anchor, flag } = spawnableCreep;
-        const name = getCreepName(role);
+        console.log(`Spawn flag creep`, JSON.stringify({
+          role: spawnableCreep.role,
+          flag: spawnableCreep.flag?.name,
+          tier: spawnableCreep.tier?.body.parts,
+          anchor: spawnableCreep.anchor?.id,
+          cohort: spawnableCreep.cohort?.id,
+        }, null, 2));
+        const { role, tier, anchor, flag, cohort } = spawnableCreep;
+        const creepName = getCreepName(role);
         const options:MandateProps<SpawnOptions, 'memory'> = {
           memory: {
             role,
             counts: tier.body.counts,
-            // home: this.room.name,
-            // office: this.room.name,
           }
         };
+        if (anchor){
+          options.memory.anchor = anchor.id;
+        }
+        if (flag){
+          options.memory.flag = flag.name;
+        }
         // if (config.modSpawnOptions) config.modSpawnOptions(roomAudit, options, this);
         if (tier.body.cost > this.room.energyAvailable) return;
         // console.log(`Creep Counts:`, JSON.stringify(roomAudit.creepCountsByRole, null, 2));
@@ -53,12 +65,9 @@ export class SpawnController extends StructureSpawn{
         //Inflate the number now so that any other spawns in the room don't try to build the same thing. This is only sufficient for this tick. The room audit needs to count creeps being produced in spawns.
         roomAudit.creepCountsByRole[role]++;
         console.log(`New ${role} creep count:`, roomAudit.creepCountsByRole[role]);
-        this.spawnCreep(tier.body.parts, name, options);
-        if (anchor){
-          anchor.addOccupant(name);
-        }
-        if (flag){
-          flag.addFollower(name);
+        this.spawnCreep(tier.body.parts, creepName, options);
+        if (cohort){
+          cohort.push(creepName);
         }
       }
     }

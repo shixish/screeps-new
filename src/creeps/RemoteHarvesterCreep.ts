@@ -19,24 +19,24 @@ export class RemoteHarvesterCreep extends BasicCreep<HarvestFlag> {
     },
   }
 
-  getAnchoredSource(office:Room|undefined){
-    if (!office) return;
-    const roomAudit = getRoomAudit(office);
-    if (!this.memory.anchor){
-      const sourceAnchor = roomAudit.sources.reduce((out, source)=>{
-        if (source.availableSeats > 0 && (!out || source.occupancy < out.occupancy)){
-          out = source;
-        }
-        return out;
-      }, undefined as SourceAnchor|undefined);
-      if (!sourceAnchor) return;
-      this.memory.anchor = sourceAnchor.id;
-      sourceAnchor.addOccupant(this.name);
-      return sourceAnchor.anchor;
-    }
-    // return roomAudit.sources.find(source=>source.id === this.memory.anchor);
-    return Game.getObjectById(this.memory.anchor);
-  }
+  // getAnchoredSource(office:Room|undefined){
+  //   if (!office) return;
+  //   const roomAudit = getRoomAudit(office);
+  //   if (!this.memory.anchor){
+  //     const sourceAnchor = roomAudit.sources.reduce((out, source)=>{
+  //       if (source.availableSeats > 0 && (!out || source.occupancy < out.occupancy)){
+  //         out = source;
+  //       }
+  //       return out;
+  //     }, undefined as SourceAnchor|undefined);
+  //     if (!sourceAnchor) return;
+  //     this.memory.anchor = sourceAnchor.id;
+  //     sourceAnchor.addOccupant(this.name);
+  //     return sourceAnchor.anchor;
+  //   }
+  //   // return roomAudit.sources.find(source=>source.id === this.memory.anchor);
+  //   return Game.getObjectById(this.memory.anchor);
+  // }
 
   work(){
     if (!this.flag){
@@ -44,7 +44,7 @@ export class RemoteHarvesterCreep extends BasicCreep<HarvestFlag> {
       throw `Invalid flag given to RemoteHarvestCreep ${this.name}. Dying.`;
     }
     //The room may not initially have vision
-    const source = this.getAnchoredSource(this.flag.office);
+    const source = this.getAnchorObject(); //this.getAnchoredSource(this.flag.office);
     if (source){
       this.startHarvesting(source);
     }else if (this.flag.roomName === this.room.name){

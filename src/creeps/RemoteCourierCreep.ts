@@ -42,24 +42,6 @@ export class RemoteCourierCreep extends BasicCreep<HarvestFlag> {
     },
   }
 
-  getAnchoredSource(office:Room){
-    const roomAudit = getRoomAudit(office);
-    if (!this.memory.anchor){
-      const sourceAnchor = roomAudit.sources.reduce((out, source)=>{
-        if (source.availableSeats > 0 && (!out || source.occupancy < out.occupancy)){
-          out = source;
-        }
-        return out;
-      }, undefined as SourceAnchor|undefined);
-      if (!sourceAnchor) return;
-      this.memory.anchor = sourceAnchor.id;
-      sourceAnchor.addOccupant(this.name);
-      return sourceAnchor.anchor;
-    }
-    // return roomAudit.sources.find(source=>source.id === this.memory.anchor);
-    return Game.getObjectById(this.memory.anchor);
-  }
-
   // startRemotePickup(storedTarget:TargetableTypes){
   //   if (!this.canCarry) return null;
   //   const freeCapacity = this.store.getFreeCapacity();

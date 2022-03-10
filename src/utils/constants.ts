@@ -28,6 +28,14 @@ export enum FlagType{
   Harvest = 'harvest',
 };
 export const FlagTypes = Object.values(FlagType);
+
+export enum CreepPriority{
+  Now,
+  High,
+  Normal,
+  Low,
+};
+
 export enum CreepRoleName{
   Basic = 'basic',
   Harvester = 'harvester', //Source

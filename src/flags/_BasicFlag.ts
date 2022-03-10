@@ -1,5 +1,5 @@
 import { CreepRoles } from "managers/creeps";
-import { CreepRoleName, FlagType } from "utils/constants";
+import { CreepPriority, CreepRoleName, FlagType } from "utils/constants";
 import { getRoomAudit } from "utils/tickCache";
 
 if (!Memory.flags) Memory.flags = {} as Memory['flags']; //Flags object isn't initialized by default
@@ -109,23 +109,23 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
     } as SpawnableCreep : null;
   }
 
-  getRequestedCreep():SpawnableCreep|null{
+  getRequestedCreep(currentPriorityLevel:CreepPriority):SpawnableCreep|null{
     return null;
   }
 
-  getRequestedBodyPartsByRole(roleName:CreepRoleName){
-    const requestedParts = {} as CreepPartsCounts;
-    for (let type in this.requiredBodyPartsByRole[roleName]){
-      // console.log(`requiredBodyPartsByRole, currentBodyPartsByRole`, this.requiredBodyPartsByRole[roleName]![type as BodyPartConstant], this.currentBodyPartsByRole[roleName]![type as BodyPartConstant]);
-      requestedParts[type as BodyPartConstant] = (this.requiredBodyPartsByRole[roleName]![type as BodyPartConstant] || 0) - (this.currentBodyPartsByRole[roleName]?.[type as BodyPartConstant] || 0);
-    }
-    return requestedParts;
-  }
+  // getRequestedBodyPartsByRole(roleName:CreepRoleName){
+  //   const requestedParts = {} as CreepPartsCounts;
+  //   for (let type in this.requiredBodyPartsByRole[roleName]){
+  //     // console.log(`requiredBodyPartsByRole, currentBodyPartsByRole`, this.requiredBodyPartsByRole[roleName]![type as BodyPartConstant], this.currentBodyPartsByRole[roleName]![type as BodyPartConstant]);
+  //     requestedParts[type as BodyPartConstant] = (this.requiredBodyPartsByRole[roleName]![type as BodyPartConstant] || 0) - (this.currentBodyPartsByRole[roleName]?.[type as BodyPartConstant] || 0);
+  //   }
+  //   return requestedParts;
+  // }
 
-  requestCreep(roleName:CreepRoleName, counts:CreepPartsCounts, anchor?:Id<GenericAnchorType>){
-    //TODO: It'd be best if I can specify the creep's anchor object from here.
-    //This should replace this.requiredBodyPartsByRole object somehow
-  }
+  // requestCreep(roleName:CreepRoleName, counts:CreepPartsCounts, anchor?:Id<GenericAnchorType>){
+  //   //TODO: It'd be best if I can specify the creep's anchor object from here.
+  //   //This should replace this.requiredBodyPartsByRole object somehow
+  // }
 
   private countCreep(creepName: Creep['name']){
     const { role, counts } = Memory.creeps[creepName];

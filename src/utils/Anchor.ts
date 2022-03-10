@@ -55,10 +55,6 @@ export abstract class Anchor<
 
   constructor(anchor:AnchorType){
     this.anchor = anchor;
-    // if (this.memory.occupancy){
-    //   this.memory.occupancy.forEach(creepName=>this.push(creepName));
-    //   delete this.memory.occupancy;
-    // }
   }
 
   get memory():AbstractAnchorMemory{
@@ -122,8 +118,6 @@ export abstract class Anchor<
   // get neededBodyParts(){
   //   return {} as CreepPartsCounts;
   // }
-
-  abstract addOccupant(creepName:Creep['name']):void;
 }
 
 export class CreepMineralAnchor extends Anchor<Mineral>{
@@ -147,12 +141,6 @@ export class CreepMineralAnchor extends Anchor<Mineral>{
 
   get occupancy(){
     return this.miners.occupancy;
-  }
-
-  addOccupant(creepName:Creep['name']){
-    const creepMemory = Memory.creeps[creepName];
-    creepMemory.anchor = this.id;
-    this.miners.push(creepName);
   }
 }
 
@@ -206,11 +194,6 @@ export class SourceAnchor extends Anchor<Source, SourceAnchorMemory>{
   get occupancy(){
     return this.harvesters.occupancy;
   }
-  addOccupant(creepName:Creep['name']){
-    const creepMemory = Memory.creeps[creepName];
-    creepMemory.anchor = this.id;
-    this.harvesters.push(creepName);
-  }
 }
 
 export class CreepControllerAnchor extends Anchor<StructureController>{
@@ -218,11 +201,5 @@ export class CreepControllerAnchor extends Anchor<StructureController>{
 
   constructor(controller:StructureController){
     super(controller);
-  }
-
-  addOccupant(creepName:Creep['name']){
-    const creepMemory = Memory.creeps[creepName];
-    creepMemory.anchor = this.id;
-    this.upgraders.push(creepName);
   }
 }
