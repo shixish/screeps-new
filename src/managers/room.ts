@@ -5,7 +5,7 @@
 // };
 
 import { CreepRoleName, CreepRoleNames, FlagType } from "utils/constants";
-import { Anchor, CreepControllerAnchor, CreepMineralAnchor, SourceAnchor, GenericAnchorType } from "utils/CreepAnchor";
+import { Anchor, CreepControllerAnchor, CreepMineralAnchor, SourceAnchor, GenericAnchorType } from "utils/Anchor";
 import { diamondCoordinates, diamondRingCoordinates, findDiamondPlacement, getBestCentralLocation, getBestContainerLocation, getSpawnRoadPath, getStructureCostMatrix } from "utils/map";
 import { getRoomAudit, roomAuditCache } from "../utils/tickCache";
 import { CreepRoles } from "./creeps";

@@ -1,6 +1,6 @@
 import { HarvestFlag } from "flags/HarvestFlag";
 import { CreepRoleName, FlagType } from "utils/constants";
-import { SourceAnchor } from "utils/CreepAnchor";
+import { SourceAnchor } from "utils/Anchor";
 import { getRoomAudit } from "utils/tickCache";
 import { BasicCreep, CreepBody } from "./BasicCreep";
 
