@@ -14,24 +14,20 @@ export function countAvailableSeats(pos:RoomPosition){
 };
 
 if (!Memory.anchors) Memory.anchors = {};
-export interface CreepAnchorMemory extends CohortMemory{
+export interface AnchorMemory{
   seats?: number;
   containers?: Id<StructureContainer>[];
+
   occupancy?: Creep['name'][]; //Deprecated but necessary for now until I ship this live
 }
 
 export type GenericAnchorType = Source|Mineral|Structure;
-export class CreepAnchor<
+export abstract class Anchor<
   AnchorType extends GenericAnchorType = GenericAnchorType,
-  AbstractCreep extends BasicCreep = BasicCreep,
-  AbstractAnchorMemory extends CreepAnchorMemory = CreepAnchorMemory
-> extends Cohort<
-  AbstractCreep,
-  AbstractAnchorMemory
+  AbstractAnchorMemory extends AnchorMemory = AnchorMemory
 >{
   private _link: StructureLink | undefined | null;
 
-  id!:Id<RoomObject>;
   anchor:AnchorType;
   // getCapacity = ()=>{
   //   return this.containers.reduce((out, container)=>{
@@ -58,12 +54,19 @@ export class CreepAnchor<
   // }
 
   constructor(anchor:AnchorType){
-    super(anchor.id);
     this.anchor = anchor;
-    if (this.memory.occupancy){
-      this.memory.occupancy.forEach(creepName=>this.push(creepName));
-      delete this.memory.occupancy;
-    }
+    // if (this.memory.occupancy){
+    //   this.memory.occupancy.forEach(creepName=>this.push(creepName));
+    //   delete this.memory.occupancy;
+    // }
+  }
+
+  get memory():AbstractAnchorMemory{
+    return (Memory.anchors[this.id] || (Memory.anchors[this.id] = {})) as AbstractAnchorMemory;
+  }
+
+  get id(){
+    return this.anchor.id;
   }
 
   get pos(){
@@ -120,14 +123,11 @@ export class CreepAnchor<
   //   return {} as CreepPartsCounts;
   // }
 
-  addOccupant(creepName:Creep['name']){
-    const creepMemory = Memory.creeps[creepName];
-    creepMemory.anchor = this.id;
-    this.push(creepName);
-  }
+  abstract addOccupant(creepName:Creep['name']):void;
 }
 
-export class CreepMineralAnchor extends CreepAnchor<Mineral>{
+export class CreepMineralAnchor extends Anchor<Mineral>{
+  miners = new Cohort(this.id+'-miners');
   private _extractor: StructureExtractor | undefined | null;
 
   constructor(mineral:Mineral){
@@ -144,14 +144,33 @@ export class CreepMineralAnchor extends CreepAnchor<Mineral>{
   // get operational(){
   //   return !this.anchor.ticksToRegeneration;
   // }
+
+  get occupancy(){
+    return this.miners.occupancy;
+  }
+
+  addOccupant(creepName:Creep['name']){
+    const creepMemory = Memory.creeps[creepName];
+    creepMemory.anchor = this.id;
+    this.miners.push(creepName);
+  }
 }
 
-export interface CreepSourceAnchorMemory extends CreepAnchorMemory{
-
+export interface SourceAnchorMemory extends AnchorMemory{
+  // harvesters?: CohortMemory;
 }
-export class CreepSourceAnchor extends CreepAnchor<Source, BasicCreep, CreepSourceAnchorMemory>{
+export class SourceAnchor extends Anchor<Source, SourceAnchorMemory>{
+  harvesters = new Cohort(this.id+'-harvesters');
+  couriers = new Cohort(this.id+'-couriers');
+
   constructor(source:Source){
     super(source);
+    if (this.memory.occupancy){
+      this.memory.occupancy.forEach(creepName=>{
+        if (Game.creeps[creepName]) this.harvesters.push(creepName);
+      });
+      delete this.memory.occupancy;
+    }
   }
 
   get totalSeats(){
@@ -162,7 +181,7 @@ export class CreepSourceAnchor extends CreepAnchor<Source, BasicCreep, CreepSour
     return Math.min(this.memory.seats, 3);
   }
 
-  get maxWorkParts(){
+  getMaxWorkParts(){
     switch(this.anchor.energyCapacity){
       case 3000: return 5;
       case 4000: return 7; //Dunno?
@@ -171,20 +190,39 @@ export class CreepSourceAnchor extends CreepAnchor<Source, BasicCreep, CreepSour
     }
   }
 
-  getNeededHarvesterParts(){
-    const neededWork = this.maxWorkParts - (this.counts[WORK] || 0);
-    return neededWork ? {
-      [WORK]: neededWork,
-    } as CreepPartsCounts : null;
+  getOptimalEnergyPerTick(){
+    switch(this.anchor.energyCapacity){
+      case 3000: return 10;
+      case 4000: return 14; // 13.3333 ...?
+      // case 1500: return 5;
+      default: return 5;
+    }
   }
 
   get availableSeats(){
-    return this.totalSeats - this.occupancy;
+    return this.totalSeats - this.harvesters.occupancy;
+  }
+
+  get occupancy(){
+    return this.harvesters.occupancy;
+  }
+  addOccupant(creepName:Creep['name']){
+    const creepMemory = Memory.creeps[creepName];
+    creepMemory.anchor = this.id;
+    this.harvesters.push(creepName);
   }
 }
 
-export class CreepControllerAnchor extends CreepAnchor<StructureController>{
+export class CreepControllerAnchor extends Anchor<StructureController>{
+  upgraders = new Cohort(this.id+'-upgraders');
+
   constructor(controller:StructureController){
     super(controller);
+  }
+
+  addOccupant(creepName:Creep['name']){
+    const creepMemory = Memory.creeps[creepName];
+    creepMemory.anchor = this.id;
+    this.upgraders.push(creepName);
   }
 }

@@ -6,17 +6,23 @@ export interface CohortMemory{
   counts?: CreepPartsCounts;
 }
 
-export abstract class Cohort<AbstractCreep extends BasicCreep = BasicCreep, AbstractCohortMemory extends CohortMemory = CohortMemory>{
-  id:string|Id<RoomObject>;
+export class Cohort<AbstractCohortMemory extends CohortMemory = CohortMemory>{
+  id: string;
 
-  constructor(id:string|Id<RoomObject>){
+  constructor(id:string){
     this.id = id;
+    let stale = false;
     this.list.forEach((creepName, i)=>{
       if (!Game.creeps[creepName]){
         this.list.splice(i,1);
-        this.subtractBodyParts(Memory.creeps[creepName].counts);
+        if (!stale && Memory.creeps[creepName]){
+          this.subtractBodyParts(Memory.creeps[creepName].counts);
+        }else{
+          stale = true;
+        }
       }
     });
+    if (stale) this.rebuildBodyParts();
   }
 
   get occupancy(){
@@ -36,8 +42,13 @@ export abstract class Cohort<AbstractCreep extends BasicCreep = BasicCreep, Abst
   }
 
   push(creepName:Creep['name']){
-    this.list.push(creepName);
-    this.addBodyParts(Memory.creeps[creepName].counts);
+    const creep = Memory.creeps[creepName];
+    if (creep){
+      this.list.push(creepName);
+      this.addBodyParts(Memory.creeps[creepName].counts);
+    }else{
+      throw `Tried to add a creep that doesn't exist to Cohort: ${this.id}`;
+    }
   }
 
   destroy(){
@@ -50,14 +61,23 @@ export abstract class Cohort<AbstractCreep extends BasicCreep = BasicCreep, Abst
 
   private subtractBodyParts(counts:CreepPartsCounts){
     for (let part of PARTS){
-      this.counts[part] = (this.counts[part] ?? 0) - (counts[part] ?? 0);
+      const count = counts[part] ?? 0;
+      if (count > 0) this.counts[part] = (this.counts[part] ?? 0) - count;
     }
   }
 
   private addBodyParts(counts:CreepPartsCounts){
     for (let part of PARTS){
-      this.counts[part] = (this.counts[part] ?? 0) + (counts[part] ?? 0);
+      const count = counts[part] ?? 0;
+      if (count > 0) this.counts[part] = (this.counts[part] ?? 0) + count;
     }
+  }
+
+  private rebuildBodyParts(){
+    this.memory.counts = {};
+    this.list.forEach(creepName=>{
+      this.addBodyParts(Memory.creeps[creepName].counts);
+    });
   }
 
   // static addBodyParts(counts1:CreepPartsCounts, counts2:CreepPartsCounts){

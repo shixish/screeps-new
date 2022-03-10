@@ -32,15 +32,26 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
   }
 
   getRequestedCreep(){
-    const sourceAnchor = this.homeAudit.sources.reduce((out, source)=>{
-      if (source.availableSeats > 0 && (!out || source.occupancy < out.occupancy)){
-        out = source;
-      }
-      return out;
-    }, undefined as CreepSourceAnchor|undefined);
-    if (sourceAnchor){
-      const parts = sourceAnchor.getNeededHarvesterParts();
-      if (parts) return this.getHighestSpawnableCreep(CreepRoleName.RemoteHarvester, parts, sourceAnchor);
+    if (!this.officeAudit) return null;
+
+    //Take care of one source at a time. This way we can get it into production asap, funding other things.
+    for (const sourceAnchor of this.officeAudit.sources){
+      const neededHarvesterParts = sourceAnchor.getMaxWorkParts() - (sourceAnchor.harvesters.counts[WORK] || 0);
+      const harvester = neededHarvesterParts && sourceAnchor.availableSeats > 0 && this.findSpawnableCreep(CreepRoleName.Harvester, body=>{
+        return (body.counts[WORK] || 0) <= neededHarvesterParts && (body.counts[MOVE] || 0) >= 2;
+      }, { anchor: sourceAnchor, cohort: sourceAnchor.harvesters });
+      if (harvester) return harvester;
+
+      // 3000 energy nodes can optimially mine at 10 energy per tick, so 1500 nodes are 5 per tick
+      const energyPerTick = sourceAnchor.getOptimalEnergyPerTick();
+      const roundTrip = this.memory.totalMoveCost*2; //ticks (both directions)
+      const maxCourierParts = (roundTrip*energyPerTick)/50; //can carry 50 energy per carry part
+      const neededCourierParts = maxCourierParts - (sourceAnchor.couriers.counts[CARRY] || 0);
+
+      const courier = neededCourierParts && this.findSpawnableCreep(CreepRoleName.RemoteCourier, body=>{
+        return (body.counts[CARRY] || 0) <= neededCourierParts;
+      }, { anchor: sourceAnchor, cohort: sourceAnchor.couriers });
+      if (courier) return courier;
     }
     return null;
   }
@@ -161,7 +172,7 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
 
       Maybe just specify custom creep parts/tier in here and feed it into a creep role to control the logic.
       */
-      this.maxFollowersByRole[CreepRoleName.RemoteHarvester] = sourceCount;
+      this.maxFollowersByRole[CreepRoleName.RemoteHarvester] = 0;//sourceCount;
       this.maxFollowersByRole[CreepRoleName.RemoteCourier] = 0;//sourceCount*2;
     }else{
       this.maxFollowersByRole[CreepRoleName.RemoteHarvester] = 1;

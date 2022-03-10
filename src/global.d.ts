@@ -3,11 +3,11 @@ import { CreepRoleName, FlagType } from "utils/constants";
 // import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor } from "utils/CreepAnchor";
 
 declare global {
-  type CreepAnchor = import('utils/CreepAnchor').CreepAnchor;
+  type CreepAnchor = import('utils/CreepAnchor').Anchor;
   type CreepControllerAnchor = import('utils/CreepAnchor').CreepControllerAnchor;
   type CreepMineralAnchor = import('utils/CreepAnchor').CreepMineralAnchor;
-  type CreepSourceAnchor = import('utils/CreepAnchor').CreepSourceAnchor;
-  type CreepAnchorMemory = import('utils/CreepAnchor').CreepAnchorMemory;
+  type CreepSourceAnchor = import('utils/CreepAnchor').SourceAnchor;
+  type CreepAnchorMemory = import('utils/CreepAnchor').AnchorMemory;
   type GenericAnchorType = import('utils/CreepAnchor').GenericAnchorType;
   type BasicCreep = import('creeps/BasicCreep').BasicCreep;
   type CreepBody = import('creeps/BasicCreep').CreepBody;

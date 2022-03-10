@@ -5,7 +5,7 @@
 // };
 
 import { CreepRoleName, CreepRoleNames, FlagType } from "utils/constants";
-import { CreepAnchor, CreepControllerAnchor, CreepMineralAnchor, CreepSourceAnchor, GenericAnchorType } from "utils/CreepAnchor";
+import { Anchor, CreepControllerAnchor, CreepMineralAnchor, SourceAnchor, GenericAnchorType } from "utils/CreepAnchor";
 import { diamondCoordinates, diamondRingCoordinates, findDiamondPlacement, getBestCentralLocation, getBestContainerLocation, getSpawnRoadPath, getStructureCostMatrix } from "utils/map";
 import { getRoomAudit, roomAuditCache } from "../utils/tickCache";
 import { CreepRoles } from "./creeps";
@@ -44,7 +44,7 @@ export class RoomAudit{
   controllerLevel:number;
   storedEnergy:number;
   storedMineral:number;
-  sources:CreepSourceAnchor[];
+  sources:SourceAnchor[];
   creeps:Creep[];
   hostileCreeps:Creep[];
   flags:{[T in FlagType]: InstanceType<FlagManagers[T]>[]} = Object.values(FlagType).reduce((out, key)=>{
@@ -102,10 +102,10 @@ export class RoomAudit{
   }
 
   private getSources(){
-    if (this.room.memory.sources) return this.room.memory.sources.map(id=>new CreepSourceAnchor(Game.getObjectById(id) as Source))
+    if (this.room.memory.sources) return this.room.memory.sources.map(id=>new SourceAnchor(Game.getObjectById(id) as Source))
     const sources = this.room.find(FIND_SOURCES);
     this.room.memory.sources = sources.map(source=>source.id);
-    return sources.map(source=>new CreepSourceAnchor(source));
+    return sources.map(source=>new SourceAnchor(source));
   }
 
   protected _sourceSeats:number|undefined;
@@ -219,6 +219,7 @@ export class RoomAudit{
           role: sc.role,
           flag: sc.flag?.name,
           tier: sc.tier?.body.parts,
+          anchor: sc.anchor?.id,
           cohort: sc.cohort?.id,
         }
       }), null, 2));

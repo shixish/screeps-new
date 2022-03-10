@@ -1,4 +1,4 @@
-import { CreepAnchor } from "utils/CreepAnchor";
+import { Anchor } from "utils/CreepAnchor";
 import { getRoomAudit } from "utils/tickCache";
 import { BasicCreep, CreepBody } from "./BasicCreep";
 

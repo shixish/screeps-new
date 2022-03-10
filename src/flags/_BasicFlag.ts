@@ -75,22 +75,37 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
     return this.memory.followers;
   }
 
-  getHighestSpawnableCreep(roleName:CreepRoleName, requestedParts:CreepPartsCounts, cohort?:Cohort):SpawnableCreep|null{
+  // getHighestSpawnableCreep(roleName:CreepRoleName, requestedParts:CreepPartsCounts, cohort?:Cohort):SpawnableCreep|null{
+  //   const config = CreepRoles[roleName].config;
+  //   const tier = config.tiers.reduce((heighestTier, currentTier)=>{
+  //     if (currentTier.body.cost > this.homeAudit.room.energyCapacityAvailable || currentTier.requires?.(this.homeAudit) === false) return heighestTier;
+  //     for (let type in requestedParts){
+  //       if ((currentTier.body.counts[type as BodyPartConstant] || 0) > (requestedParts[type as BodyPartConstant] || 0)){
+  //         return heighestTier;
+  //       }
+  //     }
+  //     return currentTier;
+  //   }, null as CreepTier|null);
+  //   return tier ? {
+  //     role: roleName,
+  //     tier: tier,
+  //     flag: this,
+  //     cohort,
+  //   } as SpawnableCreep : null;
+  // }
+
+  findSpawnableCreep(roleName:CreepRoleName, filter:(body:CreepBody)=>boolean, attributes?:Partial<SpawnableCreep>):SpawnableCreep|null{
     const config = CreepRoles[roleName].config;
     const tier = config.tiers.reduce((heighestTier, currentTier)=>{
       if (currentTier.body.cost > this.homeAudit.room.energyCapacityAvailable || currentTier.requires?.(this.homeAudit) === false) return heighestTier;
-      for (let type in requestedParts){
-        if ((currentTier.body.counts[type as BodyPartConstant] || 0) > (requestedParts[type as BodyPartConstant] || 0)){
-          return heighestTier;
-        }
-      }
+      if (!filter(currentTier.body)) return heighestTier;
       return currentTier;
     }, null as CreepTier|null);
     return tier ? {
       role: roleName,
       tier: tier,
       flag: this,
-      cohort,
+      ...attributes
     } as SpawnableCreep : null;
   }
 
