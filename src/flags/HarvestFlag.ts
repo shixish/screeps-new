@@ -40,9 +40,10 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
 
     //Take care of one source at a time. This way we can get it into production asap, funding other things.
     for (const sourceAnchor of this.officeAudit.sources){
+      // console.log(`sourceAnchor.harvesters.counts`, JSON.stringify(sourceAnchor.harvesters.counts));
       const neededHarvesterParts = sourceAnchor.getMaxWorkParts() - (sourceAnchor.harvesters.counts[WORK] || 0);
       const harvester = neededHarvesterParts && sourceAnchor.availableSeats > 0 && this.findSpawnableCreep(CreepRoleName.Harvester, body=>{
-        return (body.counts[WORK] || 0) <= neededHarvesterParts && (body.counts[MOVE] || 0) >= 2;
+        return (body.counts[WORK] || 0) <= neededHarvesterParts && this.domestic ? body.counts[MOVE] === 1 : (body.counts[MOVE] || 0) >= 2;
       }, { anchor: sourceAnchor, cohort: sourceAnchor.harvesters });
       if (harvester) return harvester;
 

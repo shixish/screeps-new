@@ -150,6 +150,13 @@ export class RoomAudit{
       for (let flag of flags){
         const spawnableCreep:SpawnableCreep|null = flag.getRequestedCreep(currentPriorityLevel);
         if (spawnableCreep){
+          console.log(`Spawn flag creep`, JSON.stringify({
+            role: spawnableCreep.role,
+            flag: spawnableCreep.flag?.name,
+            tier: spawnableCreep.tier?.body.parts,
+            anchor: spawnableCreep.anchor?.id,
+            cohort: spawnableCreep.cohort?.id,
+          }, null, 2));
           const priority:CreepPriority = spawnableCreep.priority || CreepPriority.Normal;
           if (!highestSpawnableCreep || priority < currentPriorityLevel){
             currentPriorityLevel = priority;
