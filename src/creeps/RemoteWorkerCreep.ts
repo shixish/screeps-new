@@ -49,16 +49,16 @@ export class RemoteWorkerCreep extends BasicCreep<ClaimFlag> {
       //   ], 1500),
       // }
     ],
-    getCreepFlag: (roomAudit)=>{
-      return roomAudit.flags[FlagType.Claim].find(flagManager=>{
-        return flagManager.getAvailableFollowersByRole(CreepRoleName.RemoteWorker) > 0;
-      });
-      //This is returning -Infinity if all flagManagers return undefined. Yikers.
-      // return _.max(roomAudit.flags[FlagType.Claim], flagManager=>{
-      //   //Returning undefined for zero counts will prevent _.max from returning a flagManager object.
-      //   return flagManager.getAvailableFollowersByRole(CreepRoleName.RemoteWorker) || undefined;
-      // });
-    },
+    // getCreepFlag: (roomAudit)=>{
+    //   return roomAudit.flags[FlagType.Claim].find(flagManager=>{
+    //     return flagManager.getAvailableFollowersByRole(CreepRoleName.RemoteWorker) > 0;
+    //   });
+    //   //This is returning -Infinity if all flagManagers return undefined. Yikers.
+    //   // return _.max(roomAudit.flags[FlagType.Claim], flagManager=>{
+    //   //   //Returning undefined for zero counts will prevent _.max from returning a flagManager object.
+    //   //   return flagManager.getAvailableFollowersByRole(CreepRoleName.RemoteWorker) || undefined;
+    //   // });
+    // },
   }
 
   work(){

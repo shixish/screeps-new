@@ -49,17 +49,17 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
 
   static config:CreepRole = {
     authority: 1,
-    max: roomAudit=>{
-      if (roomAudit.creeps.length < 2) return 1;
+    // max: roomAudit=>{
+    //   if (roomAudit.creeps.length < 2) return 1;
 
-      //Don't build a ton of basic creeps in new rooms that have remote workers present.
-      const highEnd = !roomAudit.flags.claim.length ? Math.ceil(roomAudit.constructionSites.length/6) : 1;
+    //   //Don't build a ton of basic creeps in new rooms that have remote workers present.
+    //   const highEnd = !roomAudit.flags.claim.length ? Math.ceil(roomAudit.constructionSites.length/6) : 1;
 
-      //We need a basic creep to do the initial upgrading before we build a dedicated upgrader
-      const basicUpgrader = !roomAudit.creepCountsByRole.upgrader ? 1 : 0;
+    //   //We need a basic creep to do the initial upgrading before we build a dedicated upgrader
+    //   const basicUpgrader = !roomAudit.creepCountsByRole.upgrader ? 1 : 0;
 
-      return Math.max(highEnd, basicUpgrader);
-    },
+    //   return Math.max(highEnd, basicUpgrader);
+    // },
     tiers: [
       {
         body: new CreepBody([
@@ -67,15 +67,15 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
           CARRY, MOVE,
           CARRY, MOVE,
         ], 300),
-        max: roomAudit=>{
-          if (!roomAudit.flags.claim.length){
-            //We usually need several of these early on if we're not being supported by a parent room (Claim flag)
-            //These creeps need to upgrade the controller to at least 2 and construct early roads and containers
-            return roomAudit.sources.length * 2;
-          }else{
-            return BasicCreep.config.max!(roomAudit);
-          }
-        }
+        // max: roomAudit=>{
+        //   if (!roomAudit.flags.claim.length){
+        //     //We usually need several of these early on if we're not being supported by a parent room (Claim flag)
+        //     //These creeps need to upgrade the controller to at least 2 and construct early roads and containers
+        //     return roomAudit.sources.length * 2;
+        //   }else{
+        //     return BasicCreep.config.max!(roomAudit);
+        //   }
+        // }
       },
       {
         body: new CreepBody([

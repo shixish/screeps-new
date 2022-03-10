@@ -1,3 +1,4 @@
+import { Cohort } from "utils/Cohort";
 import { CreepPriority, CreepRoleName, FlagType } from "utils/constants";
 import { RemoteFlag, RemoteFlagMemory } from "./_RemoteFlag";
 
@@ -19,6 +20,8 @@ interface HarvestFlagMemory extends RemoteFlagMemory{
 }
 
 export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
+  claimers?:Cohort = this.domestic ? new Cohort(this.name+'-claimers') : undefined;
+
   get status(){
     return this.memory.status ?? HarvestStatus.Audit;
   }
@@ -49,11 +52,40 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
       const maxCourierParts = (roundTrip*energyPerTick)/50; //can carry 50 energy per carry part
       const neededCourierParts = maxCourierParts - (sourceAnchor.couriers.counts[CARRY] || 0);
 
-      const courier = neededCourierParts && this.findSpawnableCreep(CreepRoleName.RemoteCourier, body=>{
+      const courier = neededCourierParts && this.findSpawnableCreep(CreepRoleName.Courier, body=>{
         return (body.counts[CARRY] || 0) <= neededCourierParts;
       }, { anchor: sourceAnchor, cohort: sourceAnchor.couriers });
       if (courier) return courier;
     }
+
+    // if (sourceCount > 1){
+    //   this.requiredBodyPartsByRole[CreepRoleName.Claimer] = {
+    //     [CLAIM]: 1,
+    //   }
+    // }
+
+
+    // const constructionProgress = this.officeAudit.constructionSites.reduce((out, structure)=>out + (structure.progressTotal-structure.progress), 0);
+    // const repairableHits = this.office!.find(FIND_STRUCTURES, {
+    //   filter: structure=>{
+    //     return structure.structureType === STRUCTURE_ROAD || structure.structureType === STRUCTURE_CONTAINER
+    //   }
+    // }).reduce((out, structure)=>out + (structure.hitsMax-structure.hits), 0);
+
+    // /* One WORK use 1 energy/tick:
+    //   - build at 5 points/tick
+    //   - repair at 100 hits/tick
+    // */
+    // // 1500 ticks is how long a creep will live. It's ok to be a little wasteful if it gets the job done faster.
+
+    // //Recall that building on swamp costs a lot more so the cost isn't just a function of distance.
+    // const buildWork = constructionProgress && (constructionProgress/5)/500; //500 indicates that we will be up to 3 (1500/500=3) times inefficient when initially building
+    // const repairWork = repairableHits && (repairableHits/100)/1500; //Maximally efficient for repairing roads since it's not urgent.
+    // // this.totalNeededParts[WORK] = Math.ceil(Math.min(buildWork + repairWork, energyPerTick));
+    // this.requiredBodyPartsByRole[CreepRoleName.RemoteHarvester] = {
+    //   [WORK]: Math.ceil(Math.min(buildWork + repairWork, energyPerTick)),
+    // };
+
     return null;
   }
 
@@ -127,62 +159,61 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     this.status = HarvestStatus.Harvest;
   }
 
-  claimCreeps(){
-    if (this.officeAudit){
-      const sourceCount = this.officeAudit.sources.length;
+  // claimCreeps(){
+  //   if (this.officeAudit){
+  //     const sourceCount = this.officeAudit.sources.length;
 
-      // this.totalNeededParts[CLAIM] = sourceCount > 1 ? 1 : 0; //don't bother claiming rooms with only 1 source...
-      if (sourceCount > 1){
-        this.requiredBodyPartsByRole[CreepRoleName.Claimer] = {
-          [CLAIM]: 1,
-        }
-      }
+  //     // this.totalNeededParts[CLAIM] = sourceCount > 1 ? 1 : 0; //don't bother claiming rooms with only 1 source...
+  //     if (sourceCount > 1){
+  //       this.requiredBodyPartsByRole[CreepRoleName.Claimer] = {
+  //         [CLAIM]: 1,
+  //       }
+  //     }
 
-      // 3000 energy nodes can optimially mine at 10 energy per tick, so 1500 nodes are 5 per tick
-      const energyPerTick = sourceCount*(this.officeAudit.controller?.anchor.my?10:5);
-      const roundTrip = this.memory.totalMoveCost*2; //ticks
-      // this.totalNeededParts[CARRY] = (roundTrip*energyPerTick)/50;
-      this.requiredBodyPartsByRole[CreepRoleName.RemoteCourier] = {
-        [CARRY]: (roundTrip*energyPerTick)/50,
-      }
+  //     // 3000 energy nodes can optimially mine at 10 energy per tick, so 1500 nodes are 5 per tick
+  //     const energyPerTick = sourceCount*(this.officeAudit.controller?.anchor.my?10:5);
+  //     const roundTrip = this.memory.totalMoveCost*2; //ticks
+  //     // this.totalNeededParts[CARRY] = (roundTrip*energyPerTick)/50;
+  //     this.requiredBodyPartsByRole[CreepRoleName.RemoteCourier] = {
+  //       [CARRY]: (roundTrip*energyPerTick)/50,
+  //     }
 
-      const constructionProgress = this.officeAudit.constructionSites.reduce((out, structure)=>out + (structure.progressTotal-structure.progress), 0);
-      const repairableHits = this.office!.find(FIND_STRUCTURES, {
-        filter: structure=>{
-          return structure.structureType === STRUCTURE_ROAD || structure.structureType === STRUCTURE_CONTAINER
-        }
-      }).reduce((out, structure)=>out + (structure.hitsMax-structure.hits), 0);
+  //     const constructionProgress = this.officeAudit.constructionSites.reduce((out, structure)=>out + (structure.progressTotal-structure.progress), 0);
+  //     const repairableHits = this.office!.find(FIND_STRUCTURES, {
+  //       filter: structure=>{
+  //         return structure.structureType === STRUCTURE_ROAD || structure.structureType === STRUCTURE_CONTAINER
+  //       }
+  //     }).reduce((out, structure)=>out + (structure.hitsMax-structure.hits), 0);
 
-      /* One WORK use 1 energy/tick:
-        - build at 5 points/tick
-        - repair at 100 hits/tick
-      */
-      // 1500 ticks is how long a creep will live. It's ok to be a little wasteful if it gets the job done faster.
+  //     /* One WORK use 1 energy/tick:
+  //       - build at 5 points/tick
+  //       - repair at 100 hits/tick
+  //     */
+  //     // 1500 ticks is how long a creep will live. It's ok to be a little wasteful if it gets the job done faster.
 
-      //Recall that building on swamp costs a lot more so the cost isn't just a function of distance.
-      const buildWork = constructionProgress && (constructionProgress/5)/500; //500 indicates that we will be up to 3 (1500/500=3) times inefficient when initially building
-      const repairWork = repairableHits && (repairableHits/100)/1500; //Maximally efficient for repairing roads since it's not urgent.
-      // this.totalNeededParts[WORK] = Math.ceil(Math.min(buildWork + repairWork, energyPerTick));
-      this.requiredBodyPartsByRole[CreepRoleName.RemoteHarvester] = {
-        [WORK]: Math.ceil(Math.min(buildWork + repairWork, energyPerTick)),
-      };
+  //     //Recall that building on swamp costs a lot more so the cost isn't just a function of distance.
+  //     const buildWork = constructionProgress && (constructionProgress/5)/500; //500 indicates that we will be up to 3 (1500/500=3) times inefficient when initially building
+  //     const repairWork = repairableHits && (repairableHits/100)/1500; //Maximally efficient for repairing roads since it's not urgent.
+  //     // this.totalNeededParts[WORK] = Math.ceil(Math.min(buildWork + repairWork, energyPerTick));
+  //     this.requiredBodyPartsByRole[CreepRoleName.RemoteHarvester] = {
+  //       [WORK]: Math.ceil(Math.min(buildWork + repairWork, energyPerTick)),
+  //     };
 
-      /*
-      TODO: Instead of specifying how many of a particular creep to spawn like this I should specify the capacity of the room somehow.
-      The problem is that this doesn't account for creep tiers, so it does the right job but doesn't bake in a sense of proper scale.
+  //     /*
+  //     TODO: Instead of specifying how many of a particular creep to spawn like this I should specify the capacity of the room somehow.
+  //     The problem is that this doesn't account for creep tiers, so it does the right job but doesn't bake in a sense of proper scale.
 
-      Maybe just specify custom creep parts/tier in here and feed it into a creep role to control the logic.
-      */
-      this.maxFollowersByRole[CreepRoleName.RemoteHarvester] = 0;//sourceCount;
-      this.maxFollowersByRole[CreepRoleName.RemoteCourier] = 0;//sourceCount*2;
-    }else{
-      this.maxFollowersByRole[CreepRoleName.RemoteHarvester] = 1;
-      this.maxFollowersByRole[CreepRoleName.RemoteCourier] = 2;
-    }
-  }
+  //     Maybe just specify custom creep parts/tier in here and feed it into a creep role to control the logic.
+  //     */
+  //     this.maxFollowersByRole[CreepRoleName.RemoteHarvester] = 0;//sourceCount;
+  //     this.maxFollowersByRole[CreepRoleName.RemoteCourier] = 0;//sourceCount*2;
+  //   }else{
+  //     this.maxFollowersByRole[CreepRoleName.RemoteHarvester] = 1;
+  //     this.maxFollowersByRole[CreepRoleName.RemoteCourier] = 2;
+  //   }
+  // }
 
   work() {
     if (this.status === HarvestStatus.Audit) this.audit();
-    this.claimCreeps();
   }
 }

@@ -312,21 +312,6 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
   }
 
   getRequestedCreep(){
-    // const sourceAnchor = this.homeAudit.sources.reduce((out, source)=>{
-    //   if (source.availableSeats > 0 && (!out || source.occupancy < out.occupancy)){
-    //     out = source;
-    //   }
-    //   return out;
-    // }, undefined as CreepSourceAnchor|undefined);
-    // if (sourceAnchor){
-    //   const neededWorkParts = sourceAnchor.getNeededWorkParts();
-    //   if (neededWorkParts) return this.findSpawnableCreep(CreepRoleName.Harvester, body=>{
-    //     return (body.counts[WORK] || 0) <= neededWorkParts && (body.counts[MOVE] || 0) >= 2;
-    //   }, sourceAnchor);
-    // }
-
-    // Math.min(this.homeAudit.creepCountsByRole.harvester*2, this.homeAudit.sources.length*2);
-
     return null;
   }
 

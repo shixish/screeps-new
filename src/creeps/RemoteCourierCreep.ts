@@ -35,11 +35,11 @@ export class RemoteCourierCreep extends BasicCreep<HarvestFlag> {
       //   ], 600),
       // },
     ],
-    getCreepFlag: (roomAudit:RoomAudit)=>{
-      return roomAudit.flags[FlagType.Harvest].find(flagManager=>{
-        return flagManager.getAvailableFollowersByRole(CreepRoleName.RemoteCourier) > 0;
-      });
-    },
+    // getCreepFlag: (roomAudit:RoomAudit)=>{
+    //   return roomAudit.flags[FlagType.Harvest].find(flagManager=>{
+    //     return flagManager.getAvailableFollowersByRole(CreepRoleName.RemoteCourier) > 0;
+    //   });
+    // },
   }
 
   // startRemotePickup(storedTarget:TargetableTypes){

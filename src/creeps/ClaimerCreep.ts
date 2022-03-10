@@ -5,16 +5,16 @@ import { BasicCreep, CreepBody } from "./BasicCreep";
 export class ClaimerCreep extends BasicCreep<ClaimFlag> {
   static config:CreepRole = {
     authority: 0,
-    max: (roomAudit: RoomAudit)=>{
-      const flagManager = roomAudit.flags[FlagType.Claim].find(flagManager=>{
-        //The room won't exist in Game.rooms until we've explored the room with a creep...
-        return flagManager.home.name === roomAudit.room.name && !flagManager.office?.controller?.my;
-      });
-      if (flagManager){
-        return Math.max(1-flagManager.followers.length, 0);
-      }
-      return 0;
-    },
+    // max: (roomAudit: RoomAudit)=>{
+    //   const flagManager = roomAudit.flags[FlagType.Claim].find(flagManager=>{
+    //     //The room won't exist in Game.rooms until we've explored the room with a creep...
+    //     return flagManager.home.name === roomAudit.room.name && !flagManager.office?.controller?.my;
+    //   });
+    //   if (flagManager){
+    //     return Math.max(1-flagManager.followers.length, 0);
+    //   }
+    //   return 0;
+    // },
     tiers: [
       {
         body: new CreepBody([
@@ -23,11 +23,11 @@ export class ClaimerCreep extends BasicCreep<ClaimFlag> {
         ], 650),
       },
     ],
-    getCreepFlag: (roomAudit)=>{
-      return roomAudit.flags[FlagType.Claim].find(flagManager=>{
-        return flagManager.getAvailableFollowersByRole(CreepRoleName.Claimer) > 0;
-      });
-    },
+    // getCreepFlag: (roomAudit)=>{
+    //   return roomAudit.flags[FlagType.Claim].find(flagManager=>{
+    //     return flagManager.getAvailableFollowersByRole(CreepRoleName.Claimer) > 0;
+    //   });
+    // },
   }
 
   startClaiming(controller?:StructureController){

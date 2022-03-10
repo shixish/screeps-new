@@ -161,96 +161,96 @@ export class RoomAudit{
     return highestSpawnableCreep;
   }
 
-  private getSpawnableCreeps(){
-    const getHeighestCreepSpawnable = (creepRoleName:CreepRoleName, currentlyAffordable = false)=>{
-      const budget = currentlyAffordable ? this.room.energyAvailable : this.room.energyCapacityAvailable;
-      const config = CreepRoles[creepRoleName].config;
-      const tier = config.tiers.reduce((heighestTier, currentTier)=>{
-        // if (!currentTier.cost) currentTier.cost = getCreepPartsCost(currentTier.body);
-        return currentTier.body.cost <= budget && currentTier.requires?.(this)!==false && currentTier || heighestTier;
-      }, null as CreepTier|null);
-      return tier && {
-        role: creepRoleName,
-        tier: tier,
-      } as SpawnableCreep || null;
-    };
+  // private getSpawnableCreeps(){
+  //   const getHeighestCreepSpawnable = (creepRoleName:CreepRoleName, currentlyAffordable = false)=>{
+  //     const budget = currentlyAffordable ? this.room.energyAvailable : this.room.energyCapacityAvailable;
+  //     const config = CreepRoles[creepRoleName].config;
+  //     const tier = config.tiers.reduce((heighestTier, currentTier)=>{
+  //       // if (!currentTier.cost) currentTier.cost = getCreepPartsCost(currentTier.body);
+  //       return currentTier.body.cost <= budget && currentTier.requires?.(this)!==false && currentTier || heighestTier;
+  //     }, null as CreepTier|null);
+  //     return tier && {
+  //       role: creepRoleName,
+  //       tier: tier,
+  //     } as SpawnableCreep || null;
+  //   };
 
-    if (this.creeps.length === 0){
-      //If things get screwed up somehow just make the cheapest basic creep available to hopefully get things rolling again...
-      return [getHeighestCreepSpawnable(CreepRoleName.Basic, true)!];
-    }else{
-      const spawnableCreeps:SpawnableCreep[] = [];
-      for (const rn in CreepRoles){
-        try{
-          const roleName = rn as CreepRoleName;
-          const spawnableCreep = getHeighestCreepSpawnable(roleName);
-          if (spawnableCreep) spawnableCreeps.push(spawnableCreep);
-        }catch(e:any){
-          console.log(`[${this.room.name}] RoomAudit error in getSpawnableCreeps. Role: ${rn}`, e, e.stack);
-        }
-      }
-      return spawnableCreeps;
-    }
-  }
+  //   if (this.creeps.length === 0){
+  //     //If things get screwed up somehow just make the cheapest basic creep available to hopefully get things rolling again...
+  //     return [getHeighestCreepSpawnable(CreepRoleName.Basic, true)!];
+  //   }else{
+  //     const spawnableCreeps:SpawnableCreep[] = [];
+  //     for (const rn in CreepRoles){
+  //       try{
+  //         const roleName = rn as CreepRoleName;
+  //         const spawnableCreep = getHeighestCreepSpawnable(roleName);
+  //         if (spawnableCreep) spawnableCreeps.push(spawnableCreep);
+  //       }catch(e:any){
+  //         console.log(`[${this.room.name}] RoomAudit error in getSpawnableCreeps. Role: ${rn}`, e, e.stack);
+  //       }
+  //     }
+  //     return spawnableCreeps;
+  //   }
+  // }
 
-  _spawnableCreeps?:SpawnableCreep[];
-  get spawnableCreeps(){
-    // const creeps = this.getSpawnableFlagCreeps();
-    // if (creeps.length){
-    //   console.log(`TODO flag creeps (${creeps.length})`, JSON.stringify(creeps.map(sc=>{
-    //     return {
-    //       role: sc.role,
-    //       flag: sc.flag?.name,
-    //       tier: sc.tier?.body.parts,
-    //       anchor: sc.anchor?.id,
-    //       cohort: sc.cohort?.id,
-    //     }
-    //   }), null, 2));
-    // }
-    return this._spawnableCreeps || (this._spawnableCreeps = this.getSpawnableCreeps());
-  }
+  // _spawnableCreeps?:SpawnableCreep[];
+  // get spawnableCreeps(){
+  //   // const creeps = this.getSpawnableFlagCreeps();
+  //   // if (creeps.length){
+  //   //   console.log(`TODO flag creeps (${creeps.length})`, JSON.stringify(creeps.map(sc=>{
+  //   //     return {
+  //   //       role: sc.role,
+  //   //       flag: sc.flag?.name,
+  //   //       tier: sc.tier?.body.parts,
+  //   //       anchor: sc.anchor?.id,
+  //   //       cohort: sc.cohort?.id,
+  //   //     }
+  //   //   }), null, 2));
+  //   // }
+  //   return this._spawnableCreeps || (this._spawnableCreeps = this.getSpawnableCreeps());
+  // }
 
-  getPrioritySpawnableCreep(){
-    let priorityPercentage:number;
-    let prioritySpawnableCreep:SpawnableCreep|undefined;
-    for (const spawnableCreep of this.spawnableCreeps){
-      try{
-        const roleName = spawnableCreep.role;
-        const config = CreepRoles[roleName].config;
-        let currentCreepCount:number = 0;
-        let maxCreepCount:number|undefined;
-        if (config.getCreepFlag){
-          const flag = spawnableCreep.flag = config.getCreepFlag(this);
-          if (flag){
-            currentCreepCount = flag.followerRoleCounts[roleName] || 0;
-            maxCreepCount = flag.maxFollowersByRole[roleName];
-          }
-        }else{
-          currentCreepCount = this.creepCountsByRole[roleName];
-          maxCreepCount = (spawnableCreep.tier.max || config.max)?.(this) ?? 0;
-        }
-        if (maxCreepCount && currentCreepCount < maxCreepCount){
-          if (config.getCreepAnchor){
-            const anchor = config.getCreepAnchor(this);
-            if (anchor){
-              spawnableCreep.anchor = anchor;
-            }else{
-              console.log(`Unable to find creep anchor for ${roleName} in ${this.room.name}`);
-              continue;
-            }
-          }
-          const percentage = currentCreepCount/maxCreepCount;
-          if (!prioritySpawnableCreep || percentage < priorityPercentage!){
-            priorityPercentage = percentage;
-            prioritySpawnableCreep = spawnableCreep;
-          }
-        }
-      }catch(e:any){
-        console.log(`[${this.room.name}] RoomAudit error in getPrioritySpawnableCreep. Role: ${spawnableCreep.role}`, e, e.stack);
-      }
-    }
-    return prioritySpawnableCreep;
-  }
+  // getPrioritySpawnableCreep(){
+  //   let priorityPercentage:number;
+  //   let prioritySpawnableCreep:SpawnableCreep|undefined;
+  //   for (const spawnableCreep of this.spawnableCreeps){
+  //     try{
+  //       const roleName = spawnableCreep.role;
+  //       const config = CreepRoles[roleName].config;
+  //       let currentCreepCount:number = 0;
+  //       let maxCreepCount:number|undefined;
+  //       if (config.getCreepFlag){
+  //         const flag = spawnableCreep.flag = config.getCreepFlag(this);
+  //         if (flag){
+  //           currentCreepCount = flag.followerRoleCounts[roleName] || 0;
+  //           maxCreepCount = flag.maxFollowersByRole[roleName];
+  //         }
+  //       }else{
+  //         currentCreepCount = this.creepCountsByRole[roleName];
+  //         maxCreepCount = (spawnableCreep.tier.max || config.max)?.(this) ?? 0;
+  //       }
+  //       if (maxCreepCount && currentCreepCount < maxCreepCount){
+  //         if (config.getCreepAnchor){
+  //           const anchor = config.getCreepAnchor(this);
+  //           if (anchor){
+  //             spawnableCreep.anchor = anchor;
+  //           }else{
+  //             console.log(`Unable to find creep anchor for ${roleName} in ${this.room.name}`);
+  //             continue;
+  //           }
+  //         }
+  //         const percentage = currentCreepCount/maxCreepCount;
+  //         if (!prioritySpawnableCreep || percentage < priorityPercentage!){
+  //           priorityPercentage = percentage;
+  //           prioritySpawnableCreep = spawnableCreep;
+  //         }
+  //       }
+  //     }catch(e:any){
+  //       console.log(`[${this.room.name}] RoomAudit error in getPrioritySpawnableCreep. Role: ${spawnableCreep.role}`, e, e.stack);
+  //     }
+  //   }
+  //   return prioritySpawnableCreep;
+  // }
 }
 
 export function initRoomAudits(){

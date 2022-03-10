@@ -19,15 +19,15 @@ export class HarvesterCreep extends BasicCreep {
         },
       }
     ],
-    getCreepAnchor: (roomAudit:RoomAudit)=>{
-      const sourceAnchor = roomAudit.sources.reduce((out, source)=>{
-        if (source.availableSeats > 0 && (!out || source.occupancy < out.occupancy)){
-          out = source;
-        }
-        return out;
-      }, undefined as CreepSourceAnchor|undefined);
-      return sourceAnchor;
-    },
+    // getCreepAnchor: (roomAudit:RoomAudit)=>{
+    //   const sourceAnchor = roomAudit.sources.reduce((out, source)=>{
+    //     if (source.availableSeats > 0 && (!out || source.occupancy < out.occupancy)){
+    //       out = source;
+    //     }
+    //     return out;
+    //   }, undefined as CreepSourceAnchor|undefined);
+    //   return sourceAnchor;
+    // },
     // modSpawnOptions: (roomAudit, options, spawner)=>{
     //   const miners = spawner.room.find(FIND_MY_CREEPS, {
     //     filter: (creep:Creep)=>{

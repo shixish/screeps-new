@@ -12,11 +12,11 @@ export class RemoteHarvesterCreep extends BasicCreep<HarvestFlag> {
         body: new CreepBody([WORK, WORK, WORK, MOVE, MOVE], 400),
       }
     ],
-    getCreepFlag: (roomAudit:RoomAudit)=>{
-      return roomAudit.flags[FlagType.Harvest].find(flagManager=>{
-        return flagManager.getAvailableFollowersByRole(CreepRoleName.RemoteHarvester) > 0;
-      });
-    },
+    // getCreepFlag: (roomAudit:RoomAudit)=>{
+    //   return roomAudit.flags[FlagType.Harvest].find(flagManager=>{
+    //     return flagManager.getAvailableFollowersByRole(CreepRoleName.RemoteHarvester) > 0;
+    //   });
+    // },
   }
 
   // getAnchoredSource(office:Room|undefined){

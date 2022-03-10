@@ -12,10 +12,10 @@ export class UpgraderCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 1,
     // max: (roomAudit:RoomAudit)=>roomAudit.controller?.containers.length ? 1 : 0,
-    max: (roomAudit:RoomAudit)=>{
-      if (!roomAudit.controller?.containers.length) return 0;
-      return 1;//Math.min(1 + roomAudit.flags.harvest.length, 4);
-    },
+    // max: (roomAudit:RoomAudit)=>{
+    //   if (!roomAudit.controller?.containers.length) return 0;
+    //   return 1;//Math.min(1 + roomAudit.flags.harvest.length, 4);
+    // },
     tiers: [
       {
         body: new CreepBody([ //Uses 2*3=6 energy per tick
@@ -59,9 +59,9 @@ export class UpgraderCreep extends BasicCreep {
         ], 1800),
       }
     ],
-    getCreepAnchor: (roomAudit)=>{
-      return roomAudit.controller;
-    },
+    // getCreepAnchor: (roomAudit)=>{
+    //   return roomAudit.controller;
+    // },
   }
 
   startTakingFromControllerContainer(){

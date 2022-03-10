@@ -5,7 +5,7 @@ import { getRoomAudit } from "utils/tickCache";
 if (!Memory.flags) Memory.flags = {} as Memory['flags']; //Flags object isn't initialized by default
 
 export interface BasicFlagMemory extends FlagMemory{
-  followers: Creep['name'][];
+  followers: Creep['name'][]; //Deprecated ... Keeping for now as we transition...
 }
 
 export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = BasicFlagMemory> {
@@ -14,24 +14,24 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
   suffix: string | undefined;
   homeAudit!:RoomAudit;
 
-  followerRoleCounts = {} as Partial<Record<CreepRoleName, number>>;
-  maxFollowersByRole = {} as Partial<Record<CreepRoleName, number>>;
-  currentBodyPartsByRole = {} as {[key in CreepRoleName]?: CreepPartsCounts};
-  requiredBodyPartsByRole = {} as {[key in CreepRoleName]?: CreepPartsCounts};
+  // followerRoleCounts = {} as Partial<Record<CreepRoleName, number>>;
+  // maxFollowersByRole = {} as Partial<Record<CreepRoleName, number>>;
+  // currentBodyPartsByRole = {} as {[key in CreepRoleName]?: CreepPartsCounts};
+  // requiredBodyPartsByRole = {} as {[key in CreepRoleName]?: CreepPartsCounts};
   // requestedBodyPartsByRole = {} as {[key in CreepRoleName]?: CreepPartsCounts};
 
   constructor(flagName: Flag['name'], type: FlagType, suffix?: string) {
     this.flagName = flagName;
     this.type = type;
     this.suffix = this.parseSuffix(suffix);
-    this.memory.followers = this.memory.followers.filter(creepName => {
-      const creep = Game.creeps[creepName];
-      if (creep){
-        this.countCreep(creepName);
-        return true;
-      }
-      return false;
-    });
+    // this.memory.followers = this.memory.followers.filter(creepName => {
+    //   const creep = Game.creeps[creepName];
+    //   if (creep){
+    //     this.countCreep(creepName);
+    //     return true;
+    //   }
+    //   return false;
+    // });
     const roomAudit = getRoomAudit(this.home);
     (roomAudit.flags[this.type] as BasicFlag[]).push(this);
     this.homeAudit = roomAudit;
@@ -127,32 +127,32 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
   //   //This should replace this.requiredBodyPartsByRole object somehow
   // }
 
-  private countCreep(creepName: Creep['name']){
-    const { role, counts } = Memory.creeps[creepName];
-    this.followerRoleCounts[role] = (this.followerRoleCounts[role] || 0) + 1;
-    if (!this.currentBodyPartsByRole[role]) this.currentBodyPartsByRole[role] = {};
-    for (let type in counts){
-      this.currentBodyPartsByRole[role]![type as BodyPartConstant] = (this.currentBodyPartsByRole[role]![type as BodyPartConstant] || 0) + (counts[type as BodyPartConstant] || 0);
-    }
-  }
+  // private countCreep(creepName: Creep['name']){
+  //   const { role, counts } = Memory.creeps[creepName];
+  //   this.followerRoleCounts[role] = (this.followerRoleCounts[role] || 0) + 1;
+  //   if (!this.currentBodyPartsByRole[role]) this.currentBodyPartsByRole[role] = {};
+  //   for (let type in counts){
+  //     this.currentBodyPartsByRole[role]![type as BodyPartConstant] = (this.currentBodyPartsByRole[role]![type as BodyPartConstant] || 0) + (counts[type as BodyPartConstant] || 0);
+  //   }
+  // }
 
-  getAvailableFollowersByRole(creepRole:CreepRoleName){
-    const max = this.maxFollowersByRole[creepRole];
-    const count = this.followerRoleCounts[creepRole] || 0;
-    return max !== undefined ? Math.max(max-count, 0) : 0;
-  }
+  // getAvailableFollowersByRole(creepRole:CreepRoleName){
+  //   const max = this.maxFollowersByRole[creepRole];
+  //   const count = this.followerRoleCounts[creepRole] || 0;
+  //   return max !== undefined ? Math.max(max-count, 0) : 0;
+  // }
 
-  addFollower(creepName: Creep['name']){
-    const creepMemory = Memory.creeps[creepName];
-    creepMemory.flag = this.name;
-    this.countCreep(creepName);
-    this.memory.followers.push(creepName);
-  }
+  // addFollower(creepName: Creep['name']){
+  //   const creepMemory = Memory.creeps[creepName];
+  //   creepMemory.flag = this.name;
+  //   this.countCreep(creepName);
+  //   this.memory.followers.push(creepName);
+  // }
 
-  remove(){
-    if (this.flag) this.flag.remove();
-    delete Memory.flags[this.flagName];
-  }
+  // remove(){
+  //   if (this.flag) this.flag.remove();
+  //   delete Memory.flags[this.flagName];
+  // }
 
   toJSON(){
     return {

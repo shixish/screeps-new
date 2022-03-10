@@ -5,17 +5,17 @@ import { BasicCreep, CreepBody } from "./BasicCreep";
 export class MinerCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 2,
-    max: (roomAudit:RoomAudit)=>{
-      return (
-        roomAudit.controllerLevel >= 6,
-        roomAudit.storedEnergy &&
-        roomAudit.storedMineral < MINERALS_STORAGE_FILL &&
-        roomAudit.mineral &&
-        roomAudit.mineral.anchor.mineralAmount &&
-        roomAudit.mineral.occupancy === 0 &&
-        roomAudit.mineral.extractor
-      ) ? 1 : 0;
-    },
+    // max: (roomAudit:RoomAudit)=>{
+    //   return (
+    //     roomAudit.controllerLevel >= 6,
+    //     roomAudit.storedEnergy &&
+    //     roomAudit.storedMineral < MINERALS_STORAGE_FILL &&
+    //     roomAudit.mineral &&
+    //     roomAudit.mineral.anchor.mineralAmount &&
+    //     roomAudit.mineral.occupancy === 0 &&
+    //     roomAudit.mineral.extractor
+    //   ) ? 1 : 0;
+    // },
     tiers: [
       {
         body: new CreepBody([
@@ -31,9 +31,9 @@ export class MinerCreep extends BasicCreep {
         ], 1700),
       }
     ],
-    getCreepAnchor: (roomAudit:RoomAudit)=>{
-      return roomAudit.mineral;
-    },
+    // getCreepAnchor: (roomAudit:RoomAudit)=>{
+    //   return roomAudit.mineral;
+    // },
     // modSpawnOptions: (roomAudit, options, spawner)=>{
     //   const miners = spawner.room.find(FIND_MY_CREEPS, {
     //     filter: (creep:Creep)=>{

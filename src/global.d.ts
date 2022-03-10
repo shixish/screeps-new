@@ -73,12 +73,12 @@ declare global {
 
   type CreepRole = {
     authority:number,
-    max?: (roomAudit:RoomAudit)=>number,
+    // max?: (roomAudit:RoomAudit)=>number,
     tiers: CreepTier[],
     // modSpawnOptions?:(roomAudit:RoomAudit, options:MandateProps<SpawnOptions, 'memory'>, spawner:SpawnController)=>void;
-    getCreepFlag?:(roomAudit:RoomAudit)=>BasicFlag|undefined;
-    getCreepAnchor?:(roomAudit:RoomAudit)=>CreepAnchor|undefined;
-    meta?:any;
+    // getCreepFlag?:(roomAudit:RoomAudit)=>BasicFlag|undefined;
+    // getCreepAnchor?:(roomAudit:RoomAudit)=>CreepAnchor|undefined;
+    // meta?:any;
   };
 
   type CreepTier = {
