@@ -3,7 +3,7 @@ import { CreepRoleName, PARTS } from "./constants";
 if (!Memory.cohorts) Memory.cohorts = {};
 export interface CohortMemory{
   list?: Creep['name'][];
-  counts?: CreepPartsCounts;
+  counts?: Partial<CreepPartsCounts>;
 }
 
 export class Cohort<AbstractCohortMemory extends CohortMemory = CohortMemory>{
@@ -59,14 +59,14 @@ export class Cohort<AbstractCohortMemory extends CohortMemory = CohortMemory>{
     delete Memory.cohorts[this.id];
   }
 
-  private subtractBodyParts(counts:CreepPartsCounts){
+  private subtractBodyParts(counts:Partial<CreepPartsCounts>){
     for (let part of PARTS){
       const count = counts[part] ?? 0;
       if (count > 0) this.counts[part] = (this.counts[part] ?? 0) - count;
     }
   }
 
-  private addBodyParts(counts:CreepPartsCounts){
+  private addBodyParts(counts:Partial<CreepPartsCounts>){
     for (let part of PARTS){
       const count = counts[part] ?? 0;
       if (count > 0) this.counts[part] = (this.counts[part] ?? 0) + count;

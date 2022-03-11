@@ -169,7 +169,7 @@ export class SourceAnchor extends Anchor<Source, SourceAnchorMemory>{
     return Math.min(this.memory.seats, 3);
   }
 
-  getMaxWorkParts(){
+  getOptimalWorkParts(){
     switch(this.anchor.energyCapacity){
       case 3000: return 5;
       case 4000: return 7; //Dunno?

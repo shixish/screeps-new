@@ -97,7 +97,7 @@ declare global {
   }
 
   type CreepPartsCounts = {
-    [key in BodyPartConstant]?: number
+    [key in BodyPartConstant]: number
   }
 
   interface CreepMemory {

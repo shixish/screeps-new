@@ -1,10 +1,15 @@
-import { CreepRoleName, CreepRoleNames, DEBUG, maxStorageFill, PART_COST } from "utils/constants";
+import { CreepRoleName, CreepRoleNames, DEBUG, maxStorageFill, PARTS, PART_COST } from "utils/constants";
 import { claimAmount, getClaimedAmount, getFlagManager, getResourceAvailable, getResourceSpace, getRoomAudit } from "utils/tickCache";
 
 export function calculateBiteSize (creep:Creep){
   return (creep.memory.counts.work || 0)*2
 }
 
+export class CreepTiers{
+  constructor(tiers:CreepBody[]){
+
+  }
+}
 export class CreepBody{
   parts: BodyPartConstant[];
   constructor(parts:BodyPartConstant[], cost?:number){
@@ -18,12 +23,18 @@ export class CreepBody{
     }, 0));
   }
 
-  private _counts?:CreepMemory["counts"];
+  private _counts?:CreepPartsCounts;
   get counts(){
-    return this._counts ?? (this._counts = this.parts.reduce((out, part)=>{
-      out[part] = out[part] === undefined ? 1 : (out[part] as number) + 1;
-      return out;
-    }, {} as CreepMemory["counts"]));
+    if (!this._counts){
+      this._counts = PARTS.reduce((out, part)=>{
+        out[part] = 0;
+        return out;
+      }, {} as CreepPartsCounts);
+      this.parts.forEach(part=>{
+        this._counts![part]!++;
+      });
+    }
+    return this._counts;
   }
 }
 

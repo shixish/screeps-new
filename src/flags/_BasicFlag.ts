@@ -94,13 +94,18 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
   //   } as SpawnableCreep : null;
   // }
 
-  findSpawnableCreep(roleName:CreepRoleName, filter:(body:CreepBody)=>boolean, attributes?:Partial<SpawnableCreep>):SpawnableCreep|null{
+  findSpawnableCreep(roleName:CreepRoleName, distanceFilter:(body:CreepBody)=>number|false, attributes?:Partial<SpawnableCreep>):SpawnableCreep|null{
     const config = CreepRoles[roleName].config;
-    const tier = config.tiers.reduce((heighestTier, currentTier)=>{
-      if (currentTier.body.cost > this.homeAudit.room.energyCapacityAvailable || currentTier.requires?.(this.homeAudit) === false) return heighestTier;
-      if (!filter(currentTier.body)) return heighestTier;
-      return currentTier;
-    }, null as CreepTier|null);
+    const { tier } = config.tiers.reduce((out, currentTier)=>{
+      if (currentTier.body.cost > this.homeAudit.room.energyCapacityAvailable) return out;
+      const distance = distanceFilter(currentTier.body);
+      if (distance === false) return out;
+      if (out.distance === false || distance <= out.distance){
+        out.tier = currentTier;
+        out.distance = distance;
+      }
+      return out;
+    }, { tier: null, distance: false } as { tier: CreepTier|null, distance:number|false });
     return tier ? {
       role: roleName,
       tier: tier,

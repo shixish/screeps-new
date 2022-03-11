@@ -41,22 +41,30 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     //Take care of one source at a time. This way we can get it into production asap, funding other things.
     for (const sourceAnchor of this.officeAudit.sources){
       // console.log(`sourceAnchor.harvesters.counts`, JSON.stringify(sourceAnchor.harvesters.counts));
-      const neededHarvesterParts = sourceAnchor.getMaxWorkParts() - (sourceAnchor.harvesters.counts[WORK] || 0);
-      const harvester = neededHarvesterParts && sourceAnchor.availableSeats > 0 && this.findSpawnableCreep(CreepRoleName.Harvester, body=>{
-        return (body.counts[WORK] || 0) <= neededHarvesterParts && this.domestic ? body.counts[MOVE] === 1 : (body.counts[MOVE] || 0) >= 2;
-      }, { anchor: sourceAnchor, cohort: sourceAnchor.harvesters });
+      const neededHarvesterParts = sourceAnchor.getOptimalWorkParts() - (sourceAnchor.harvesters.counts[WORK] || 0);
+      const harvester = neededHarvesterParts && sourceAnchor.availableSeats > 0 && this.findSpawnableCreep(CreepRoleName.Harvester, body=>(
+        body.counts[WORK] > 0 &&
+        (this.domestic ? body.counts[MOVE] === 1 : body.counts[MOVE] >= 2) &&
+        neededHarvesterParts / body.counts[WORK] <= sourceAnchor.totalSeats &&
+        neededHarvesterParts % body.counts[WORK]
+      ), { anchor: sourceAnchor, cohort: sourceAnchor.harvesters });
       if (harvester) return harvester;
 
       // 3000 energy nodes can optimially mine at 10 energy per tick, so 1500 nodes are 5 per tick
       const energyPerTick = sourceAnchor.getOptimalEnergyPerTick();
       const roundTrip = this.memory.totalMoveCost*2; //ticks (both directions)
-      const maxCourierParts = (roundTrip*energyPerTick)/50; //can carry 50 energy per carry part
-      const neededCourierParts = maxCourierParts - (sourceAnchor.couriers.counts[CARRY] || 0);
+      const optimalCourierParts = Math.ceil((roundTrip*energyPerTick)/50); //can carry 50 energy per carry part
+      const neededCourierParts = optimalCourierParts - (sourceAnchor.couriers.counts[CARRY] || 0);
+      // console.log(`courierParts`, optimalCourierParts, neededCourierParts);
 
-      const courier = neededCourierParts && this.findSpawnableCreep(CreepRoleName.Courier, body=>{
-        return (body.counts[CARRY] || 0) <= neededCourierParts;
-      }, { anchor: sourceAnchor, cohort: sourceAnchor.couriers });
+      const courier = neededCourierParts && this.findSpawnableCreep(CreepRoleName.Courier, body=>(
+        body.counts[CARRY] > 0 && neededCourierParts % body.counts[CARRY]
+      ), { anchor: sourceAnchor, cohort: sourceAnchor.couriers });
       if (courier) return courier;
+    }
+
+    if (!this.domestic){
+      console.log(`claimer`);
     }
 
     // if (sourceCount > 1){
