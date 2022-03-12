@@ -34,6 +34,11 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     return this.memory.sourceData || (this.memory.sourceData = {});
   }
 
+  getTotalEnergyPerTick(){
+    if (!this.officeAudit) return 0;
+    return this.officeAudit.sources.reduce((total, source)=>total+source.getOptimalEnergyPerTick(), 0);
+  }
+
   getRequestedCreep(currentPriorityLevel:CreepPriority){
     if (!this.officeAudit) return null;
     if (currentPriorityLevel < CreepPriority.Normal) return null;
@@ -42,7 +47,7 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     for (const sourceAnchor of this.officeAudit.sources){
       // console.log(`sourceAnchor.harvesters.counts`, JSON.stringify(sourceAnchor.harvesters.counts));
       const neededHarvesterParts = sourceAnchor.getOptimalWorkParts() - (sourceAnchor.harvesters.counts[WORK] || 0);
-      const harvester = neededHarvesterParts && sourceAnchor.availableSeats > 0 && this.findSpawnableCreep(CreepRoleName.Harvester, body=>(
+      const harvester = neededHarvesterParts > 0 && sourceAnchor.availableSeats > 0 && this.findSpawnableCreep(CreepRoleName.Harvester, body=>(
         body.counts[WORK] > 0 &&
         (this.domestic ? body.counts[MOVE] === 1 : body.counts[MOVE] >= 2) &&
         neededHarvesterParts / body.counts[WORK] <= sourceAnchor.totalSeats &&
@@ -57,7 +62,7 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
       const neededCourierParts = optimalCourierParts - (sourceAnchor.couriers.counts[CARRY] || 0);
       // console.log(`courierParts`, optimalCourierParts, neededCourierParts);
 
-      const courier = neededCourierParts && this.findSpawnableCreep(CreepRoleName.Courier, body=>(
+      const courier = neededCourierParts > 0 && this.findSpawnableCreep(CreepRoleName.Courier, body=>(
         body.counts[CARRY] > 0 && neededCourierParts % body.counts[CARRY]
       ), { anchor: sourceAnchor, cohort: sourceAnchor.couriers });
       if (courier) return courier;

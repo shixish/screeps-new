@@ -181,7 +181,7 @@ export class SourceAnchor extends Anchor<Source, SourceAnchorMemory>{
   getOptimalEnergyPerTick(){
     switch(this.anchor.energyCapacity){
       case 3000: return 10;
-      case 4000: return 14; // 13.3333 ...?
+      case 4000: return 13.33334; //Not sure if this is right
       // case 1500: return 5;
       default: return 5;
     }

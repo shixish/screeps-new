@@ -312,11 +312,30 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
   }
 
   getRequestedCreep(){
+    //Upgrading uses 2 Energy per WORK part
+
+    const totalEnergyIncome = this.homeAudit.flags.harvest.reduce((total, flag)=>total+flag.getTotalEnergyPerTick(), 0);
+
+    if (this.homeAudit.controller){
+      const controllerAnchor = this.homeAudit.controller;
+      const optimalUpgraderWorkParts = totalEnergyIncome*0.8/2; //Send 80% of total energy into the controller. 2 energy per work part.
+      const neededUpgraderParts = optimalUpgraderWorkParts - (controllerAnchor.upgraders.counts[WORK] || 0);
+      const upgrader = neededUpgraderParts > 0 && this.findSpawnableCreep(CreepRoleName.Upgrader, body=>(
+        body.counts[WORK] > 0 &&
+        neededUpgraderParts % body.counts[WORK]
+      ), { anchor: controllerAnchor, cohort: controllerAnchor.upgraders });
+      if (upgrader) return upgrader;
+    }
+
+    // Math.min(2 + roomAudit.flags.harvest.length, 5);
+
+    // roomAudit.storedEnergy > UPGRADER_STORAGE_MIN
+
     return null;
   }
 
   // claimCreeps(){
-  //   this.requiredBodyPartsByRole[CreepRoleName.Harvester] = {
+  //   this.requiredBodyPartsByRole[CreepRoleName.Upgrader] = {
   //     [WORK]: 5*this.homeAudit.sources.length,
   //   };
 
