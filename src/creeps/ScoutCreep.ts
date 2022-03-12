@@ -1,3 +1,4 @@
+import { getRoomAudit } from "utils/tickCache";
 import { BasicCreep, CreepBody } from "./BasicCreep";
 
 export class ScoutCreep extends BasicCreep {
@@ -18,19 +19,18 @@ export class ScoutCreep extends BasicCreep {
     // },
   }
 
+  scoutFlagRoom(storedTarget?:TargetableTypes){
+    const target = storedTarget instanceof Flag && storedTarget || getRoomAudit(this.room).flags.harvest.find(flag=>!flag.office)?.flag;
+    if (target instanceof Flag && (this.room.name !== target.pos.roomName || target.room!.find(FIND_MY_CREEPS).length <= 1)){
+      this.moveTo(target);
+      return target;
+    }
+    return null;
+  }
+
   work(){
-    // const flag = Game.flags.Outpost1;
-    // if (flag){
-    //   // console.log(`flag`, JSON.stringify(flag, null, 2));
-    //   if (flag.pos.roomName !== this.room.name){
-    //     const direction = this.room.findExitTo(flag.pos.roomName);
-    //     if (direction === ERR_NO_PATH) return console.log(`No path to flag found.`);
-    //     if (direction === ERR_INVALID_ARGS) return console.log(`No path to flag found.`);
-    //     const exit = this.pos.findClosestByRange(direction);
-    //     if (exit) this.moveTo(exit);
-    //   }else{
-    //     this.moveTo(flag.pos);
-    //   }
-    // }
+    if (this.rememberAction(this.scoutFlagRoom, 'scout')) return;
+
+    this.currentAction = undefined;
   }
 }

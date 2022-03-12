@@ -69,7 +69,7 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     }
 
     if (!this.domestic){
-      console.log(`claimer`);
+      // console.log(`claimer`);
     }
 
     // if (sourceCount > 1){

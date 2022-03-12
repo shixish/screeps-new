@@ -1,3 +1,4 @@
+import { Cohort } from "utils/Cohort";
 import { CreepRoleName } from "utils/constants";
 import { diamondCoordinates, diamondRingCoordinates, findDiamondPlacement, getBestContainerLocation, getSpawnRoadPath, getStructureCostMatrix } from "utils/map";
 import { BasicFlag, BasicFlagMemory } from "./_BasicFlag";
@@ -14,6 +15,8 @@ export interface HomeFlagMemory extends BasicFlagMemory{
 }
 
 export class HomeFlag extends BasicFlag<HomeFlagMemory> {
+  scouts:Cohort = new Cohort(this.name+'-scouts');
+
   get buildStage(){
     return this.memory.buildStage ?? 0;
   }
@@ -317,6 +320,8 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
 
     if (this.homeAudit.controller){
       const controllerAnchor = this.homeAudit.controller;
+
+      // roomAudit.storedEnergy > UPGRADER_STORAGE_MIN
       const upgraderEnergyPerTick = totalEnergyIncome*0.8; //Send 80% of total energy into the controller.
       const optimalUpgraderWorkParts = upgraderEnergyPerTick/2; //2 energy per work part.
       const neededUpgraderParts = optimalUpgraderWorkParts - (controllerAnchor.upgraders.counts[WORK] || 0);
@@ -336,9 +341,10 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
       if (courier) return courier;
     }
 
-    // Math.min(2 + roomAudit.flags.harvest.length, 5);
-
-    // roomAudit.storedEnergy > UPGRADER_STORAGE_MIN
+    const optimalScoutParts = 1;
+    const neededScoutParts = optimalScoutParts - (this.scouts.counts[MOVE] || 0);
+    const scout = neededScoutParts > 0 && this.findSpawnableCreep(CreepRoleName.Scout, body=>0, { cohort: this.scouts });
+    if (scout) return scout;
 
     return null;
   }
