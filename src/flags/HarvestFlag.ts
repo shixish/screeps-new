@@ -46,7 +46,10 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     //Take care of one source at a time. This way we can get it into production asap, funding other things.
     for (const sourceAnchor of this.officeAudit.sources){
       // console.log(`sourceAnchor.harvesters.counts`, JSON.stringify(sourceAnchor.harvesters.counts));
-      const neededHarvesterParts = sourceAnchor.getOptimalWorkParts() - (sourceAnchor.harvesters.counts[WORK] || 0);
+      const optimalHarvesterParts = sourceAnchor.getOptimalWorkParts();
+      const neededHarvesterParts = optimalHarvesterParts - (sourceAnchor.harvesters.counts[WORK] || 0);
+      // this.flag.room?.visual.text(`Harvester: ${optimalHarvesterParts} - ${neededHarvesterParts}`, this.flag.pos.x, this.flag.pos.y+2);
+
       const harvester = neededHarvesterParts > 0 && sourceAnchor.availableSeats > 0 && this.findSpawnableCreep(CreepRoleName.Harvester, body=>(
         body.counts[WORK] > 0 &&
         (this.domestic ? body.counts[MOVE] === 1 : body.counts[MOVE] >= 2) &&
@@ -61,8 +64,10 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
       const optimalCourierParts = Math.ceil((roundTrip*energyPerTick)/50); //can carry 50 energy per carry part
       const neededCourierParts = optimalCourierParts - (sourceAnchor.couriers.counts[CARRY] || 0);
       // console.log(`courierParts`, optimalCourierParts, neededCourierParts);
+      // this.flag.room?.visual.text(`Courier: ${optimalCourierParts} - ${neededCourierParts}`, this.flag.pos.x, this.flag.pos.y+3);
 
-      const courier = neededCourierParts > 0 && this.findSpawnableCreep(CreepRoleName.Courier, body=>(
+      const courierType = this.domestic ? CreepRoleName.Courier : CreepRoleName.RemoteCourier;
+      const courier = neededCourierParts > 0 && this.findSpawnableCreep(courierType, body=>(
         body.counts[CARRY] > 0 && neededCourierParts % body.counts[CARRY]
       ), { anchor: sourceAnchor, cohort: sourceAnchor.couriers });
       if (courier) return courier;

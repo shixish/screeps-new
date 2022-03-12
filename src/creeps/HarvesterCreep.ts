@@ -8,15 +8,17 @@ export class HarvesterCreep extends BasicCreep {
     tiers: [
       {
         body: new CreepBody([WORK, WORK, MOVE], 250),
-        max: (roomAudit:RoomAudit)=>{
-          return roomAudit.sourceSeats;
-        },
       },
       {
         body: new CreepBody([WORK, WORK, WORK, WORK, WORK, MOVE], 550),
-        max: (roomAudit:RoomAudit)=>{
-          return roomAudit.sources.length;
-        },
+      },
+
+      //Remote Harvesters:
+      {
+        body: new CreepBody([WORK, WORK, WORK, WORK, MOVE, MOVE], 500), //Optimal for 1500 energy is 3.5 mining parts so round up to capture as much as possible.
+      },
+      {
+        body: new CreepBody([WORK, WORK, WORK, WORK, WORK, MOVE, MOVE], 600),
       }
     ],
     // getCreepAnchor: (roomAudit:RoomAudit)=>{
