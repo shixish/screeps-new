@@ -198,6 +198,7 @@ export class SourceAnchor extends Anchor<Source, SourceAnchorMemory>{
 
 export class CreepControllerAnchor extends Anchor<StructureController>{
   upgraders = new Cohort(this.id+'-upgraders');
+  couriers = new Cohort(this.id+'-couriers');
 
   constructor(controller:StructureController){
     super(controller);
