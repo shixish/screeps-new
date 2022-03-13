@@ -13,7 +13,7 @@ export class DefendFlag extends RemoteFlag<DefendFlagMemory> {
 
   getRequestedCreep(currentPriorityLevel:CreepPriority){
     if (currentPriorityLevel < CreepPriority.High) return null;
-    const optimalMeleeParts = 1;
+    const optimalMeleeParts = 6; //TODO
     const neededMeleeParts = optimalMeleeParts - (this.melee.counts[ATTACK] || 0);
     const Melee = neededMeleeParts > 0 && this.findSpawnableCreep(CreepRoleName.Melee, body=>(
       neededMeleeParts % body.counts[ATTACK]
@@ -23,8 +23,13 @@ export class DefendFlag extends RemoteFlag<DefendFlagMemory> {
   }
 
   work() {
-    if (this.office && !this.office.find(FIND_HOSTILE_CREEPS).length && !this.office.find(FIND_HOSTILE_STRUCTURES)){
+    if (this.office && !this.office.find(FIND_HOSTILE_CREEPS).length && !this.office.find(FIND_HOSTILE_STRUCTURES).length){
       this.remove();
     }
+  }
+
+  remove(){
+    this.melee.destroy();
+    super.remove();
   }
 }

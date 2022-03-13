@@ -256,4 +256,10 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
   work() {
     if (this.status === HarvestStatus.Audit) this.audit();
   }
+
+  remove(){
+    this.claimers?.destroy();
+    this.scouts?.destroy();
+    super.remove();
+  }
 }

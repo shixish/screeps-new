@@ -6,7 +6,16 @@ export class MeleeCreep extends BasicCreep {
     tiers: [
       {
         body: new CreepBody([
-          MOVE, ATTACK
+          MOVE, ATTACK,
+        ], 50+80),
+        // max: (roomAudit: RoomAudit)=>{
+        //   return roomAudit.hostileCreeps.length;
+        // },
+      },
+      {
+        body: new CreepBody([
+          MOVE, ATTACK,
+          MOVE, ATTACK,
         ], 50+80),
         // max: (roomAudit: RoomAudit)=>{
         //   return roomAudit.hostileCreeps.length;

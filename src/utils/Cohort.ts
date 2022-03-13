@@ -51,11 +51,13 @@ export class Cohort<AbstractCohortMemory extends CohortMemory = CohortMemory>{
     }
   }
 
-  destroy(){
-    this.list.forEach((creepName)=>{
-      const creep = Game.creeps[creepName];
-      if (creep) creep.suicide();
-    });
+  destroy(soft = true){
+    if (!soft){
+      this.list.forEach((creepName)=>{
+        const creep = Game.creeps[creepName];
+        if (creep) creep.suicide();
+      });
+    }
     delete Memory.cohorts[this.id];
   }
 
