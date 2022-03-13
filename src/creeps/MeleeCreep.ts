@@ -1,4 +1,3 @@
-import { getRoomAudit } from "utils/tickCache";
 import { BasicCreep, CreepBody } from "./BasicCreep";
 
 export class MeleeCreep extends BasicCreep {
@@ -9,18 +8,18 @@ export class MeleeCreep extends BasicCreep {
         body: new CreepBody([
           MOVE, ATTACK
         ], 50+80),
-        max: (roomAudit: RoomAudit)=>{
-          return roomAudit.hostileCreeps.length;
-        },
+        // max: (roomAudit: RoomAudit)=>{
+        //   return roomAudit.hostileCreeps.length;
+        // },
       },
     ],
   }
 
   startAttacking(){
-    const creep = this.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
-    if (!creep) return null;
-    if (this.moveWithinRange(creep.pos, 1) || this.manageActionCode(this.attack(creep))){
-      return creep;
+    const target = this.pos.findClosestByRange(FIND_HOSTILE_CREEPS) || this.pos.findClosestByRange(FIND_HOSTILE_STRUCTURES);
+    if (!target) return null;
+    if (this.moveWithinRange(target.pos, 1) || this.manageActionCode(this.attack(target))){
+      return target;
     }
     return null;
   }
@@ -34,6 +33,10 @@ export class MeleeCreep extends BasicCreep {
 
   work(){
     // const roomAudit = getRoomAudit(this.room);
+    if (this.flag && this.room.name !== this.flag.roomName){
+      this.moveTo(this.flag.pos);
+      return;
+    }
     if (this.startAttacking()) return;
 
     this.idle();

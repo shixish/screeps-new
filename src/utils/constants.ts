@@ -24,6 +24,7 @@ export enum FlagType{
   Audit = 'audit',
   Power = 'power',
   Harvest = 'harvest',
+  Defend = 'defend',
 };
 export const FlagTypes = Object.values(FlagType);
 

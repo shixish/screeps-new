@@ -6,9 +6,11 @@ import { BuildFlag } from "flags/BuildFlag";
 import { AuditFlag } from "flags/AuditFlag";
 import { PowerFlag } from "flags/PowerFlag";
 import { HarvestFlag } from "flags/HarvestFlag";
+import { DefendFlag } from "flags/DefendFlag";
 
 export const FlagManagers = { //:Record<FlagType, BasicFlag>
   [FlagType.Home]: HomeFlag,
+  [FlagType.Defend]: DefendFlag,
   [FlagType.Harvest]: HarvestFlag,
   [FlagType.Claim]: ClaimFlag,
   [FlagType.Build]: BuildFlag,

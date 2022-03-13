@@ -57,9 +57,11 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
       return null;
     }
     if (this.officeAudit.sources[0].isInvaded){
-      // if (!this.officeAudit?.flags.defend.length){
-      //   this.office.createFlag(this.office.controller.pos, `defend:${this.homeRoomName}:${random()}`);
-      // }
+      if (!this.officeAudit?.flags.defend.length){
+        //This is spawning infinite flags! Whoops...
+
+        // this.office!.createFlag(this.office!.controller!.pos, `defend:${this.homeRoomName}:${random()}`);
+      }
       return null;
     }
 

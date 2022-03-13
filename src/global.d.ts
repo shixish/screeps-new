@@ -16,6 +16,7 @@ declare global {
   type BasicFlag = import('flags/_BasicFlag').BasicFlag;
   type HarvestFlag = import('flags/HarvestFlag').HarvestFlag;
   type HomeFlag = import('flags/HomeFlag').HomeFlag;
+  type DefendFlag = import('flags/DefendFlag').DefendFlag;
 
   type Cohort = import('utils/Cohort').Cohort;
   type CohortMemory = import('utils/Cohort').CohortMemory;
