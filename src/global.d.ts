@@ -14,6 +14,9 @@ declare global {
 
   type SpawnController = import('structures/SpawnController').SpawnController;
   type BasicFlag = import('flags/_BasicFlag').BasicFlag;
+  type HarvestFlag = import('flags/HarvestFlag').HarvestFlag;
+  type HomeFlag = import('flags/HomeFlag').HomeFlag;
+
   type Cohort = import('utils/Cohort').Cohort;
   type CohortMemory = import('utils/Cohort').CohortMemory;
   type RoomAudit = import('managers/room').RoomAudit;

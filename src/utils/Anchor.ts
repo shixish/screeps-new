@@ -1,4 +1,5 @@
 import { Cohort } from "./Cohort";
+import { USERNAME } from "./constants";
 
 export function countAvailableSeats(pos:RoomPosition){
   let seats = 0;
@@ -150,9 +151,12 @@ export interface SourceAnchorMemory extends AnchorMemory{
 export class SourceAnchor extends Anchor<Source, SourceAnchorMemory>{
   harvesters = new Cohort(this.id+'-harvesters');
   couriers = new Cohort(this.id+'-couriers');
+  isInvaded = !this.anchor.room?.controller?.my && this.anchor.room?.controller?.reservation && this.anchor.room?.controller?.reservation?.username !== USERNAME;
 
   constructor(source:Source){
     super(source);
+
+    //TEMPORARY: This is to help transition to the new system. occupancy can then be deleted
     if (this.memory.occupancy){
       this.memory.occupancy.forEach(creepName=>{
         if (Game.creeps[creepName]) this.harvesters.push(creepName);
@@ -170,6 +174,7 @@ export class SourceAnchor extends Anchor<Source, SourceAnchorMemory>{
   }
 
   getOptimalWorkParts(){
+    if (this.isInvaded) return 0;
     switch(this.anchor.energyCapacity){
       case 3000: return 5;
       case 4000: return 7; //Dunno?
@@ -179,6 +184,7 @@ export class SourceAnchor extends Anchor<Source, SourceAnchorMemory>{
   }
 
   getOptimalEnergyPerTick(){
+    if (this.isInvaded) return 0;
     switch(this.anchor.energyCapacity){
       case 3000: return 10;
       case 4000: return 13.33334; //Not sure if this is right

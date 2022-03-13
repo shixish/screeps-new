@@ -1,7 +1,8 @@
-import { getRoomAudit } from "utils/tickCache";
+import { FlagType } from "utils/constants";
+import { getFlagManager, getRoomAudit } from "utils/tickCache";
 import { BasicCreep, CreepBody } from "./BasicCreep";
 
-export class ScoutCreep extends BasicCreep {
+export class ScoutCreep extends BasicCreep<HarvestFlag|HomeFlag> {
   static config:CreepRole = {
     authority: 0,
     tiers: [
@@ -19,18 +20,25 @@ export class ScoutCreep extends BasicCreep {
     // },
   }
 
-  scoutFlagRoom(storedTarget?:TargetableTypes){
-    const target = storedTarget instanceof Flag && storedTarget || getRoomAudit(this.room).flags.harvest.find(flag=>!flag.office)?.flag;
-    if (target instanceof Flag && (this.room.name !== target.pos.roomName || target.room!.find(FIND_MY_CREEPS).length <= 1)){
-      this.moveTo(target);
-      return target;
-    }
-    return null;
-  }
+  // scoutFlagRoom(storedTarget?:TargetableTypes){
+  //   const target = storedTarget instanceof Flag && storedTarget || getRoomAudit(this.room).flags.harvest.find(flag=>!flag.office)?.flag;
+  //   const flagManager = target && getFlagManager(target);
+  //   if (flagManager && flagManager.type === FlagType.Harvest){//(this.room.name !== target.pos.roomName || target.room!.find(FIND_MY_CREEPS).length <= 1)){
+  //     this.moveTo(target);
+  //     return target;
+  //   }
+  //   return null;
+  // }
 
   work(){
-    if (this.rememberAction(this.scoutFlagRoom, 'scout')) return;
+    if (this.flag?.type === FlagType.Harvest){
+      this.moveTo(this.flag.pos);
+    }else{
+      //Home flag logic will be some kind of random walk
+    }
 
-    this.currentAction = undefined;
+    // if (this.rememberAction(this.scoutFlagRoom, 'scout')) return;
+
+    // this.currentAction = undefined;
   }
 }

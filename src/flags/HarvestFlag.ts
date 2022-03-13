@@ -36,9 +36,13 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     return this.memory.sourceData || (this.memory.sourceData = {});
   }
 
+  // officeIsBeingReserved(){
+  //   return !this.office?.controller?.my && this.office?.controller?.reservation && this.office?.controller?.reservation?.username !== USERNAME;
+  // }
+
   getTotalEnergyPerTick(){
     if (!this.officeAudit) return 0;
-    return this.officeAudit.sources.reduce((total, source)=>total+source.getOptimalEnergyPerTick(), 0);
+    return this.officeAudit!.sources.reduce((total, source)=>total+source.getOptimalEnergyPerTick(), 0);
   }
 
   getRequestedCreep(currentPriorityLevel:CreepPriority){
@@ -52,7 +56,7 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
       }
       return null;
     }
-    if (!this.office?.controller?.my && this.office?.controller?.reservation && this.office?.controller?.reservation?.username !== USERNAME){
+    if (this.officeAudit.sources[0].isInvaded){
       // if (!this.officeAudit?.flags.defend.length){
       //   this.office.createFlag(this.office.controller.pos, `defend:${this.homeRoomName}:${random()}`);
       // }
@@ -79,7 +83,6 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
       const roundTrip = this.memory.totalMoveCost*2; //ticks (both directions)
       const optimalCourierParts = Math.ceil((roundTrip*energyPerTick)/50); //can carry 50 energy per carry part
       const neededCourierParts = optimalCourierParts - (sourceAnchor.couriers.counts[CARRY] || 0);
-      // console.log(`courierParts`, optimalCourierParts, neededCourierParts);
       // this.flag.room?.visual.text(`Courier: ${optimalCourierParts} - ${neededCourierParts}`, this.flag.pos.x, this.flag.pos.y+3);
 
       const courierType = this.domestic ? CreepRoleName.Courier : CreepRoleName.RemoteCourier;
