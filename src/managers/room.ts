@@ -148,20 +148,17 @@ export class RoomAudit{
     for (const ft in this.flags){
       const flags = this.flags[ft as FlagType];
       for (let flag of flags){
-        const spawnableCreep:SpawnableCreep|null = flag.getRequestedCreep(currentPriorityLevel);
-        if (spawnableCreep){
-          console.log(`Spawn flag creep`, JSON.stringify({
-            role: spawnableCreep.role,
-            flag: spawnableCreep.flag?.name,
-            tier: spawnableCreep.tier?.body.parts,
-            anchor: spawnableCreep.anchor?.id,
-            cohort: spawnableCreep.cohort?.id,
-          }, null, 2));
-          const priority:CreepPriority = spawnableCreep.priority || CreepPriority.Normal;
-          if (!highestSpawnableCreep || priority < currentPriorityLevel){
-            currentPriorityLevel = priority;
-            highestSpawnableCreep = spawnableCreep;
+        try{
+          const spawnableCreep:SpawnableCreep|null = flag.getRequestedCreep(currentPriorityLevel);
+          if (spawnableCreep){
+            const priority:CreepPriority = spawnableCreep.priority || CreepPriority.Normal;
+            if (!highestSpawnableCreep || priority < currentPriorityLevel){
+              currentPriorityLevel = priority;
+              highestSpawnableCreep = spawnableCreep;
+            }
           }
+        }catch(e){
+          console.log(`getRequestedCreep failed for "${flag.type}" flag.`, e);
         }
       }
     }

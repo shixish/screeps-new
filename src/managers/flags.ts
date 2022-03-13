@@ -9,11 +9,11 @@ import { HarvestFlag } from "flags/HarvestFlag";
 
 export const FlagManagers = { //:Record<FlagType, BasicFlag>
   [FlagType.Home]: HomeFlag,
+  [FlagType.Harvest]: HarvestFlag,
   [FlagType.Claim]: ClaimFlag,
   [FlagType.Build]: BuildFlag,
   [FlagType.Audit]: AuditFlag,
   [FlagType.Power]: PowerFlag,
-  [FlagType.Harvest]: HarvestFlag,
 } as const;
 
 //This needs to be run after room audits are initialized. This will update the room audits to know about the appropriate flags.

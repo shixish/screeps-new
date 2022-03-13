@@ -315,36 +315,40 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
   }
 
   getRequestedCreep(){
+    if (this.homeAudit.creeps.length === 0){
+      return this.findSpawnableCreep(CreepRoleName.Basic, true);
+    }
+
     //Upgrading uses 2 Energy per WORK part
     const totalEnergyIncome = this.homeAudit.flags.harvest.reduce((total, flag)=>total+flag.getTotalEnergyPerTick(), 0);
 
-    if (this.homeAudit.controller){
-      const controllerAnchor = this.homeAudit.controller;
+    // if (this.homeAudit.controller){
+    //   const controllerAnchor = this.homeAudit.controller;
 
-      // roomAudit.storedEnergy > UPGRADER_STORAGE_MIN
-      const upgraderEnergyPerTick = totalEnergyIncome*0.8; //Send 80% of total energy into the controller.
-      const optimalUpgraderWorkParts = upgraderEnergyPerTick/2; //2 energy per work part.
-      const neededUpgraderParts = optimalUpgraderWorkParts - (controllerAnchor.upgraders.counts[WORK] || 0);
-      const upgrader = neededUpgraderParts > 0 && this.findSpawnableCreep(CreepRoleName.Upgrader, body=>(
-        body.counts[WORK] > 0 &&
-        neededUpgraderParts % body.counts[WORK]
-      ), { anchor: controllerAnchor, cohort: controllerAnchor.upgraders });
-      if (upgrader) return upgrader;
+    //   // roomAudit.storedEnergy > UPGRADER_STORAGE_MIN
+    //   const upgraderEnergyPerTick = totalEnergyIncome*0.8; //Send 80% of total energy into the controller.
+    //   const optimalUpgraderWorkParts = upgraderEnergyPerTick/2; //2 energy per work part.
+    //   const neededUpgraderParts = optimalUpgraderWorkParts - (controllerAnchor.upgraders.counts[WORK] || 0);
+    //   const upgrader = neededUpgraderParts > 0 && this.findSpawnableCreep(CreepRoleName.Upgrader, body=>(
+    //     body.counts[WORK] > 0 &&
+    //     neededUpgraderParts % body.counts[WORK]
+    //   ), { anchor: controllerAnchor, cohort: controllerAnchor.upgraders });
+    //   if (upgrader) return upgrader;
 
-      //Produce couriers to ferry energy to the controller upgraders
-      const roundTrip = controllerAnchor.anchor.pos.getRangeTo(this.homeAudit.center)*2; //rough range estimate
-      const optimalCourierParts = Math.ceil((roundTrip*upgraderEnergyPerTick)/50); //can carry 50 energy per carry part
-      const neededCourierParts = optimalCourierParts - (controllerAnchor.couriers.counts[CARRY] || 0);
-      const courier = neededCourierParts > 0 && this.findSpawnableCreep(CreepRoleName.Courier, body=>(
-        body.counts[CARRY] > 0 && neededCourierParts % body.counts[CARRY]
-      ), { anchor: controllerAnchor, cohort: controllerAnchor.couriers });
-      if (courier) return courier;
-    }
+    //   //Produce couriers to ferry energy to the controller upgraders
+    //   const roundTrip = controllerAnchor.anchor.pos.getRangeTo(this.homeAudit.center)*2; //rough range estimate
+    //   const optimalCourierParts = Math.ceil((roundTrip*upgraderEnergyPerTick)/50); //can carry 50 energy per carry part
+    //   const neededCourierParts = optimalCourierParts - (controllerAnchor.couriers.counts[CARRY] || 0);
+    //   const courier = neededCourierParts > 0 && this.findSpawnableCreep(CreepRoleName.Courier, body=>(
+    //     body.counts[CARRY] > 0 && neededCourierParts % body.counts[CARRY]
+    //   ), { anchor: controllerAnchor, cohort: controllerAnchor.couriers });
+    //   if (courier) return courier;
+    // }
 
-    const optimalScoutParts = 1;
-    const neededScoutParts = optimalScoutParts - (this.scouts.counts[MOVE] || 0);
-    const scout = neededScoutParts > 0 && this.findSpawnableCreep(CreepRoleName.Scout, body=>0, { cohort: this.scouts });
-    if (scout) return scout;
+    // const optimalScoutParts = 1;
+    // const neededScoutParts = optimalScoutParts - (this.scouts.counts[MOVE] || 0);
+    // const scout = neededScoutParts > 0 && this.findSpawnableCreep(CreepRoleName.Scout, body=>0, { cohort: this.scouts });
+    // if (scout) return scout;
 
     return null;
   }

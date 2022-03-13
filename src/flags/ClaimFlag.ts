@@ -28,14 +28,8 @@ export class ClaimFlag extends RemoteFlag<ClaimFlagMemory> {
     roomAudit.room.createFlag(source.pos, 'harvest:'+roomAudit.room.name);
   }
 
-  claimCreeps(){
-
-  }
-
   /* Flag name should be in the form: `claim:${roomName}` where roomName is the name of the parent room. */
   work() {
-    this.claimCreeps();
-
     // Note: this.flag.pos.findClosestByRange only works with rooms that have vision...
     switch(this.status){
       case ClaimStatus.Audit:

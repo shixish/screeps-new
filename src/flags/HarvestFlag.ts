@@ -1,5 +1,6 @@
 import { Cohort } from "utils/Cohort";
-import { CreepPriority, CreepRoleName, FlagType } from "utils/constants";
+import { CreepPriority, CreepRoleName, FlagType, USERNAME } from "utils/constants";
+import { random } from "utils/random";
 import { RemoteFlag, RemoteFlagMemory } from "./_RemoteFlag";
 
 /* Flag name should be in the form: `harvest:${roomName}` where roomName is the name of the parent room. */
@@ -20,7 +21,8 @@ interface HarvestFlagMemory extends RemoteFlagMemory{
 }
 
 export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
-  claimers?:Cohort = this.domestic ? new Cohort(this.name+'-claimers') : undefined;
+  claimers?:Cohort = this.domestic ? undefined : new Cohort(this.name+'-claimers');
+  scouts?:Cohort = this.domestic ? undefined : new Cohort(this.name+'-scouts');
 
   get status(){
     return this.memory.status ?? HarvestStatus.Audit;
@@ -40,8 +42,22 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
   }
 
   getRequestedCreep(currentPriorityLevel:CreepPriority){
-    if (!this.officeAudit) return null;
     if (currentPriorityLevel < CreepPriority.Normal) return null;
+    if (!this.officeAudit){
+      if (!this.domestic){
+        const optimalScoutParts = 1;
+        const neededScoutParts = optimalScoutParts - (this.scouts!.counts[MOVE] || 0);
+        const scout = neededScoutParts > 0 && this.findSpawnableCreep(CreepRoleName.Scout, undefined, { cohort: this.scouts });
+        if (scout) return scout;
+      }
+      return null;
+    }
+    if (!this.office?.controller?.my && this.office?.controller?.reservation && this.office?.controller?.reservation?.username !== USERNAME){
+      // if (!this.officeAudit?.flags.defend.length){
+      //   this.office.createFlag(this.office.controller.pos, `defend:${this.homeRoomName}:${random()}`);
+      // }
+      return null;
+    }
 
     //Take care of one source at a time. This way we can get it into production asap, funding other things.
     for (const sourceAnchor of this.officeAudit.sources){

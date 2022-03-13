@@ -1,8 +1,6 @@
-// var _ = require('lodash');
-// var profiler = require('screeps-profiler');
-
-// // This line monkey patches the global prototypes.
-// profiler.enable();
+/*
+  Helpful constants docs: https://wiki.screepspl.us/index.php/Useful_Constants
+*/
 
 export const DEBUG = true;
 
@@ -55,7 +53,7 @@ export enum CreepRoleName{
 };
 export const CreepRoleNames = Object.values(CreepRoleName);
 
-export const USERNAME = 'ShiXish';
+export const USERNAME = 'shixish';
 export const MIN_TICKS_TO_LIVE = 500;
 export const MAX_UNITS_METRIC = 3;
 // export const MAX_HITS_REPAIR = 1000000;

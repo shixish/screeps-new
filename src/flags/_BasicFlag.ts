@@ -94,13 +94,15 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
   //   } as SpawnableCreep : null;
   // }
 
-  findSpawnableCreep(roleName:CreepRoleName, distanceFilter:(body:CreepBody)=>number|false, attributes?:Partial<SpawnableCreep>):SpawnableCreep|null{
+  findSpawnableCreep(roleName:CreepRoleName, distanceFilter?:true|((body:CreepBody)=>number|false), attributes?:Partial<SpawnableCreep>):SpawnableCreep|null{
     const config = CreepRoles[roleName].config;
+    const energyAvailable = distanceFilter === true ? this.homeAudit.room.energyAvailable : this.homeAudit.room.energyCapacityAvailable;
+    const distanceFilterFn = typeof distanceFilter === 'function' ? distanceFilter : ()=>0; //if no distance function is provided then just find the most expensive tier to use
     const { tier } = config.tiers.reduce((out, currentTier)=>{
-      if (currentTier.body.cost > this.homeAudit.room.energyCapacityAvailable) return out;
-      const distance = distanceFilter(currentTier.body);
-      if (distance === false) return out;
-      if (out.distance === false || distance <= out.distance){
+      if (currentTier.body.cost > energyAvailable) return out;
+      const distance = distanceFilterFn(currentTier.body);
+      if (distance === false) return out; //false means this is an invalid tier
+      if (out.distance === false || distance <= out.distance){ //distance of 0 indicates a perfect match
         out.tier = currentTier;
         out.distance = distance;
       }
@@ -154,10 +156,10 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
   //   this.memory.followers.push(creepName);
   // }
 
-  // remove(){
-  //   if (this.flag) this.flag.remove();
-  //   delete Memory.flags[this.flagName];
-  // }
+  remove(){
+    if (this.flag) this.flag.remove();
+    delete Memory.flags[this.flagName];
+  }
 
   toJSON(){
     return {

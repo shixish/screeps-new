@@ -658,6 +658,7 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
     if (!source || source.energy === 0) return null;
     const manageHarvestAction = (action:ScreepsReturnCode)=>{
       if (action === ERR_NOT_ENOUGH_ENERGY) return false; //This happens if you have too many miners on a source
+      if (action === ERR_NOT_OWNER) return false; //This happens to remote harvesters in a room that gets reserved someone else (Invaders)
       return this.manageActionCode(action);
     };
     if (this.moveWithinRange(source.pos, 1) || manageHarvestAction(this.harvest(source))){
