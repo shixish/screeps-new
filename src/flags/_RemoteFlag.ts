@@ -9,7 +9,6 @@ export interface RemoteFlagMemory extends BasicFlagMemory{
 export abstract class RemoteFlag<AbstractFlagMemory extends RemoteFlagMemory = RemoteFlagMemory> extends BasicFlag<AbstractFlagMemory> {
   /* Flag name should be in the form: `${flag.type}:${room.name}` where room is the parent (spawner) room. */
   officeAudit?:RoomAudit;
-  homeRoomName!:Room['name'];
   domestic:boolean;
 
   constructor(flagName: Flag['name'], type: FlagType, suffix?: string) {
@@ -25,17 +24,12 @@ export abstract class RemoteFlag<AbstractFlagMemory extends RemoteFlagMemory = R
     return options;
   }
 
-  get home(){
-    return Game.rooms[this.homeRoomName];
+  get officeIsHostile(){
+    return Memory.rooms[this.roomName].hostile ?? false;
   }
 
   get office(){
     return this.flag.room;
-  }
-
-  get roomName(){
-    //This works even if this.flag.room doesn't exist yet. (Don't have vision)
-    return this.flag.pos.roomName;
   }
 
   // work() {

@@ -7,7 +7,7 @@
 import { CreepPriority, CreepRoleName, CreepRoleNames, FlagType } from "utils/constants";
 import { Anchor, CreepControllerAnchor, CreepMineralAnchor, SourceAnchor, GenericAnchorType } from "utils/Anchor";
 import { diamondCoordinates, diamondRingCoordinates, findDiamondPlacement, getBestCentralLocation, getBestContainerLocation, getSpawnRoadPath, getStructureCostMatrix } from "utils/map";
-import { getRoomAudit, roomAuditCache } from "../utils/tickCache";
+import { getRoomAudit, getRoomFlags, roomAuditCache } from "../utils/tickCache";
 import { CreepRoles } from "./creeps";
 
 // const getStorageLocation = (room:Room)=>{
@@ -39,19 +39,19 @@ import { CreepRoles } from "./creeps";
 // }
 
 export class RoomAudit{
-  room:Room;
-  controller?:CreepControllerAnchor;
-  controllerLevel:number;
-  storedEnergy:number;
-  storedMineral:number;
-  sources:SourceAnchor[];
-  creeps:Creep[];
-  hostileCreeps:Creep[];
-  flags:{[T in FlagType]: InstanceType<FlagManagers[T]>[]} = Object.values(FlagType).reduce((out, key)=>{
-    out[key] = []; //initialize the flags arrays
-    return out;
-  }, {} as RoomAudit['flags']);
-  constructionSites:ConstructionSite[];
+  room: Room;
+  controller?: CreepControllerAnchor;
+  controllerLevel: number;
+  storedEnergy: number;
+  storedMineral: number;
+  sources: SourceAnchor[];
+  creeps: Creep[];
+  hostileCreeps: Creep[];
+  hostileStructures: Structure[];
+  // flags: {[T in FlagType]: InstanceType<FlagManagers[T]>[]} = Object.values(FlagType).reduce((out, key)=>{
+  //   out[key] = []; //initialize the flags arrays
+  //   return out;
+  // }, {} as RoomAudit['flags']);
 
   constructor(room:Room){
     // this.name=room.name;
@@ -63,7 +63,17 @@ export class RoomAudit{
     this.sources = this.getSources();
     this.creeps = room.find(FIND_MY_CREEPS);
     this.hostileCreeps = room.find(FIND_HOSTILE_CREEPS);
-    this.constructionSites = room.find(FIND_MY_CONSTRUCTION_SITES);
+    this.hostileStructures = room.find(FIND_HOSTILE_STRUCTURES);
+
+    this.memory.hostile = this.hostileCreeps.length > 0;
+  }
+
+  get memory(){
+    return this.room.memory;
+  }
+
+  get flags(){
+    return getRoomFlags(this.room.name) || {} as RoomFlags;
   }
 
   protected _creepCountsByRole:Record<CreepRoleName, number>|undefined;
@@ -145,6 +155,7 @@ export class RoomAudit{
   getHighestSpawnableFlagCreep(){
     let highestSpawnableCreep:SpawnableCreep|null = null;
     let currentPriorityLevel:CreepPriority = CreepPriority.Low;
+    console.log(`this.flags`, JSON.stringify(this.flags, null, 2));
     for (const ft in this.flags){
       const flags = this.flags[ft as FlagType];
       for (let flag of flags){

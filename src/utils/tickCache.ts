@@ -1,3 +1,5 @@
+import { FlagType } from "./constants";
+
 export type ClaimableConstant = ResourceConstant|'repair';
 type TickCache = {
   claimedQuantities?: {
@@ -8,6 +10,7 @@ export const objectCache = new Map<string, TickCache>();
 export const roomAuditCache = new Map<Room["name"], RoomAudit>();
 export const creepAnchorCache = new Map<Id<StructureConstant>, CreepAnchor>();
 export const flagManagerCache = new Map<Flag['name'], BasicFlag>();
+export const flagHomeCache = new Map<Room["name"], RoomFlags>();
 
 const DEBUG_IDS:string[] = [];
 
@@ -61,6 +64,15 @@ export function getFlagManager(flagOrName:Flag|Flag['name']){
   return flagManagerCache.get(flagName);
 }
 
+export function getRoomFlags(roomName:Room['name']){
+  const roomFlags = flagHomeCache.get(roomName) || Object.values(FlagType).reduce((out, key)=>{
+    out[key] = []; //initialize the flags arrays
+    return out;
+  }, {} as RoomFlags);
+  if (!flagHomeCache.has(roomName)) flagHomeCache.set(roomName, roomFlags);
+  return roomFlags;
+}
+
 export const clearTickCache = ()=>{
   objectCache.clear();
   roomAuditCache.clear();
@@ -70,5 +82,6 @@ export const clearTickCache = ()=>{
       flagManager.remove();
     }
   });
+  flagHomeCache.clear();
   flagManagerCache.clear();
 };

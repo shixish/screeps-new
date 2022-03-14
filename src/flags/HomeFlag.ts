@@ -1,5 +1,5 @@
 import { Cohort } from "utils/Cohort";
-import { CreepRoleName } from "utils/constants";
+import { CreepPriority, CreepRoleName } from "utils/constants";
 import { diamondCoordinates, diamondRingCoordinates, findDiamondPlacement, getBestContainerLocation, getSpawnRoadPath, getStructureCostMatrix } from "utils/map";
 import { BasicFlag, BasicFlagMemory } from "./_BasicFlag";
 
@@ -314,7 +314,7 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     }
   }
 
-  getRequestedCreep(){
+  getRequestedCreep(currentPriorityLevel:CreepPriority){
     if (this.homeAudit.creeps.length === 0){
       return this.findSpawnableCreep(CreepRoleName.Basic, true);
     }
@@ -322,6 +322,7 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     //Upgrading uses 2 Energy per WORK part
     const totalEnergyIncome = this.homeAudit.flags.harvest.reduce((total, flag)=>total+flag.getTotalEnergyPerTick(), 0);
 
+    if (currentPriorityLevel < CreepPriority.Low) return null;
     if (this.homeAudit.controller){
       const controllerAnchor = this.homeAudit.controller;
 
@@ -384,7 +385,7 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     }
 
     try{
-      if (controllerLevel >= this.buildStage && this.homeAudit.constructionSites.length === 0 && this.buildQueue.length === 0){
+      if (controllerLevel >= this.buildStage && this.home.find(FIND_MY_CONSTRUCTION_SITES).length === 0 && this.buildQueue.length === 0){
         this.createConstructionSites();
       }
     }catch(e:any){

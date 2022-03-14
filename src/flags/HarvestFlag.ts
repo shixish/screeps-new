@@ -46,24 +46,29 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
   }
 
   getRequestedCreep(currentPriorityLevel:CreepPriority){
+    console.log(`test`);
     if (currentPriorityLevel < CreepPriority.Normal) return null;
-    if (!this.officeAudit){
-      if (!this.domestic){
-        const optimalScoutParts = 1;
-        const neededScoutParts = optimalScoutParts - (this.scouts!.counts[MOVE] || 0);
-        const scout = neededScoutParts > 0 && this.findSpawnableCreep(CreepRoleName.Scout, undefined, { cohort: this.scouts });
-        if (scout) return scout;
-      }
-      return null;
-    }
-    if (this.officeAudit.sources[0].isInvaded){
+    // if (!this.officeAudit){
+    //   if (!this.domestic){
+    //     const optimalScoutParts = 1;
+    //     const neededScoutParts = optimalScoutParts - (this.scouts!.counts[MOVE] || 0);
+    //     const scout = neededScoutParts > 0 && this.findSpawnableCreep(CreepRoleName.Scout, undefined, { cohort: this.scouts });
+    //     if (scout) return scout;
+    //   }
+    //   return null;
+    // }
+
+    if (this.officeIsHostile){
+      console.log(`this.officeAudit.flags.defend.length`, this.officeAudit?.flags.defend.length);
       if (!this.officeAudit?.flags.defend.length){
         //This is spawning infinite flags! Whoops...
 
-        // this.office!.createFlag(this.office!.controller!.pos, `defend:${this.homeRoomName}:${random()}`);
+        this.office!.createFlag(this.office!.controller!.pos, `defend:${this.homeRoomName}:${random()}`);
       }
       return null;
     }
+
+    if (!this.officeAudit) return null;
 
     //Take care of one source at a time. This way we can get it into production asap, funding other things.
     for (const sourceAnchor of this.officeAudit.sources){

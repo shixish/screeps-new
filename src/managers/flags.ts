@@ -1,5 +1,6 @@
-import { flagManagerCache } from "utils/tickCache";
+import { flagHomeCache, flagManagerCache, getRoomFlags } from "utils/tickCache";
 import { FlagType } from "utils/constants";
+import { RemoteFlag } from "flags/_RemoteFlag";
 import { HomeFlag } from "flags/HomeFlag";
 import { ClaimFlag } from "flags/ClaimFlag";
 import { BuildFlag } from "flags/BuildFlag";
@@ -59,7 +60,8 @@ export const manageFlags = ()=>{
     try{
       const flagManager = initFlagManager(flagName);
       if (flagManager){
-        flagManagerCache.set(flagName, flagManager);
+        const roomFlags = getRoomFlags(flagManager.homeRoomName);
+        (roomFlags[flagManager.type] as BasicFlag[]).push(flagManager);
         flagManager.work();
       }
     }catch(e:any){

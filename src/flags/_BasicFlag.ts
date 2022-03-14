@@ -13,6 +13,7 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
   type: FlagType;
   suffix: string | undefined;
   homeAudit!:RoomAudit;
+  homeRoomName!:Room['name'];
 
   // followerRoleCounts = {} as Partial<Record<CreepRoleName, number>>;
   // maxFollowersByRole = {} as Partial<Record<CreepRoleName, number>>;
@@ -32,13 +33,12 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
     //   }
     //   return false;
     // });
-    const roomAudit = getRoomAudit(this.home);
-    (roomAudit.flags[this.type] as BasicFlag[]).push(this);
-    this.homeAudit = roomAudit;
+    this.homeAudit = getRoomAudit(this.home);
   }
 
   parseSuffix(suffix?: string){
-    //Used by remote flags
+    //Basic flags can only be placed within their home room.
+    this.homeRoomName = this.roomName;
     return suffix;
   }
 
@@ -66,9 +66,8 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
     return this.flag.pos.roomName;
   }
 
-  get home() {
-    //Basic flags can only be placed within their home room.
-    return this.flag.room!;
+  get home(){
+    return Game.rooms[this.homeRoomName];
   }
 
   get followers() {

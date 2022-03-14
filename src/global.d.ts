@@ -26,6 +26,8 @@ declare global {
   type FlagManagerTypes = InstanceType<FlagManagers[FlagType]>;
   // type FlagManagerTypes = InstanceType<typeof import('managers/flags').FlagManagers[FlagType]>;
 
+  type RoomFlags = {[T in FlagType]: InstanceType<FlagManagers[T]>[]};
+
 //   /*
 //     Example types, expand on these or remove them and add your own.
 //     Note: Values, properties defined here do no fully *exist* by this type definiton alone.
@@ -148,7 +150,7 @@ declare global {
   // }
 
   interface RoomMemory{
-    // structures:string[];
+    hostile: boolean;
     center: { x:number, y:number };
     sources: Id<Source>[];
     mineral: Id<Mineral>|null;
