@@ -23,7 +23,7 @@ export class UpgraderCreep extends BasicCreep {
           CARRY, CARRY,
           MOVE,
         ], 350),
-        max: (roomAudit:RoomAudit)=>roomAudit.controller?.containers.length ? 3 : 0,
+        // max: (roomAudit:RoomAudit)=>roomAudit.controller?.containers.length ? 3 : 0,
       },
       {
         body: new CreepBody([ //Uses 4*2=8 energy per tick
@@ -31,10 +31,17 @@ export class UpgraderCreep extends BasicCreep {
           CARRY, CARRY,
           MOVE,
         ], 550),
-        max: (roomAudit:RoomAudit)=>{
-          if (!roomAudit.controller?.containers.length) return 0;
-          return Math.min(2 + roomAudit.flags.harvest.length, 5);
-        }
+        // max: (roomAudit:RoomAudit)=>{
+        //   if (!roomAudit.controller?.containers.length) return 0;
+        //   return Math.min(2 + roomAudit.flags.harvest.length, 5);
+        // }
+      },
+      {
+        body: new CreepBody([
+          WORK, WORK, WORK, WORK, WORK, WORK,
+          CARRY, CARRY,
+          MOVE, MOVE,
+        ], 800),
       },
       {
         body: new CreepBody([ //Uses 10 energy per tick
@@ -49,7 +56,7 @@ export class UpgraderCreep extends BasicCreep {
         // },
       },
       { //This will consume 15 energy per tick. 1 Source gives 10 energy per tick. This might be too much...
-        requires: roomAudit=>roomAudit.storedEnergy > UPGRADER_STORAGE_MIN,
+        // requires: roomAudit=>roomAudit.storedEnergy > UPGRADER_STORAGE_MIN,
         body: new CreepBody([
           WORK, WORK, WORK, WORK, WORK,
           WORK, WORK, WORK, WORK, WORK,

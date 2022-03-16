@@ -10,13 +10,6 @@ export class RemoteCourierCreep extends BasicCreep<HarvestFlag> {
     authority: 2,
     tiers: [
       {
-        /*
-          TODO:
-          Add an effectiveness ratio number. The first tier is effectiveness = 1
-          Second teir might be twice as effective (double the revelant parts) so effectiveness = 2
-          The spawner/flag creep counting system can then use these units instead of
-          individual creep counts to determine how many of a particular tier to produce
-        */
         body: new CreepBody([
           CARRY, MOVE,
           CARRY, MOVE,
@@ -24,16 +17,28 @@ export class RemoteCourierCreep extends BasicCreep<HarvestFlag> {
           CARRY, MOVE,
         ], 400),
       },
-      // {
-      //   body: new CreepBody([
-      //     CARRY, MOVE,
-      //     CARRY, MOVE,
-      //     CARRY, MOVE,
-      //     CARRY, MOVE,
-      //     CARRY, MOVE,
-      //     CARRY, MOVE,
-      //   ], 600),
-      // },
+      {
+        body: new CreepBody([
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+        ], 600),
+      },
+      {
+        body: new CreepBody([
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+        ], 800),
+      },
     ],
     // getCreepFlag: (roomAudit:RoomAudit)=>{
     //   return roomAudit.flags[FlagType.Harvest].find(flagManager=>{

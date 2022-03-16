@@ -16,7 +16,7 @@ interface HarvestSourceData{
 
 interface HarvestFlagMemory extends RemoteFlagMemory{
   status?: HarvestStatus;
-  sourceData:Record<string, HarvestSourceData>; //Source['id']
+  sourceData: {[id: string]: HarvestSourceData}; //(Id<Source>)
   totalMoveCost: number;
 }
 
@@ -46,17 +46,7 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
   }
 
   getRequestedCreep(currentPriorityLevel:CreepPriority){
-    console.log(`test`);
     if (currentPriorityLevel < CreepPriority.Normal) return null;
-    // if (!this.officeAudit){
-    //   if (!this.domestic){
-    //     const optimalScoutParts = 1;
-    //     const neededScoutParts = optimalScoutParts - (this.scouts!.counts[MOVE] || 0);
-    //     const scout = neededScoutParts > 0 && this.findSpawnableCreep(CreepRoleName.Scout, undefined, { cohort: this.scouts });
-    //     if (scout) return scout;
-    //   }
-    //   return null;
-    // }
 
     if (this.officeIsHostile){
       console.log(`this.officeAudit.flags.defend.length`, this.officeAudit?.flags.defend.length);
@@ -68,17 +58,25 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
       return null;
     }
 
-    if (!this.officeAudit) return null;
+    if (!this.officeAudit){
+      if (!this.domestic){
+        const optimalScoutParts = 1;
+        const neededScoutParts = optimalScoutParts - (this.scouts!.counts[MOVE] || 0);
+        const scout = neededScoutParts > 0 && this.findSpawnableCreep(CreepRoleName.Scout, undefined, { cohort: this.scouts });
+        if (scout) return scout;
+      }
+      return null;
+    }
 
     //Take care of one source at a time. This way we can get it into production asap, funding other things.
     for (const sourceAnchor of this.officeAudit.sources){
       // console.log(`sourceAnchor.harvesters.counts`, JSON.stringify(sourceAnchor.harvesters.counts));
       const optimalHarvesterParts = sourceAnchor.getOptimalWorkParts();
       const neededHarvesterParts = optimalHarvesterParts - (sourceAnchor.harvesters.counts[WORK] || 0);
-      // this.flag.room?.visual.text(`Harvester: ${optimalHarvesterParts} - ${neededHarvesterParts}`, this.flag.pos.x, this.flag.pos.y+2);
+      // this.flag.room?.visual.text(`Harvester: ${optimalHarvesterParts} - ${neededHarvesterParts} = ${neededHarvesterParts}`, sourceAnchor.pos.x, sourceAnchor.pos.y+1, { font: 0.25 });
 
       const harvester = neededHarvesterParts > 0 && sourceAnchor.availableSeats > 0 && this.findSpawnableCreep(CreepRoleName.Harvester, body=>(
-        body.counts[WORK] > 0 &&
+        neededHarvesterParts >= body.counts[WORK] &&
         (this.domestic ? body.counts[MOVE] === 1 : body.counts[MOVE] >= 2) &&
         neededHarvesterParts / body.counts[WORK] <= sourceAnchor.totalSeats &&
         neededHarvesterParts % body.counts[WORK]
@@ -87,20 +85,48 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
 
       // 3000 energy nodes can optimially mine at 10 energy per tick, so 1500 nodes are 5 per tick
       const energyPerTick = sourceAnchor.getOptimalEnergyPerTick();
-      const roundTrip = this.memory.totalMoveCost*2; //ticks (both directions)
-      const optimalCourierParts = Math.ceil((roundTrip*energyPerTick)/50); //can carry 50 energy per carry part
+      const moveCost = this.sourceData[sourceAnchor.id].pathCost*2; //ticks (both directions)
+      // const moveCost = this.memory.totalMoveCost; //This is the sum of both sources. This makes the math a little simpler which may help keep creep sizes whole/large
+      const optimalCourierParts = Math.ceil((moveCost*energyPerTick)/50); //can carry 50 energy per carry part
       const neededCourierParts = optimalCourierParts - (sourceAnchor.couriers.counts[CARRY] || 0);
-      // this.flag.room?.visual.text(`Courier: ${optimalCourierParts} - ${neededCourierParts}`, this.flag.pos.x, this.flag.pos.y+3);
+      // this.flag.room?.visual.text(`Courier: ${optimalCourierParts} - ${neededCourierParts} = ${neededCourierParts}`, sourceAnchor.pos.x, sourceAnchor.pos.y+1.5, { font: 0.25 });
 
       const courierType = this.domestic ? CreepRoleName.Courier : CreepRoleName.RemoteCourier;
       const courier = neededCourierParts > 0 && this.findSpawnableCreep(courierType, body=>(
-        body.counts[CARRY] > 0 && neededCourierParts % body.counts[CARRY]
+        neededCourierParts >= body.counts[CARRY] &&
+        neededCourierParts % body.counts[CARRY]
       ), { anchor: sourceAnchor, cohort: sourceAnchor.couriers });
-      if (courier) return courier;
+      if (courier){
+        console.log(`Need a courier: ${neededCourierParts} - ${courier.tier.body.counts[CARRY]}`);
+        return courier;
+      }
     }
 
-    if (!this.domestic){
-      // console.log(`claimer`);
+    // const energyPerTick = this.getTotalEnergyPerTick();
+    // // 3000 energy nodes can optimially mine at 10 energy per tick, so 1500 nodes are 5 per tick
+    // const moveCost = this.memory.totalMoveCost; //This is the sum of both sources. This makes the math a little simpler which may help keep creep sizes whole/large
+    // const optimalCourierParts = Math.ceil((moveCost*energyPerTick)/50); //can carry 50 energy per carry part
+    // const neededCourierParts = optimalCourierParts - (sourceAnchor.couriers.counts[CARRY] || 0);
+    // this.flag.room?.visual.text(`Courier: ${optimalCourierParts} - ${neededCourierParts} = ${neededCourierParts}`, sourceAnchor.pos.x, sourceAnchor.pos.y+1.5, { font: 0.25 });
+
+    // const courierType = this.domestic ? CreepRoleName.Courier : CreepRoleName.RemoteCourier;
+    // const courier = neededCourierParts > 0 && this.findSpawnableCreep(courierType, body=>(
+    //   neededCourierParts >= body.counts[CARRY] &&
+    //   neededCourierParts % body.counts[CARRY]
+    // ), { anchor: sourceAnchor, cohort: sourceAnchor.couriers });
+    // if (courier){
+    //   console.log(`Need a courier: ${neededCourierParts} - ${courier.tier.body.counts[CARRY]}`);
+    //   return courier;
+    // }
+
+    if (!this.domestic && this.claimers?.list.length === 0){ //Only make the largest single Claimer creep
+      const optimalClaimParts = 2;
+      const neededClaimParts = optimalClaimParts - (this.claimers!.counts[CLAIM] || 0);
+      const claim = neededClaimParts > 0 && this.findSpawnableCreep(CreepRoleName.Claimer, body=>(
+        neededClaimParts >= body.counts[CLAIM] &&
+        neededClaimParts % body.counts[CLAIM]
+      ), { cohort: this.claimers });
+      if (claim) return claim;
     }
 
     // if (sourceCount > 1){
@@ -135,7 +161,7 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
   }
 
   audit(){
-    if (this.status !== HarvestStatus.Audit || !this.officeAudit) return;
+    if (!this.officeAudit) return;
 
     const exit = this.office?.findExitTo(this.home) as ExitConstant;
     const getExitRange = (source:CreepSourceAnchor)=>source.anchor.pos.findClosestByRange(exit)!.getRangeTo(source);
@@ -184,19 +210,21 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
       });
     };
 
-    let totalMoveCost = 0;
+    //Make construction zones to each source. This will make the second pass cheaper.
     sources.forEach(source=>{
-      // const sourceFlagName = FlagType.Harvest+':'+this.office!.name+':'+source.id;
-      // const sourceFlag = Game.flags[sourceFlagName] || this.office!.createFlag(source.pos, sourceFlagName);
       const path:PathFinderPath = getPathToSource(source);
-      paths.push(path); //This will allow the second source to use the path drawn for the first source.
-      // Room.serializePath(path);
+      paths.push(path); //This will allow future paths to reuse these cheaper paths
       path.path.forEach(step=>{
         const room = Game.rooms[step.roomName];
         room.createConstructionSite(step.x, step.y, STRUCTURE_ROAD);
         room.visual.circle(step.x, step.y);
       });
-      // source.stepCount = path.ops;
+    });
+
+    let totalMoveCost = 0;
+    sources.forEach(source=>{
+      //We have to run it again otherwise the counts come out too high since they weren't calculated with the lower path weights
+      const path:PathFinderPath = getPathToSource(source);
       this.sourceData[source.id] = { pathCost: path.cost };
       totalMoveCost += path.cost;
     });
@@ -259,6 +287,9 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
   // }
 
   work() {
+    if (this.officeAudit) for (const sourceAnchor of this.officeAudit.sources){
+      this.flag.room?.visual.text(`${this.sourceData[sourceAnchor.id].pathCost}`, sourceAnchor.pos.x, sourceAnchor.pos.y-1, { font: 0.5 });
+    }
     if (this.status === HarvestStatus.Audit) this.audit();
   }
 

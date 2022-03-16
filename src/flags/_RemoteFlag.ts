@@ -25,7 +25,7 @@ export abstract class RemoteFlag<AbstractFlagMemory extends RemoteFlagMemory = R
   }
 
   get officeIsHostile(){
-    return Memory.rooms[this.roomName].hostile ?? false;
+    return Memory.rooms[this.roomName]?.hostile ?? false;
   }
 
   get office(){

@@ -22,6 +22,12 @@ export class ClaimerCreep extends BasicCreep<ClaimFlag> {
           MOVE
         ], 650),
       },
+      {
+        body: new CreepBody([
+          CLAIM, MOVE,
+          CLAIM, MOVE,
+        ], 1300),
+      },
     ],
     // getCreepFlag: (roomAudit)=>{
     //   return roomAudit.flags[FlagType.Claim].find(flagManager=>{

@@ -62,7 +62,7 @@ export abstract class Anchor<
     return (Memory.anchors[this.id] || (Memory.anchors[this.id] = {})) as AbstractAnchorMemory;
   }
 
-  get id(){
+  get id():AnchorType['id']{
     return this.anchor.id;
   }
 

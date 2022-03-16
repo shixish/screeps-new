@@ -62,6 +62,7 @@ export const manageFlags = ()=>{
       if (flagManager){
         const roomFlags = getRoomFlags(flagManager.homeRoomName);
         (roomFlags[flagManager.type] as BasicFlag[]).push(flagManager);
+        flagManagerCache.set(flagName, flagManager);
         flagManager.work();
       }
     }catch(e:any){

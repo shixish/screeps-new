@@ -84,9 +84,6 @@ export class CourierCreep extends BasicCreep {
           CARRY, MOVE,
           CARRY, MOVE,
         ], 1200),
-        max: (roomAudit)=>{
-          return roomAudit.sources.length;
-        },
       },
     ]
   }

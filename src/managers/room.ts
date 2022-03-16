@@ -155,7 +155,6 @@ export class RoomAudit{
   getHighestSpawnableFlagCreep(){
     let highestSpawnableCreep:SpawnableCreep|null = null;
     let currentPriorityLevel:CreepPriority = CreepPriority.Low;
-    console.log(`this.flags`, JSON.stringify(this.flags, null, 2));
     for (const ft in this.flags){
       const flags = this.flags[ft as FlagType];
       for (let flag of flags){

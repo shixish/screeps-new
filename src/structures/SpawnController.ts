@@ -63,12 +63,10 @@ export class SpawnController extends StructureSpawn{
         // console.log(`Creep Counts:`, JSON.stringify(roomAudit.creepCountsByRole, null, 2));
         console.log(`Spawning ${role} creep (cost:${tier.body.cost}) in [${this.room.name}]`);// with memory:`, JSON.stringify(options, null, 2));
         //Inflate the number now so that any other spawns in the room don't try to build the same thing. This is only sufficient for this tick. The room audit needs to count creeps being produced in spawns.
-        roomAudit.creepCountsByRole[role]++;
+        roomAudit.creepCountsByRole[role]++; //TODO: This can likely be deprecated
         console.log(`New ${role} creep count:`, roomAudit.creepCountsByRole[role]);
         this.spawnCreep(tier.body.parts, creepName, options);
-        if (cohort){
-          cohort.push(creepName);
-        }
+        if (cohort) cohort.push(creepName); //Track the creep cohort allocation
       }
     }
   }
