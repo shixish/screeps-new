@@ -11,6 +11,7 @@ import { RemoteWorkerCreep } from "creeps/RemoteWorkerCreep";
 import { MinerCreep } from "creeps/MinerCreep";
 import { MeleeCreep } from "creeps/MeleeCreep";
 import { random } from "utils/random";
+import { RemoteBuilderCreep } from "creeps/RemoteBuilderCreep";
 
 export const CreepRoles = { //:Record<CreepRoleName, typeof BasicCreep>
   //Combat creeps first:
@@ -29,6 +30,7 @@ export const CreepRoles = { //:Record<CreepRoleName, typeof BasicCreep>
   [CreepRoleName.RemoteHarvester]: RemoteHarvesterCreep,
   [CreepRoleName.RemoteCourier]: RemoteCourierCreep,
   [CreepRoleName.RemoteWorker]: RemoteWorkerCreep,
+  [CreepRoleName.RemoteBuilder]: RemoteBuilderCreep,
 } as const;
 
 export class SpawnableCreep{

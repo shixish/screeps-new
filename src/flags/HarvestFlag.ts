@@ -22,6 +22,7 @@ interface HarvestFlagMemory extends RemoteFlagMemory{
 
 export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
   claimers?:Cohort = this.domestic ? undefined : new Cohort(this.name+'-claimers');
+  builders?:Cohort = this.domestic ? undefined : new Cohort(this.name+'-builders');
   scouts?:Cohort = this.domestic ? undefined : new Cohort(this.name+'-scouts');
 
   get status(){
@@ -68,94 +69,79 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
       return null;
     }
 
-    //Take care of one source at a time. This way we can get it into production asap, funding other things.
-    for (const sourceAnchor of this.officeAudit.sources){
-      // console.log(`sourceAnchor.harvesters.counts`, JSON.stringify(sourceAnchor.harvesters.counts));
-      const optimalHarvesterParts = sourceAnchor.getOptimalWorkParts();
-      const neededHarvesterParts = optimalHarvesterParts - (sourceAnchor.harvesters.counts[WORK] || 0);
-      // this.flag.room?.visual.text(`Harvester: ${optimalHarvesterParts} - ${neededHarvesterParts} = ${neededHarvesterParts}`, sourceAnchor.pos.x, sourceAnchor.pos.y+1, { font: 0.25 });
+    //Mining too much and not spending it gets things clogged up...
+    if (this.domestic || this.home.storage && this.home.storage.store.getFreeCapacity() > 5000){
+      //Take care of one source at a time. This way we can get it into production asap, funding other things.
+      for (const sourceAnchor of this.officeAudit.sources){
+        // console.log(`sourceAnchor.harvesters.counts`, JSON.stringify(sourceAnchor.harvesters.counts));
+        const optimalHarvesterParts = sourceAnchor.getOptimalWorkParts();
+        const neededHarvesterParts = optimalHarvesterParts - (sourceAnchor.harvesters.counts[WORK] || 0);
+        // this.flag.room?.visual.text(`Harvester: ${optimalHarvesterParts} - ${neededHarvesterParts} = ${neededHarvesterParts}`, sourceAnchor.pos.x, sourceAnchor.pos.y+1, { font: 0.25 });
 
-      const harvester = neededHarvesterParts > 0 && sourceAnchor.availableSeats > 0 && this.findSpawnableCreep(CreepRoleName.Harvester, body=>(
-        neededHarvesterParts >= body.counts[WORK] &&
-        (this.domestic ? body.counts[MOVE] === 1 : body.counts[MOVE] >= 2) &&
-        neededHarvesterParts / body.counts[WORK] <= sourceAnchor.totalSeats &&
-        neededHarvesterParts % body.counts[WORK]
-      ), { anchor: sourceAnchor, cohort: sourceAnchor.harvesters });
-      if (harvester) return harvester;
+        const harvester = neededHarvesterParts > 0 && sourceAnchor.availableSeats > 0 && this.findSpawnableCreep(CreepRoleName.Harvester, body=>(
+          neededHarvesterParts >= body.counts[WORK] &&
+          (this.domestic ? body.counts[MOVE] === 1 : body.counts[MOVE] >= 2) &&
+          neededHarvesterParts / body.counts[WORK] <= sourceAnchor.totalSeats &&
+          neededHarvesterParts % body.counts[WORK]
+        ), { anchor: sourceAnchor, cohort: sourceAnchor.harvesters });
+        if (harvester) return harvester;
 
-      // 3000 energy nodes can optimially mine at 10 energy per tick, so 1500 nodes are 5 per tick
-      const energyPerTick = sourceAnchor.getOptimalEnergyPerTick();
-      const moveCost = this.sourceData[sourceAnchor.id].pathCost*2; //ticks (both directions)
-      // const moveCost = this.memory.totalMoveCost; //This is the sum of both sources. This makes the math a little simpler which may help keep creep sizes whole/large
-      const optimalCourierParts = Math.ceil((moveCost*energyPerTick)/50); //can carry 50 energy per carry part
-      const neededCourierParts = optimalCourierParts - (sourceAnchor.couriers.counts[CARRY] || 0);
-      // this.flag.room?.visual.text(`Courier: ${optimalCourierParts} - ${neededCourierParts} = ${neededCourierParts}`, sourceAnchor.pos.x, sourceAnchor.pos.y+1.5, { font: 0.25 });
+        // 3000 energy nodes can optimially mine at 10 energy per tick, so 1500 nodes are 5 per tick
+        const energyPerTick = sourceAnchor.getOptimalEnergyPerTick();
+        const moveCost = this.sourceData[sourceAnchor.id].pathCost*2; //ticks (both directions)
+        // const moveCost = this.memory.totalMoveCost; //This is the sum of both sources. This makes the math a little simpler which may help keep creep sizes whole/large
+        const optimalCourierParts = Math.ceil((moveCost*energyPerTick)/50); //can carry 50 energy per carry part
+        const neededCourierParts = optimalCourierParts - (sourceAnchor.couriers.counts[CARRY] || 0);
+        // this.flag.room?.visual.text(`Courier: ${optimalCourierParts} - ${neededCourierParts} = ${neededCourierParts}`, sourceAnchor.pos.x, sourceAnchor.pos.y+1.5, { font: 0.25 });
 
-      const courierType = this.domestic ? CreepRoleName.Courier : CreepRoleName.RemoteCourier;
-      const courier = neededCourierParts > 0 && this.findSpawnableCreep(courierType, body=>(
-        neededCourierParts >= body.counts[CARRY] &&
-        neededCourierParts % body.counts[CARRY]
-      ), { anchor: sourceAnchor, cohort: sourceAnchor.couriers });
-      if (courier){
-        console.log(`Need a courier: ${neededCourierParts} - ${courier.tier.body.counts[CARRY]}`);
-        return courier;
+        const courierType = this.domestic ? CreepRoleName.Courier : CreepRoleName.RemoteCourier;
+        const courier = neededCourierParts > 0 && this.findSpawnableCreep(courierType, body=>(
+          neededCourierParts >= body.counts[CARRY] &&
+          neededCourierParts % body.counts[CARRY]
+        ), { anchor: sourceAnchor, cohort: sourceAnchor.couriers });
+        if (courier){
+          // console.log(`Need a courier: ${neededCourierParts} - ${courier.tier.body.counts[CARRY]}`);
+          return courier;
+        }
       }
     }
 
-    // const energyPerTick = this.getTotalEnergyPerTick();
-    // // 3000 energy nodes can optimially mine at 10 energy per tick, so 1500 nodes are 5 per tick
-    // const moveCost = this.memory.totalMoveCost; //This is the sum of both sources. This makes the math a little simpler which may help keep creep sizes whole/large
-    // const optimalCourierParts = Math.ceil((moveCost*energyPerTick)/50); //can carry 50 energy per carry part
-    // const neededCourierParts = optimalCourierParts - (sourceAnchor.couriers.counts[CARRY] || 0);
-    // this.flag.room?.visual.text(`Courier: ${optimalCourierParts} - ${neededCourierParts} = ${neededCourierParts}`, sourceAnchor.pos.x, sourceAnchor.pos.y+1.5, { font: 0.25 });
+    if (!this.domestic){
+      if (this.claimers?.list.length === 0){ //Only make the largest single Claimer creep
+        const optimalClaimParts = 2;
+        const neededClaimParts = optimalClaimParts - (this.claimers!.counts[CLAIM] || 0);
+        const claimer = neededClaimParts > 0 && this.findSpawnableCreep(CreepRoleName.Claimer, body=>(
+          neededClaimParts >= body.counts[CLAIM] &&
+          neededClaimParts % body.counts[CLAIM]
+        ), { cohort: this.claimers });
+        if (claimer) return claimer;
+      }
 
-    // const courierType = this.domestic ? CreepRoleName.Courier : CreepRoleName.RemoteCourier;
-    // const courier = neededCourierParts > 0 && this.findSpawnableCreep(courierType, body=>(
-    //   neededCourierParts >= body.counts[CARRY] &&
-    //   neededCourierParts % body.counts[CARRY]
-    // ), { anchor: sourceAnchor, cohort: sourceAnchor.couriers });
-    // if (courier){
-    //   console.log(`Need a courier: ${neededCourierParts} - ${courier.tier.body.counts[CARRY]}`);
-    //   return courier;
-    // }
+      const constructionProgress = this.office!.find(FIND_MY_CONSTRUCTION_SITES).reduce((out, structure)=>out + (structure.progressTotal-structure.progress), 0) || 0;
+      const repairableHits = this.office!.find(FIND_STRUCTURES, {
+        filter: structure=>{
+          return structure.structureType === STRUCTURE_ROAD || structure.structureType === STRUCTURE_CONTAINER
+        }
+      }).reduce((out, structure)=>out + (structure.hitsMax-structure.hits), 0);
 
-    if (!this.domestic && this.claimers?.list.length === 0){ //Only make the largest single Claimer creep
-      const optimalClaimParts = 2;
-      const neededClaimParts = optimalClaimParts - (this.claimers!.counts[CLAIM] || 0);
-      const claimer = neededClaimParts > 0 && this.findSpawnableCreep(CreepRoleName.Claimer, body=>(
-        neededClaimParts >= body.counts[CLAIM] &&
-        neededClaimParts % body.counts[CLAIM]
-      ), { cohort: this.claimers });
-      if (claimer) return claimer;
+      /* One WORK use 1 energy/tick:
+        - build at 5 points/tick
+        - repair at 100 hits/tick
+      */
+      // 1500 ticks is how long a creep will live. It's ok to be a little wasteful if it gets the job done faster.
+
+      //Recall that building on swamp costs a lot more so the cost isn't just a function of distance.
+      const buildWork = (constructionProgress/5)/500; //500 indicates that we will be up to 3 (1500/500=3) times inefficient when initially building
+      const repairWork = repairableHits && (repairableHits/100)/1500; //Maximally efficient for repairing roads since it's not urgent.
+      const totalEnergyPerTick = this.getTotalEnergyPerTick();
+      const optimalBuilderParts = Math.ceil(Math.min(buildWork + repairWork, totalEnergyPerTick));
+      const neededBuilderParts = optimalBuilderParts - (this.builders!.counts[WORK] || 0);
+      const remoteBuilder = neededBuilderParts > 0 && this.findSpawnableCreep(CreepRoleName.RemoteBuilder, body=>(
+        neededBuilderParts >= body.counts[WORK] &&
+        neededBuilderParts % body.counts[WORK]
+      ), { cohort: this.builders });
+      if (remoteBuilder) return remoteBuilder;
     }
-
-    // if (sourceCount > 1){
-    //   this.requiredBodyPartsByRole[CreepRoleName.Claimer] = {
-    //     [CLAIM]: 1,
-    //   }
-    // }
-
-
-    // const constructionProgress = this.officeAudit.constructionSites.reduce((out, structure)=>out + (structure.progressTotal-structure.progress), 0);
-    // const repairableHits = this.office!.find(FIND_STRUCTURES, {
-    //   filter: structure=>{
-    //     return structure.structureType === STRUCTURE_ROAD || structure.structureType === STRUCTURE_CONTAINER
-    //   }
-    // }).reduce((out, structure)=>out + (structure.hitsMax-structure.hits), 0);
-
-    // /* One WORK use 1 energy/tick:
-    //   - build at 5 points/tick
-    //   - repair at 100 hits/tick
-    // */
-    // // 1500 ticks is how long a creep will live. It's ok to be a little wasteful if it gets the job done faster.
-
-    // //Recall that building on swamp costs a lot more so the cost isn't just a function of distance.
-    // const buildWork = constructionProgress && (constructionProgress/5)/500; //500 indicates that we will be up to 3 (1500/500=3) times inefficient when initially building
-    // const repairWork = repairableHits && (repairableHits/100)/1500; //Maximally efficient for repairing roads since it's not urgent.
-    // // this.totalNeededParts[WORK] = Math.ceil(Math.min(buildWork + repairWork, energyPerTick));
-    // this.requiredBodyPartsByRole[CreepRoleName.RemoteHarvester] = {
-    //   [WORK]: Math.ceil(Math.min(buildWork + repairWork, energyPerTick)),
-    // };
 
     return null;
   }

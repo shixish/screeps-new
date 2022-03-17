@@ -150,7 +150,10 @@ export class RemoteCourierCreep extends BasicCreep<HarvestFlag> {
   }
 
   work(){
-    if (!this.flag) throw `Invalid flag given to RemoteCourierCreep ${this.name}`;
+    if (!this.flag){
+      this.suicide();
+      throw `Invalid flag given to RemoteCourierCreep ${this.name}. Dying.`;
+    }
     if (!this.flag.office){
       //This indicates that we don't have vision of the room yet. Just start moving towards the flag.
       this.moveTo(this.flag.pos);

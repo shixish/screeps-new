@@ -48,6 +48,7 @@ export enum CreepRoleName{
   RemoteHarvester = 'remote-harvester',
   RemoteCourier = 'remote-courier',
   RemoteWorker = 'remote-worker',
+  RemoteBuilder = 'remote-builder',
 
   //Combat:
   Melee = 'melee',

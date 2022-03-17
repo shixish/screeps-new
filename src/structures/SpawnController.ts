@@ -37,14 +37,17 @@ export class SpawnController extends StructureSpawn{
       // const spawnableCreep = roomAudit.getPrioritySpawnableCreep();
       const spawnableCreep = roomAudit.getHighestSpawnableFlagCreep();
       if (spawnableCreep){
-        console.log(`Spawn flag creep`, JSON.stringify({
-          role: spawnableCreep.role,
-          flag: spawnableCreep.flag?.name,
-          tier: spawnableCreep.tier?.body.parts,
-          anchor: spawnableCreep.anchor?.id,
-          cohort: spawnableCreep.cohort?.id,
-        }, null, 2));
+
         const { role, tier, anchor, flag, cohort } = spawnableCreep;
+        if (tier.body.cost > this.room.energyAvailable) return;
+        // console.log(`Spawn flag creep`, JSON.stringify({
+        //   role: spawnableCreep.role,
+        //   flag: spawnableCreep.flag?.name,
+        //   tier: spawnableCreep.tier?.body.counts,
+        //   anchor: spawnableCreep.anchor?.id,
+        //   cohort: spawnableCreep.cohort?.id,
+        // }, null, 2));
+
         const creepName = getCreepName(role);
         const options:MandateProps<SpawnOptions, 'memory'> = {
           memory: {
@@ -59,9 +62,8 @@ export class SpawnController extends StructureSpawn{
           options.memory.flag = flag.name;
         }
         // if (config.modSpawnOptions) config.modSpawnOptions(roomAudit, options, this);
-        if (tier.body.cost > this.room.energyAvailable) return;
         // console.log(`Creep Counts:`, JSON.stringify(roomAudit.creepCountsByRole, null, 2));
-        console.log(`Spawning ${role} creep (cost:${tier.body.cost}) in [${this.room.name}]`);// with memory:`, JSON.stringify(options, null, 2));
+        console.log(`Spawning ${role} creep (cost:${tier.body.cost}) in [${this.room.name}] for ${spawnableCreep.flag?.name}(${spawnableCreep.cohort?.id})`);// with memory:`, JSON.stringify(options, null, 2));
         //Inflate the number now so that any other spawns in the room don't try to build the same thing. This is only sufficient for this tick. The room audit needs to count creeps being produced in spawns.
         roomAudit.creepCountsByRole[role]++; //TODO: This can likely be deprecated
         console.log(`New ${role} creep count:`, roomAudit.creepCountsByRole[role]);
