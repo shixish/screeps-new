@@ -1,42 +1,7 @@
-// export const getSourceMemory = (source:Source)=>{
-//   const room = source.room;
-//   if (!room.memory.sources) room.memory.sources = {};
-//   return room.memory.sources[source.id] || (room.memory.sources[source.id] = {});
-// };
-
 import { CreepPriority, CreepRoleName, CreepRoleNames, FlagType } from "utils/constants";
-import { Anchor, CreepControllerAnchor, CreepMineralAnchor, SourceAnchor, GenericAnchorType } from "utils/Anchor";
-import { diamondCoordinates, diamondRingCoordinates, findDiamondPlacement, getBestCentralLocation, getBestContainerLocation, getSpawnRoadPath, getStructureCostMatrix } from "utils/map";
-import { getRoomAudit, getRoomFlags, roomAuditCache } from "../utils/tickCache";
-import { CreepRoles } from "./creeps";
-
-// const getStorageLocation = (room:Room)=>{
-//   const flagName = `${room.name}_storage`;
-//   if (!room.controller?.level || room.controller.level < 4) return;
-//   if (room.storage){
-//     const flag = Game.flags[flagName];
-//     if (flag) flag.remove();
-//     return room.storage;
-//   }else{
-//     if (!Game.flags[flagName]){
-//       const spawn = room.find(FIND_MY_SPAWNS)[0];
-//       room.createFlag(spawn.pos.x, spawn.pos.y, flagName);
-//     }
-//     const flag = Game.flags[flagName];
-//     const constructionSite = flag.pos.lookFor(LOOK_CONSTRUCTION_SITES).find(site => site.structureType === STRUCTURE_STORAGE);
-//     if (!constructionSite){
-//       room.createConstructionSite(flag.pos.x, flag.pos.y, STRUCTURE_STORAGE);
-//     }
-//     return flag;
-//   }
-// };
-
-// interface SpawnableCreep{
-//   role:CreepRoleName;
-//   tier:CreepTier;
-//   anchor?:CreepAnchor;
-//   flag?:BasicFlag;
-// }
+import { CreepControllerAnchor, CreepMineralAnchor, SourceAnchor } from "utils/Anchor";
+import { getBestCentralLocation } from "utils/map";
+import { getRoomFlags, roomAuditCache } from "../utils/tickCache";
 
 export class RoomAudit{
   room: Room;

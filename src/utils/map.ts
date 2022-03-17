@@ -336,17 +336,18 @@ export function getBestCentralLocation(room:Room, matrix:CostMatrix = getTerrain
   return new RoomPosition(bestX!, bestY!, room.name);
 }
 
-export function getBestContainerLocation(pos:RoomPosition, center:RoomPosition, visualize = false){
+export function getBestContainerLocation(pos:RoomPosition, center:RoomPosition){
   const room = Game.rooms[pos.roomName];
   const terrain = room.getTerrain();
   let bestX:number, bestY:number, bestRange:number|undefined;
   for (let coord of [[-1,-1], [0,-1], [1,-1], [-1,0], [1,0], [-1,1], [0,1], [1,1]]){
     const x = pos.x + coord[0], y = pos.y + coord[1];
+    room.visual.circle(x, y, { radius: 0.25 });
     if (terrain.get(x, y) !== TERRAIN_MASK_WALL){
       const range = center.findPathTo(x, y, {
         ignoreCreeps: true
       }).length;//center.getRangeTo(x, y);
-      if (visualize) room.visual.text(String(range), x, y);
+      // room.visual.text(String(range), x, y);
       if (!bestRange || bestRange > range){
         bestX = x;
         bestY = y;
@@ -354,7 +355,7 @@ export function getBestContainerLocation(pos:RoomPosition, center:RoomPosition, 
       }
     }
   }
-  if (visualize) room.visual.circle(bestX!, bestY!, { radius: 1, fill: '#0000FF' });
+  room.visual.circle(bestX!, bestY!, { radius: 1, fill: '#0000FF' });
   return new RoomPosition(bestX!, bestY!, pos.roomName);
 }
 

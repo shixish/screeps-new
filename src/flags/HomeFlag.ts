@@ -325,16 +325,7 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     if (currentPriorityLevel < CreepPriority.Low) return null;
     if (this.homeAudit.controller){
       const controllerAnchor = this.homeAudit.controller;
-
-      // roomAudit.storedEnergy > UPGRADER_STORAGE_MIN
       const upgraderEnergyPerTick = totalEnergyIncome*0.8; //Send 80% of total energy into the controller.
-      const optimalUpgraderWorkParts = upgraderEnergyPerTick/2; //2 energy per work part.
-      const neededUpgraderParts = optimalUpgraderWorkParts - (controllerAnchor.upgraders.counts[WORK] || 0);
-      const upgrader = neededUpgraderParts > 0 && this.findSpawnableCreep(CreepRoleName.Upgrader, body=>(
-        body.counts[WORK] > 0 &&
-        neededUpgraderParts % body.counts[WORK]
-      ), { anchor: controllerAnchor, cohort: controllerAnchor.upgraders });
-      if (upgrader) return upgrader;
 
       //Produce couriers to ferry energy to the controller upgraders
       const roundTrip = controllerAnchor.anchor.pos.getRangeTo(this.homeAudit.center)*2; //rough range estimate
@@ -344,6 +335,17 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
         body.counts[CARRY] > 0 && neededCourierParts % body.counts[CARRY]
       ), { anchor: controllerAnchor, cohort: controllerAnchor.couriers });
       if (courier) return courier;
+
+      // roomAudit.storedEnergy > UPGRADER_STORAGE_MIN
+      // if (controllerAnchor.upgraders.list.length < 5){}
+      const optimalUpgraderWorkParts = upgraderEnergyPerTick/2; //2 energy per work part.
+      const neededUpgraderParts = optimalUpgraderWorkParts - (controllerAnchor.upgraders.counts[WORK] || 0);
+      const optimalUpgrader = neededUpgraderParts > 0 && this.findSpawnableCreep(CreepRoleName.Upgrader, body=>(
+        body.counts[WORK] > 0 &&
+        optimalUpgraderWorkParts / body.counts[WORK] < 5 &&
+        optimalUpgraderWorkParts % body.counts[WORK]
+      ), { anchor: controllerAnchor, cohort: controllerAnchor.upgraders, priority:CreepPriority.Low });
+      if (optimalUpgrader && optimalUpgrader.tier.body.counts[WORK] <= neededUpgraderParts) return optimalUpgrader;
     }
 
     // const optimalScoutParts = 1;

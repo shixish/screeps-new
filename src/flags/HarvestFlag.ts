@@ -122,11 +122,11 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     if (!this.domestic && this.claimers?.list.length === 0){ //Only make the largest single Claimer creep
       const optimalClaimParts = 2;
       const neededClaimParts = optimalClaimParts - (this.claimers!.counts[CLAIM] || 0);
-      const claim = neededClaimParts > 0 && this.findSpawnableCreep(CreepRoleName.Claimer, body=>(
+      const claimer = neededClaimParts > 0 && this.findSpawnableCreep(CreepRoleName.Claimer, body=>(
         neededClaimParts >= body.counts[CLAIM] &&
         neededClaimParts % body.counts[CLAIM]
       ), { cohort: this.claimers });
-      if (claim) return claim;
+      if (claimer) return claimer;
     }
 
     // if (sourceCount > 1){
@@ -287,10 +287,10 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
   // }
 
   work() {
+    if (this.status === HarvestStatus.Audit) this.audit();
     if (this.officeAudit) for (const sourceAnchor of this.officeAudit.sources){
       this.flag.room?.visual.text(`${this.sourceData[sourceAnchor.id].pathCost}`, sourceAnchor.pos.x, sourceAnchor.pos.y-1, { font: 0.5 });
     }
-    if (this.status === HarvestStatus.Audit) this.audit();
   }
 
   remove(){
