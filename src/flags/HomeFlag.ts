@@ -319,35 +319,6 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
       return this.findSpawnableCreep(CreepRoleName.Basic, true);
     }
 
-    //Upgrading uses 2 Energy per WORK part
-    const totalEnergyIncome = this.homeAudit.flags.harvest.reduce((total, flag)=>total+flag.getTotalEnergyPerTick(), 0);
-
-    if (currentPriorityLevel < CreepPriority.Low) return null;
-    if (this.homeAudit.controller){
-      const controllerAnchor = this.homeAudit.controller;
-      const upgraderEnergyPerTick = totalEnergyIncome*0.8; //Send 80% of total energy into the controller.
-
-      //Produce couriers to ferry energy to the controller upgraders
-      const roundTrip = controllerAnchor.anchor.pos.getRangeTo(this.homeAudit.center)*2; //rough range estimate
-      const optimalCourierParts = Math.ceil((roundTrip*upgraderEnergyPerTick)/50); //can carry 50 energy per carry part
-      const neededCourierParts = optimalCourierParts - (controllerAnchor.couriers.counts[CARRY] || 0);
-      const courier = neededCourierParts > 0 && this.findSpawnableCreep(CreepRoleName.Courier, body=>(
-        body.counts[CARRY] > 0 && neededCourierParts % body.counts[CARRY]
-      ), { anchor: controllerAnchor, cohort: controllerAnchor.couriers });
-      if (courier) return courier;
-
-      // roomAudit.storedEnergy > UPGRADER_STORAGE_MIN
-      // if (controllerAnchor.upgraders.list.length < 5){}
-      const optimalUpgraderWorkParts = upgraderEnergyPerTick/2; //2 energy per work part.
-      const neededUpgraderParts = optimalUpgraderWorkParts - (controllerAnchor.upgraders.counts[WORK] || 0);
-      const optimalUpgrader = neededUpgraderParts > 0 && this.findSpawnableCreep(CreepRoleName.Upgrader, body=>(
-        body.counts[WORK] > 0 &&
-        optimalUpgraderWorkParts / body.counts[WORK] < 5 &&
-        optimalUpgraderWorkParts % body.counts[WORK]
-      ), { anchor: controllerAnchor, cohort: controllerAnchor.upgraders, priority:CreepPriority.Low });
-      if (optimalUpgrader && optimalUpgrader.tier.body.counts[WORK] <= neededUpgraderParts) return optimalUpgrader;
-    }
-
     // const optimalScoutParts = 1;
     // const neededScoutParts = optimalScoutParts - (this.scouts.counts[MOVE] || 0);
     // const scout = neededScoutParts > 0 && this.findSpawnableCreep(CreepRoleName.Scout, body=>0, { cohort: this.scouts });
@@ -372,7 +343,7 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     // this.claimCreeps();
 
     const controllerLevel = this.home.controller?.level || 0;
-    this.home.visual.text(this.buildStage > 8 ? `8` : `${controllerLevel} → ${this.buildStage}`, this.home.controller.pos.x, this.home.controller.pos.y+1);
+    this.home.visual.text(this.buildStage > 8 ? `8` : `${controllerLevel} → ${this.buildStage}`, this.home.controller.pos.x, this.home.controller.pos.y-1, { font: 0.5 });
 
     try{
       //The building placement logic is heavy on CPU so only try to place one thing per tick.

@@ -88,6 +88,11 @@ export class RoomAudit{
     return this._sourceSeats || (this._sourceSeats = this.sources.reduce((out, source)=>out + source.totalSeats, 0));
   }
 
+  protected _totalEnergyIncome:number|undefined;
+  get totalEnergyIncomePerTick(){
+    return this._totalEnergyIncome || (this._totalEnergyIncome = this.flags.harvest.reduce((total, flag)=>total+flag.getTotalEnergyPerTick(), 0));
+  }
+
   // protected _sourceRate:number|undefined;
   // get sourceRate(){
   //   return this._sourceRate || (this._sourceRate = this.sources.length * (this.room.controller?.my ? 10 : 5));

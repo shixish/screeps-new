@@ -19,12 +19,13 @@ export const PART_COST = {
 
 export enum FlagType{
   Home = 'home',
+  Defend = 'defend',
+  Harvest = 'harvest',
+  Upgrade = 'upgrade',
   Claim = 'claim',
   Build = 'build',
   Audit = 'audit',
   Power = 'power',
-  Harvest = 'harvest',
-  Defend = 'defend',
 };
 export const FlagTypes = Object.values(FlagType);
 
