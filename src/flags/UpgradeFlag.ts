@@ -13,7 +13,7 @@ export class UpgradeFlag extends BasicFlag<UpgradeFlagMemory> {
     if (currentPriorityLevel < CreepPriority.Low) return null;
 
     //Send 80% of total energy into the controller. If we're banking then ramp up the usage.
-    const upgraderEnergyPerTick = this.homeAudit.totalEnergyIncomePerTick*(this.homeAudit.storedEnergy > UPGRADER_STORAGE_MIN ? 2 : 0.8);
+    const upgraderEnergyPerTick = this.homeAudit.totalEnergyIncomePerTick*(this.homeAudit.storedEnergy > UPGRADER_STORAGE_MIN ? 1.2 : 0.8);
     if (this.homeAudit.controller){
       const controllerAnchor = this.homeAudit.controller;
 

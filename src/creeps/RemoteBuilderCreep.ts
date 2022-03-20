@@ -7,6 +7,13 @@ export class RemoteBuilderCreep extends BasicCreep<ClaimFlag> {
     tiers: [
       {
         body: new CreepBody([
+          WORK,
+          MOVE, CARRY,
+          MOVE, CARRY,
+        ], 300),
+      },
+      {
+        body: new CreepBody([
           WORK, MOVE,
           WORK, MOVE, CARRY,
           WORK, MOVE, CARRY,

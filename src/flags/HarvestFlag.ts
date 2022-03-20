@@ -137,7 +137,7 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
       const optimalBuilderParts = Math.ceil(Math.min(buildWork + repairWork, totalEnergyPerTick));
       const neededBuilderParts = optimalBuilderParts - (this.builders!.counts[WORK] || 0);
       const remoteBuilder = neededBuilderParts > 0 && this.findSpawnableCreep(CreepRoleName.RemoteBuilder, body=>(
-        neededBuilderParts >= body.counts[WORK] &&
+        body.counts[WORK] > 0 &&
         neededBuilderParts % body.counts[WORK]
       ), { cohort: this.builders });
       if (remoteBuilder) return remoteBuilder;

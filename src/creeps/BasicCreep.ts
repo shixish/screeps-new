@@ -334,7 +334,7 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
       //This is to have the courier creeps go use whatever energy they have rather than wait idle for the trickle of 10 energy per tick
       return getResourceAvailable(storage, resourceType) > 10;
     }
-    const roomAudit = getRoomAudit(this.room);
+    const roomAudit = this.flag && this.flag.homeAudit || getRoomAudit(this.room);
     const findSourceContainer = ()=>{
     //   const containers = ([] as StructureContainer[]).concat(...roomAudit.sources.map(source=>source.containers)).sort((a, b)=>{
     //     return a.store.energy - b.store.energy;
