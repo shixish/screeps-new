@@ -456,14 +456,17 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
   startRepairing(storedTarget:TargetableTypes){
     const resourceType = 'repair';
     if (!this.canWork) return null;
-    const checkHits = (structure:StructureRoad)=>{
+    const checkHits = (structure:StructureRoad|StructureContainer)=>{
       return structure.hits + getClaimedAmount(structure.id, resourceType) < structure.hitsMax;
     };
     const structure =
       storedTarget instanceof StructureRoad && checkHits(storedTarget) && storedTarget ||
+      this.flag?.flag.room && this.flag.pos.findClosestByRange(FIND_STRUCTURES, {
+        filter: structure=>(structure.structureType === STRUCTURE_ROAD || structure.structureType === STRUCTURE_CONTAINER) && checkHits(structure)
+      }) as StructureRoad|StructureContainer ||
       this.pos.findClosestByRange(FIND_STRUCTURES, {
-        filter: structure=>structure.structureType === STRUCTURE_ROAD && checkHits(structure)
-      }) as StructureRoad;
+        filter: structure=>(structure.structureType === STRUCTURE_ROAD || structure.structureType === STRUCTURE_CONTAINER) && checkHits(structure)
+      }) as StructureRoad|StructureContainer;
     if (!structure) return null;
     //A creep can restore 100 points/tick to a target structure, spending 0.01 energy per hit point repaired, per WORK module equipped.
     //Ref: https://screeps.fandom.com/wiki/Creep
@@ -671,11 +674,13 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
   startBuilding(storedTarget:TargetableTypes){
     if (!this.canWork) return null;
     if (this.store.getUsedCapacity(RESOURCE_ENERGY) === 0) return null;
-    const construction = this.pos.findClosestByRange(FIND_MY_CONSTRUCTION_SITES, {
-      filter: site=>{
-        return site.room && site.room.name === this.room.name;
-      }
-    }) || this.flag?.flag.room && this.flag.pos.findClosestByRange(FIND_MY_CONSTRUCTION_SITES);
+    const construction =
+      this.flag?.flag.room && this.flag.pos.findClosestByRange(FIND_MY_CONSTRUCTION_SITES) ||
+      this.pos.findClosestByRange(FIND_MY_CONSTRUCTION_SITES, {
+        filter: site=>{
+          return site.room && site.room.name === this.room.name;
+        }
+      });
     // if (this.flag && this.flag.type === FlagType.Harvest){
     //   const sites = this.flag?.flag.room?.find(FIND_CONSTRUCTION_SITES, {
     //     filter: site=>{

@@ -46,8 +46,8 @@ export class RemoteBuilderCreep extends BasicCreep<ClaimFlag> {
     if (this.rememberAction(this.startTakingEnergy, 'taking')) return;
 
     if (energy > 0){ //Do something with the energy
-      if (this.rememberAction(this.startRepairing, 'repairing', ['upgrading'])) return;
-      if (this.rememberAction(this.startBuilding, 'building', ['upgrading'])) return;
+      if (this.rememberAction(this.startRepairing, 'repairing')) return;
+      if (this.rememberAction(this.startBuilding, 'building')) return;
       // if (this.commute()) return;
 
       if (this.flag && this.flag.roomName !== this.room.name){
@@ -55,8 +55,6 @@ export class RemoteBuilderCreep extends BasicCreep<ClaimFlag> {
         return;
       }
     }
-
-    this.idle();
 
     // If nothing was successful reset action state. Necessary since rememberAction isn't always going to do the cleanup.
     this.currentAction = undefined;
