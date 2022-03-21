@@ -151,6 +151,7 @@ declare global {
 
   interface RoomMemory{
     hostile: boolean;
+    // invaded: boolean;
     center: { x:number, y:number };
     sources: Id<Source>[];
     mineral: Id<Mineral>|null;

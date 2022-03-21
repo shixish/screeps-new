@@ -1,6 +1,3 @@
-import { CreepRoleName } from "utils/constants";
-import { getBestCentralLocation } from "utils/map";
-import { getRoomAudit } from "utils/tickCache";
 import { RemoteFlag, RemoteFlagMemory } from "./_RemoteFlag";
 
 enum ClaimStatus{

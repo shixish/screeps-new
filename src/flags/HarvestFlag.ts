@@ -50,15 +50,7 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
   getRequestedCreep(currentPriorityLevel:CreepPriority){
     if (currentPriorityLevel < CreepPriority.Normal) return null;
 
-    if (this.officeIsHostile){
-      console.log(`this.officeAudit.flags.defend.length`, this.officeAudit?.flags.defend.length);
-      if (!this.officeAudit?.flags.defend.length){
-        //This is spawning infinite flags! Whoops...
-
-        this.office!.createFlag(this.office!.controller!.pos, `defend:${this.homeRoomName}:${random()}`);
-      }
-      return null;
-    }
+    if (this.officeIsHostile) return null;
 
     if (!this.officeAudit){
       if (!this.domestic){
@@ -272,6 +264,12 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     if (this.status === HarvestStatus.Audit) this.audit();
     if (this.officeAudit) for (const sourceAnchor of this.officeAudit.sources){
       this.flag.room?.visual.text(`${this.sourceData[sourceAnchor.id].pathCost}`, sourceAnchor.pos.x, sourceAnchor.pos.y-1, { font: 0.5 });
+    }
+
+    if (this.officeIsHostile){
+      if (!this.homeAudit?.flags.defend.length){
+        this.office!.createFlag(this.office!.controller!.pos, `defend:${this.homeRoomName}:${random()}`);
+      }
     }
   }
 

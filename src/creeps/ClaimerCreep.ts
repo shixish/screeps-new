@@ -1,5 +1,5 @@
 import { ClaimFlag } from "flags/ClaimFlag";
-import { CreepRoleName, FlagType } from "utils/constants";
+import { CreepRoleName, FlagType, USERNAME } from "utils/constants";
 import { BasicCreep, CreepBody } from "./BasicCreep";
 
 export class ClaimerCreep extends BasicCreep<ClaimFlag> {
@@ -55,8 +55,9 @@ export class ClaimerCreep extends BasicCreep<ClaimFlag> {
 
   startReserving(controller?:StructureController){
     const target = controller || this.room.controller;
-    if (!target) return null;
-    if (this.moveWithinRange(target.pos, 1) || this.manageActionCode(this.reserveController(target))){
+    if (!target || target.owner) return null;
+    const notMine = target?.reservation && target?.reservation?.username !== USERNAME;
+    if (this.moveWithinRange(target.pos, 1) || this.manageActionCode(notMine ? this.attackController(target) : this.reserveController(target))){
       return target;
     }
     return null;

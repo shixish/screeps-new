@@ -1,4 +1,4 @@
-import { flagHomeCache, flagManagerCache, getRoomFlags } from "utils/tickCache";
+import { flagHomeCache, flagManagerCache, getFlagManager, getRoomFlags } from "utils/tickCache";
 import { FlagType } from "utils/constants";
 import { RemoteFlag } from "flags/_RemoteFlag";
 import { HomeFlag } from "flags/HomeFlag";
@@ -58,15 +58,27 @@ export const initFlagManager = (flagName:Flag['name'])=>{
 };
 
 export const manageFlags = ()=>{
+  //Initialize flags first
   for (const flagName in Game.flags) {
     try{
       const flagManager = initFlagManager(flagName);
       if (flagManager){
+        // console.log(`flagManager`, flagManager.flagName, flagManager.homeRoomName);
+        // if (flagManager.type === FlagType.Harvest) console.log(`flagManager`);
         const roomFlags = getRoomFlags(flagManager.homeRoomName);
         (roomFlags[flagManager.type] as BasicFlag[]).push(flagManager);
+        // if (flagManager.type === FlagType.Defend) console.log(`roomFlags`, JSON.stringify(roomFlags, null, 2));
         flagManagerCache.set(flagName, flagManager);
-        flagManager.work();
       }
+    }catch(e:any){
+      console.log(`Flag ${flagName} error:`, e, e.stack);
+    }
+  }
+  //Run flags in a second loop so all flags will be cached and counts will be available
+  for (const flagName in Game.flags) {
+    try{
+      const flagManager = getFlagManager(flagName);
+      if (flagManager) flagManager.work();
     }catch(e:any){
       console.log(`Flag ${flagName} error:`, e, e.stack);
     }

@@ -1,4 +1,4 @@
-import { CreepPriority, CreepRoleName, CreepRoleNames, FlagType } from "utils/constants";
+import { CreepPriority, CreepRoleName, CreepRoleNames, FlagType, USERNAME } from "utils/constants";
 import { CreepControllerAnchor, CreepMineralAnchor, SourceAnchor } from "utils/Anchor";
 import { getBestCentralLocation } from "utils/map";
 import { getRoomFlags, roomAuditCache } from "../utils/tickCache";
@@ -30,7 +30,8 @@ export class RoomAudit{
     this.hostileCreeps = room.find(FIND_HOSTILE_CREEPS);
     this.hostileStructures = room.find(FIND_HOSTILE_STRUCTURES);
 
-    this.memory.hostile = this.hostileCreeps.length > 0;
+    this.memory.hostile = this.hostileCreeps.length > 0 || this.hostileStructures.length > 0;
+    // this.memory.invaded = !room.controller?.my && room.controller?.reservation && room.controller?.reservation?.username !== USERNAME || false;
   }
 
   get memory(){
