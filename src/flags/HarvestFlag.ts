@@ -1,5 +1,6 @@
 import { Cohort } from "utils/Cohort";
 import { CreepPriority, CreepRoleName, FlagType, USERNAME } from "utils/constants";
+import { getBestContainerLocation } from "utils/map";
 import { random } from "utils/random";
 import { RemoteFlag, RemoteFlagMemory } from "./_RemoteFlag";
 
@@ -117,24 +118,7 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
         if (claimer) return claimer;
       }
 
-      const constructionProgress = this.office!.find(FIND_MY_CONSTRUCTION_SITES).reduce((out, structure)=>out + (structure.progressTotal-structure.progress), 0) || 0;
-      const repairableHits = this.office!.find(FIND_STRUCTURES, {
-        filter: structure=>{
-          return structure.structureType === STRUCTURE_ROAD || structure.structureType === STRUCTURE_CONTAINER
-        }
-      }).reduce((out, structure)=>out + (structure.hitsMax-structure.hits), 0);
-
-      /* One WORK use 1 energy/tick:
-        - build at 5 points/tick
-        - repair at 100 hits/tick
-      */
-      // 1500 ticks is how long a creep will live. It's ok to be a little wasteful if it gets the job done faster.
-
-      //Recall that building on swamp costs a lot more so the cost isn't just a function of distance.
-      const buildWork = (constructionProgress/5)/500; //500 indicates that we will be up to 3 (1500/500=3) times inefficient when initially building
-      const repairWork = repairableHits && (repairableHits/100)/1500; //Maximally efficient for repairing roads since it's not urgent.
-      const totalEnergyPerTick = this.getTotalEnergyPerTick();
-      const optimalBuilderParts = Math.ceil(Math.min(buildWork + repairWork, totalEnergyPerTick));
+      const optimalBuilderParts = this.getOptimalBuilderParts(this.office!)//, this.getTotalEnergyPerTick());
       const neededBuilderParts = optimalBuilderParts - (this.builders!.counts[WORK] || 0);
       const remoteBuilder = neededBuilderParts > 0 && this.findSpawnableCreep(CreepRoleName.RemoteBuilder, body=>(
         body.counts[WORK] > 0 &&
@@ -150,23 +134,33 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     if (!this.officeAudit) return;
 
     const exit = this.office?.findExitTo(this.home) as ExitConstant;
-    const getExitRange = (source:CreepSourceAnchor)=>source.anchor.pos.findClosestByRange(exit)!.getRangeTo(source);
+    const getExitPos = (source:CreepSourceAnchor)=>source.anchor.pos.findClosestByRange(exit)!;
+    const getExitRange = (source:CreepSourceAnchor)=>getExitPos(source).getRangeTo(source);
     //Sort the sources by range to the exit that connects rooms. This way we build the road to the closest one first, then leverage that road when connecting to the second source.
-    const sources = this.office !== this.home ? this.officeAudit.sources.sort((a, b)=>getExitRange(a) - getExitRange(b)) : this.officeAudit.sources;
+    const sources = this.domestic ? this.officeAudit.sources : this.officeAudit.sources.sort((a, b)=>getExitRange(a) - getExitRange(b));
+
+    const sourceContainers = sources.map(source=>getBestContainerLocation(source.pos, this.domestic ? this.homeAudit.center : getExitPos(source)));
+    sourceContainers.forEach(containerPos=>{
+      this.office!.createConstructionSite(containerPos, STRUCTURE_CONTAINER);
+    });
 
     const paths:PathFinderPath[] = [];
-    const getPathToSource = (source:CreepSourceAnchor)=>{
+    const getPathToPos = (pos:RoomPosition)=>{
       return PathFinder.search(this.homeAudit.center, {
-        pos: source.pos,
+        pos,
         range: 1,
       }, {
         //Prefer roads which use weight 1
         plainCost: 2,
-        swampCost: 2,
+        swampCost: 3,
         roomCallback: function(roomName) {
           const room = Game.rooms[roomName];
           if (!room) return false; //PathFinder supports searches which span multiple rooms
           const costs = new PathFinder.CostMatrix;
+
+          sourceContainers.forEach(containerPos=>{
+            costs.set(containerPos.x, containerPos.y, 0xff);
+          });
 
           room.find(FIND_STRUCTURES).forEach(function(structure) {
             if (structure.structureType === STRUCTURE_ROAD) {
@@ -197,8 +191,9 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     };
 
     //Make construction zones to each source. This will make the second pass cheaper.
-    sources.forEach(source=>{
-      const path:PathFinderPath = getPathToSource(source);
+    sourceContainers.forEach((containerPos, p)=>{
+      const path:PathFinderPath = getPathToPos(containerPos);
+      if (!path.path.length) throw `Unable to find a path to source:${sources[p].id}`;
       paths.push(path); //This will allow future paths to reuse these cheaper paths
       path.path.forEach(step=>{
         const room = Game.rooms[step.roomName];
@@ -208,9 +203,10 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     });
 
     let totalMoveCost = 0;
-    sources.forEach(source=>{
+    sourceContainers.forEach((containerPos, p)=>{
+      const source = sources[p];
       //We have to run it again otherwise the counts come out too high since they weren't calculated with the lower path weights
-      const path:PathFinderPath = getPathToSource(source);
+      const path:PathFinderPath = getPathToPos(containerPos);
       this.sourceData[source.id] = { pathCost: path.cost };
       totalMoveCost += path.cost;
     });

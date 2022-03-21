@@ -48,7 +48,7 @@ export class RemoteBuilderCreep extends BasicCreep<ClaimFlag> {
     if (energy > 0){ //Do something with the energy
       if (this.rememberAction(this.startRepairing, 'repairing', ['upgrading'])) return;
       if (this.rememberAction(this.startBuilding, 'building', ['upgrading'])) return;
-      if (this.commute()) return;
+      // if (this.commute()) return;
 
       if (this.flag && this.flag.roomName !== this.room.name){
         this.moveTo(this.flag.pos);

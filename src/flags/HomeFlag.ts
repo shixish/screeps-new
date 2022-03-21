@@ -16,6 +16,7 @@ export interface HomeFlagMemory extends BasicFlagMemory{
 
 export class HomeFlag extends BasicFlag<HomeFlagMemory> {
   scouts:Cohort = new Cohort(this.name+'-scouts');
+  builders:Cohort = new Cohort(this.name+'-builders');
 
   get buildStage(){
     return this.memory.buildStage ?? 0;
@@ -315,6 +316,7 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
   }
 
   getRequestedCreep(currentPriorityLevel:CreepPriority){
+    if (currentPriorityLevel < CreepPriority.Normal) return null;
     if (this.homeAudit.creeps.length === 0){
       return this.findSpawnableCreep(CreepRoleName.Basic, true);
     }
@@ -323,6 +325,14 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     // const neededScoutParts = optimalScoutParts - (this.scouts.counts[MOVE] || 0);
     // const scout = neededScoutParts > 0 && this.findSpawnableCreep(CreepRoleName.Scout, body=>0, { cohort: this.scouts });
     // if (scout) return scout;
+
+    const optimalBuilderParts = this.getOptimalBuilderParts(this.home!);
+    const neededBuilderParts = optimalBuilderParts - (this.builders!.counts[WORK] || 0);
+    const builder = neededBuilderParts > 0 && this.findSpawnableCreep(CreepRoleName.Basic, body=>(
+      body.counts[WORK] > 0 &&
+      neededBuilderParts % body.counts[WORK]
+    ), { cohort: this.builders });
+    if (builder) return builder;
 
     return null;
   }

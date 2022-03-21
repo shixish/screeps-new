@@ -1,4 +1,5 @@
-import { CreepRoleName, CreepRoleNames, DEBUG, maxStorageFill, PARTS, PART_COST } from "utils/constants";
+import { RemoteFlag } from "flags/_RemoteFlag";
+import { CreepRoleName, CreepRoleNames, DEBUG, FlagType, maxStorageFill, PARTS, PART_COST } from "utils/constants";
 import { claimAmount, getClaimedAmount, getFlagManager, getResourceAvailable, getResourceSpace, getRoomAudit } from "utils/tickCache";
 
 export function calculateBiteSize (creep:Creep){
@@ -670,11 +671,22 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
   startBuilding(storedTarget:TargetableTypes){
     if (!this.canWork) return null;
     if (this.store.getUsedCapacity(RESOURCE_ENERGY) === 0) return null;
-    const construction = this.pos.findClosestByRange(FIND_CONSTRUCTION_SITES, {
+    const construction = this.pos.findClosestByRange(FIND_MY_CONSTRUCTION_SITES, {
       filter: site=>{
         return site.room && site.room.name === this.room.name;
       }
-    });
+    }) || this.flag?.flag.room && this.flag.pos.findClosestByRange(FIND_MY_CONSTRUCTION_SITES);
+    // if (this.flag && this.flag.type === FlagType.Harvest){
+    //   const sites = this.flag?.flag.room?.find(FIND_CONSTRUCTION_SITES, {
+    //     filter: site=>{
+    //       console.log(`site.owner`, site.owner);
+    //       return site.my || !site.owner;
+    //     }
+    //   });
+    //   console.log(`construction`, construction);
+    //   console.log(`this.flag?.flag.room`, this.flag?.flag.room);
+    //   console.log(`sites`, sites);
+    // }
     if (!construction) return null;
     if (this.moveWithinRange(construction.pos, 3) || this.manageActionCode(this.build(construction))){
       return construction;

@@ -342,7 +342,7 @@ export function getBestContainerLocation(pos:RoomPosition, center:RoomPosition){
   let bestX:number, bestY:number, bestRange:number|undefined;
   for (let coord of [[-1,-1], [0,-1], [1,-1], [-1,0], [1,0], [-1,1], [0,1], [1,1]]){
     const x = pos.x + coord[0], y = pos.y + coord[1];
-    room.visual.circle(x, y, { radius: 0.25 });
+    // room.visual.circle(x, y, { radius: 0.25 });
     if (terrain.get(x, y) !== TERRAIN_MASK_WALL){
       const range = center.findPathTo(x, y, {
         ignoreCreeps: true

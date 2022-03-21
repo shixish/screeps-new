@@ -115,6 +115,27 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
     } as SpawnableCreep : null;
   }
 
+  getOptimalBuilderParts(room:Room, totalEnergyPerTick:number = this.homeAudit.totalEnergyIncomePerTick){
+    const constructionProgress = room.find(FIND_MY_CONSTRUCTION_SITES).reduce((out, structure)=>out + (structure.progressTotal-structure.progress), 0) || 0;
+    const repairableHits = room.find(FIND_STRUCTURES, {
+      filter: structure=>{
+        return structure.structureType === STRUCTURE_ROAD || structure.structureType === STRUCTURE_CONTAINER
+      }
+    }).reduce((out, structure)=>out + (structure.hitsMax-structure.hits), 0);
+
+    /* One WORK use 1 energy/tick:
+      - build at 5 points/tick
+      - repair at 100 hits/tick
+    */
+    // 1500 ticks is how long a creep will live. It's ok to be a little wasteful if it gets the job done faster.
+
+    //Recall that building on swamp costs a lot more so the cost isn't just a function of distance.
+    const buildWork = (constructionProgress/5)/500; //500 indicates that we will be up to 3 (1500/500=3) times inefficient when initially building
+    const repairWork = repairableHits && (repairableHits/100)/1500; //Maximally efficient for repairing roads since it's not urgent.
+    const optimalBuilderParts = Math.ceil(Math.min(buildWork + repairWork, totalEnergyPerTick));
+    return optimalBuilderParts;
+  }
+
   // findOptimalTier(roleName:CreepRoleName, distanceFilter?:true|((body:CreepBody)=>number|false)):CreepTier|null{
   //   const config = CreepRoles[roleName].config;
   //   const energyAvailable = distanceFilter === true ? this.homeAudit.room.energyAvailable : this.homeAudit.room.energyCapacityAvailable;
