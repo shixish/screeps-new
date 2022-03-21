@@ -144,7 +144,7 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
       }, {
         //Prefer roads which use weight 1
         plainCost: 2,
-        swampCost: 3,
+        swampCost: 3, //Swamps cost a bit more since we'll have to maintain roads over them
         roomCallback: function(roomName) {
           const room = Game.rooms[roomName];
           if (!room) return false; //PathFinder supports searches which span multiple rooms

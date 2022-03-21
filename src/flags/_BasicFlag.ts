@@ -128,10 +128,11 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
       - repair at 100 hits/tick
     */
     // 1500 ticks is how long a creep will live. It's ok to be a little wasteful if it gets the job done faster.
+    // The creep won't spend it's entire up-time building, so I'll use 500 to estimate that it'll be 1/3 efficient
 
     //Recall that building on swamp costs a lot more so the cost isn't just a function of distance.
     const buildWork = (constructionProgress/5)/500; //500 indicates that we will be up to 3 (1500/500=3) times inefficient when initially building
-    const repairWork = repairableHits && (repairableHits/100)/1500; //Maximally efficient for repairing roads since it's not urgent.
+    const repairWork = repairableHits && (repairableHits/100)/1000; // Maybe 1/3 of it's uptime it'll be looking for more energy so this is 2/3 of 1500
     const optimalBuilderParts = Math.ceil(Math.min(buildWork + repairWork, totalEnergyPerTick));
     return optimalBuilderParts;
   }
