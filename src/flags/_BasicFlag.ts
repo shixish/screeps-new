@@ -14,6 +14,7 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
   suffix: string | undefined;
   homeAudit!:RoomAudit;
   homeRoomName!:Room['name'];
+  cohorts:Record<string, Cohort>|undefined;
 
   // followerRoleCounts = {} as Partial<Record<CreepRoleName, number>>;
   // maxFollowersByRole = {} as Partial<Record<CreepRoleName, number>>;
@@ -196,6 +197,9 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
 
   remove(){
     if (this.flag) this.flag.remove();
+    for (const key in this.cohorts){
+      this.cohorts[key].destroy(true);
+    }
     delete Memory.flags[this.flagName];
   }
 

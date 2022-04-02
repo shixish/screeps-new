@@ -15,8 +15,10 @@ export interface HomeFlagMemory extends BasicFlagMemory{
 }
 
 export class HomeFlag extends BasicFlag<HomeFlagMemory> {
-  scouts:Cohort = new Cohort(this.name+'-scouts');
-  builders:Cohort = new Cohort(this.name+'-builders');
+  cohorts = {
+    scouts: new Cohort(this.name+'-scouts'),
+    builders: new Cohort(this.name+'-builders'),
+  }
 
   get buildStage(){
     return this.memory.buildStage ?? 0;
@@ -87,29 +89,19 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
   }
 
   createConstructionSitesCL1():boolean{
-    switch(this.buildSubStage){
-      case 0:{
-        const [ spawn ] = this.home.find(FIND_MY_SPAWNS);
-        this.home.createConstructionSite(spawn.pos.x-1, spawn.pos.y, STRUCTURE_ROAD);
-        this.home.createConstructionSite(spawn.pos.x+1, spawn.pos.y, STRUCTURE_ROAD);
-        this.home.createConstructionSite(spawn.pos.x, spawn.pos.y-1, STRUCTURE_ROAD);
-        this.home.createConstructionSite(spawn.pos.x, spawn.pos.y+1, STRUCTURE_ROAD);
+      const [ spawn ] = this.home.find(FIND_MY_SPAWNS);
+      this.home.createConstructionSite(spawn.pos.x-1, spawn.pos.y, STRUCTURE_ROAD);
+      this.home.createConstructionSite(spawn.pos.x+1, spawn.pos.y, STRUCTURE_ROAD);
+      this.home.createConstructionSite(spawn.pos.x, spawn.pos.y-1, STRUCTURE_ROAD);
+      this.home.createConstructionSite(spawn.pos.x, spawn.pos.y+1, STRUCTURE_ROAD);
 
-        const sources = this.home.find(FIND_SOURCES);
-        sources.forEach(source=>{
-          const sourceContainerPos = getBestContainerLocation(source.pos, spawn.pos);
-          this.home.createConstructionSite(sourceContainerPos, STRUCTURE_CONTAINER);
-        });
+      const sources = this.home.find(FIND_SOURCES);
+      sources.forEach(source=>{
+        const sourceContainerPos = getBestContainerLocation(source.pos, spawn.pos);
+        this.home.createConstructionSite(sourceContainerPos, STRUCTURE_CONTAINER);
+      });
 
-        this.buildSubStage++;
-      }
-      break;
-      case 1:{
-        this.createRampartConstructionSites();
-        return true;
-      }
-    }
-    return false;
+      return true;
   }
 
   createConstructionSitesCL2():boolean{
@@ -322,16 +314,16 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     }
 
     // const optimalScoutParts = 1;
-    // const neededScoutParts = optimalScoutParts - (this.scouts.counts[MOVE] || 0);
-    // const scout = neededScoutParts > 0 && this.findSpawnableCreep(CreepRoleName.Scout, body=>0, { cohort: this.scouts });
+    // const neededScoutParts = optimalScoutParts - (this.cohorts.scouts.counts[MOVE] || 0);
+    // const scout = neededScoutParts > 0 && this.findSpawnableCreep(CreepRoleName.Scout, body=>0, { cohort: this.cohorts.scouts });
     // if (scout) return scout;
 
     const optimalBuilderParts = this.getOptimalBuilderParts(this.home!);
-    const neededBuilderParts = optimalBuilderParts - (this.builders!.counts[WORK] || 0);
+    const neededBuilderParts = optimalBuilderParts - (this.cohorts.builders.counts[WORK] || 0);
     const builder = neededBuilderParts > 0 && this.findSpawnableCreep(CreepRoleName.Basic, body=>(
       body.counts[WORK] > 0 &&
       neededBuilderParts % body.counts[WORK]
-    ), { cohort: this.builders });
+    ), { cohort: this.cohorts.builders });
     if (builder) return builder;
 
     return null;

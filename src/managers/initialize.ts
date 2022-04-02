@@ -6,7 +6,7 @@ export function initialize(){
   const firstRoomName = Object.keys(Game.rooms)[0];
   const roomAudit = getRoomAudit(Game.rooms[firstRoomName]);
   if (roomAudit){
-    ClaimFlag.initializeHomeRoom(roomAudit);
+    ClaimFlag.initializeNewHomeRoom(roomAudit);
     Memory.initialized = true;
   }
 }

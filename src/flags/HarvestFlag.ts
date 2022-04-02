@@ -22,9 +22,11 @@ interface HarvestFlagMemory extends RemoteFlagMemory{
 }
 
 export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
-  claimers?:Cohort = this.domestic ? undefined : new Cohort(this.name+'-claimers');
-  builders?:Cohort = this.domestic ? undefined : new Cohort(this.name+'-builders');
-  scouts?:Cohort = this.domestic ? undefined : new Cohort(this.name+'-scouts');
+  cohorts = this.domestic ? undefined : {
+    claimers: new Cohort(this.name+'-claimers'),
+    builders: new Cohort(this.name+'-builders'),
+    scouts: new Cohort(this.name+'-scouts'),
+  };
 
   get status(){
     return this.memory.status ?? HarvestStatus.Audit;
@@ -53,10 +55,10 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     if (this.officeIsHostile) return null;
 
     if (!this.officeAudit){
-      if (!this.domestic){
+      if (this.cohorts){
         const optimalScoutParts = 1;
-        const neededScoutParts = optimalScoutParts - (this.scouts!.counts[MOVE] || 0);
-        const scout = neededScoutParts > 0 && this.findSpawnableCreep(CreepRoleName.Scout, undefined, { cohort: this.scouts });
+        const neededScoutParts = optimalScoutParts - (this.cohorts.scouts.counts[MOVE] || 0);
+        const scout = neededScoutParts > 0 && this.findSpawnableCreep(CreepRoleName.Scout, undefined, { cohort: this.cohorts.scouts });
         if (scout) return scout;
       }
       return null;
@@ -99,23 +101,24 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
       }
     }
 
-    if (!this.domestic){
-      if (this.claimers?.list.length === 0){ //Only make the largest single Claimer creep
+    if (this.cohorts){
+      if (this.cohorts.claimers?.list.length === 0){ //Only make the largest single Claimer creep
         const optimalClaimParts = 2;
-        const neededClaimParts = optimalClaimParts - (this.claimers!.counts[CLAIM] || 0);
+        const neededClaimParts = optimalClaimParts - (this.cohorts.claimers.counts[CLAIM] || 0);
         const claimer = neededClaimParts > 0 && this.findSpawnableCreep(CreepRoleName.Claimer, body=>(
-          neededClaimParts >= body.counts[CLAIM] &&
-          neededClaimParts % body.counts[CLAIM]
-        ), { cohort: this.claimers });
+          // neededClaimParts >= body.counts[CLAIM] &&
+          // neededClaimParts % body.counts[CLAIM]
+          neededClaimParts - body.counts[CLAIM]
+        ), { cohort: this.cohorts.claimers });
         if (claimer) return claimer;
       }
 
       const optimalBuilderParts = this.getOptimalBuilderParts(this.office!)//, this.getTotalEnergyPerTick());
-      const neededBuilderParts = optimalBuilderParts - (this.builders!.counts[WORK] || 0);
+      const neededBuilderParts = optimalBuilderParts - (this.cohorts.builders.counts[WORK] || 0);
       const remoteBuilder = neededBuilderParts > 0 && this.findSpawnableCreep(CreepRoleName.RemoteBuilder, body=>(
         body.counts[WORK] > 0 &&
         neededBuilderParts % body.counts[WORK]
-      ), { cohort: this.builders });
+      ), { cohort: this.cohorts.builders });
       if (remoteBuilder) return remoteBuilder;
     }
 
@@ -271,11 +274,5 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
         this.office!.createFlag(this.office!.controller!.pos, `defend:${this.homeRoomName}:${random()}`);
       }
     }
-  }
-
-  remove(){
-    this.claimers?.destroy();
-    this.scouts?.destroy();
-    super.remove();
   }
 }
