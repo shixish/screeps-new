@@ -30,7 +30,11 @@ Screeps Typescript Starter uses rollup to compile your typescript and upload it 
 
 Move or copy `screeps.sample.json` to `screeps.json` and edit it, changing the credentials and optionally adding or removing some of the destinations.
 
-Running `rollup -c` will compile your code and do a "dry run", preparing the code for upload but not actually pushing it. Running `rollup -c --environment DEST:main` will compile your code, and then upload it to a screeps server using the `main` config from `screeps.json`.
+- **Build only:** `pnpm run build`
+- **Deploy to local server (WSL → Windows):** `pnpm run deploy:local`
+- **Deploy to main (screeps.com):** `pnpm run push-main`
+
+See [docs/CONNECTING-TO-LOCAL-SERVER.md](docs/CONNECTING-TO-LOCAL-SERVER.md) for connecting to a server running on your machine.
 
 You can use `-cw` instead of `-c` to automatically re-run when your source code changes - for example, `rollup -cw --environment DEST:main` will automatically upload your code to the `main` configuration every time your code is changed.
 

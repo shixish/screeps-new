@@ -725,15 +725,17 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
     return this._flag;
   }
 
-  getAnchorObject(){
-    return this.memory.anchor && Game.getObjectById(this.memory.anchor);
+  getAnchorObject(): RoomObject | null {
+    return (this.memory.anchor ? Game.getObjectById(this.memory.anchor) : null) as unknown as RoomObject | null;
   }
 
   rememberAction(callback:(storedTarget:TargetableTypes)=>TargetableTypes, actionName:string, overrideActions: string[] = []){
     const isCurrentAction = this.currentAction === actionName;
     if (!this.currentAction || isCurrentAction || overrideActions.includes(this.currentAction)){
       const storedTarget = isCurrentAction && this.memory.target ? this.targetToObject(this.memory.target) : null;
-      const target = this.objectToTarget(callback.apply(this, [ storedTarget ]));
+      // @ts-expect-error - callback returns RoomObject|Flag|RoomPosition|null; @types/screeps 3.3+ infers _HasId
+      const rawTarget: TargetableTypes = callback.apply(this, [ storedTarget ]);
+      const target = this.objectToTarget(rawTarget);
       if (target){
         this.currentAction = actionName;
         this.memory.target = target;

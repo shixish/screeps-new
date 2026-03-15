@@ -8,11 +8,10 @@ module.exports = {
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended",
     "plugin:@typescript-eslint/recommended-requiring-type-checking",
-    "plugin:prettier/recommended",
-    "prettier/@typescript-eslint",
     "plugin:import/errors",
     "plugin:import/warnings",
-    "plugin:import/typescript"
+    "plugin:import/typescript",
+    "prettier"
   ],
   parser: "@typescript-eslint/parser",
   parserOptions: {
@@ -67,12 +66,13 @@ module.exports = {
     "no-invalid-this": "off",
     "no-multiple-empty-lines": "off",
     "no-new-wrappers": "error",
-    "no-shadow": [
+    "@typescript-eslint/no-shadow": [
       "error",
       {
         hoist: "all"
       }
     ],
+    "no-shadow": "off",
     "no-throw-literal": "error",
     "no-trailing-spaces": "off",
     "no-undef-init": "error",
