@@ -155,6 +155,7 @@ declare global {
     center: { x:number, y:number };
     sources: Id<Source>[];
     mineral: Id<Mineral>|null;
+    spawnBootstrap?: import('utils/spawnPlacement').SpawnBootstrapMemory;
 
     // sources: {
     //   [id:string]:any
