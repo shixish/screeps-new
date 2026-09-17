@@ -15,12 +15,10 @@
   Spawn placement still uses the existing in-room bootstrap once the player is
   in (or can act on) that room.
 
-  Pass-1 (optional coarse CPU filter): E / (D + 1) from the sources+controller
-  midpoint (swampCost=5). Pass-2 (published ranking / top 5 / map labels):
-  score2 = E2 / (D2 + 1) from a placeable spawn with swamp=plain and
-  E2 = 10*H harvest seats. Owned/NPC/reserved rooms are skipped.
-
-  On private-server allOpen mode, every eligible candidate gets pass-2.
+  Pass-1 scores every open candidate: E / (D + 1) from the sources+controller
+  midpoint (swampCost=5). Pass-2 is expensive (placeable spawn + harvest seats
+  + swamp-as-plain paths) and runs only on the top N pass-1 rooms (default 10,
+  override Memory.firstRoomPass2TopN). Published top 5 / map labels use score2.
 */
 
 import { FIRST_ROOM_MAP_TOP_N, paintTopFirstRoomsInVisibleRooms, paintTopFirstRoomsOnMap } from "./firstRoomMapVisual";
@@ -133,7 +131,7 @@ declare global {
   interface Memory {
     firstRoom?: FirstRoomMemory;
     firstRoomRegion?: RoomRegion;
-    /** Override pass-2 shortlist size. 0 = every pass-1 eligible room. */
+    /** How many pass-1 rooms get expensive pass-2. Default 10; must be > 0. */
     firstRoomPass2TopN?: number;
   }
 }
@@ -342,10 +340,9 @@ function applyPass2ToRankEntry(entry: FirstRoomRankEntry, pass2: FirstRoomPass2E
   else delete entry.reason;
 }
 
-export function configuredPass2TopN(region?: RoomRegion): number {
+export function configuredPass2TopN(): number {
   const override = typeof Memory !== "undefined" ? Memory.firstRoomPass2TopN : undefined;
-  if (typeof override === "number" && override >= 0) return Math.floor(override);
-  if (region?.type === "allOpen") return 0;
+  if (typeof override === "number" && override > 0) return Math.floor(override);
   return FIRST_ROOM_PASS2_TOP_N;
 }
 
@@ -378,15 +375,25 @@ function pass2IsPublished(memory: FirstRoomMemory): boolean {
 
 /**
  * Published ranking for Memory / map labels / console.
- * After pass-2 finishes this is score2 order (real spawn + real paths).
+ * After pass-2 finishes this is score2 order among the pass-1 top-N shortlist
+ * (not pass-1 rooms beyond that shortlist).
  */
 export function publishedFirstRoomRanks(
   memory: FirstRoomMemory,
   limit = FIRST_ROOM_MAP_TOP_N
 ): FirstRoomRankEntry[] {
-  const eligible = (memory.ranked ?? []).filter(entry => entry.eligible);
-  const ordered = pass2IsPublished(memory) ? eligible.slice().sort(comparePublishedEntries) : eligible;
-  return ordered.slice(0, limit);
+  if (memory.pass2?.complete) {
+    const byName = new Map((memory.ranked ?? []).map(entry => [entry.roomName, entry]));
+    const top: FirstRoomRankEntry[] = [];
+    for (const pass2 of memory.pass2.ranked) {
+      if (top.length >= limit) break;
+      if (!pass2.eligible) continue;
+      const entry = byName.get(pass2.roomName);
+      if (entry?.eligible) top.push(entry);
+    }
+    return top;
+  }
+  return (memory.ranked ?? []).filter(entry => entry.eligible).slice(0, limit);
 }
 
 export function formatFirstRoomLog(memory: FirstRoomMemory): string {
@@ -554,16 +561,28 @@ function seedPreferredSpawn(memory: FirstRoomMemory): void {
   };
 }
 
-function pass2Shortlist(memory: FirstRoomMemory): { topN: number; rooms: string[] } {
-  const eligible = memory.ranked.filter(entry => entry.eligible).map(entry => entry.roomName);
-  const topN = configuredPass2TopN(memory.region);
-  const rooms = topN === 0 ? eligible : eligible.slice(0, topN);
-  return { topN, rooms };
+/**
+ * Top N pass-1 rooms (by pass-1 score) that receive expensive pass-2.
+ * Independent of later score2 reordering and of pass-2 eligibility flips.
+ */
+export function pass2ShortlistRooms(memory: FirstRoomMemory): string[] {
+  const topN = configuredPass2TopN();
+  return memory.ranked
+    .filter(entry => entry.score > 0)
+    .slice()
+    .sort((a, b) => {
+      if (a.score !== b.score) return b.score - a.score;
+      if (a.sourceCount !== b.sourceCount) return b.sourceCount - a.sourceCount;
+      if (a.walkCost !== b.walkCost) return a.walkCost - b.walkCost;
+      return a.roomName.localeCompare(b.roomName);
+    })
+    .slice(0, topN)
+    .map(entry => entry.roomName);
 }
 
 /**
- * After pass-1 finishes, re-score shortlisted rooms from a placeable spawn
- * with swamp=plain. allOpen (private server) scores every eligible room.
+ * After pass-1 finishes, re-score only the top N pass-1 rooms from a placeable
+ * spawn with swamp=plain. Final published top 5 use score2 order.
  */
 export function refreshPass2Ranking(memory: FirstRoomMemory): void {
   if (!memory.complete) {
@@ -571,7 +590,8 @@ export function refreshPass2Ranking(memory: FirstRoomMemory): void {
     return;
   }
 
-  const { topN, rooms: shortlist } = pass2Shortlist(memory);
+  const topN = configuredPass2TopN();
+  const shortlist = pass2ShortlistRooms(memory);
   const shortlistKey = shortlist.join(",");
   if (!memory.pass2 || memory.pass2.topN !== topN || memory.pass2.shortlistKey !== shortlistKey) {
     memory.pass2 = emptyPass2(topN, shortlist);
@@ -609,10 +629,10 @@ export function refreshPass2Ranking(memory: FirstRoomMemory): void {
   pass2.complete = pass2.pending.length === 0;
   mergePass2OntoRanked(memory);
   if (pass2.complete) {
-    memory.ranked = memory.ranked.slice().sort(comparePublishedEntries);
-    const best = memory.ranked.find(entry => entry.eligible);
+    const best = pass2.ranked.find(entry => entry.eligible);
     pass2.bestRoom = best?.roomName;
     memory.bestRoom = best?.roomName;
+    memory.ranked = memory.ranked.slice().sort(comparePublishedEntries);
     seedPreferredSpawn(memory);
   }
 }

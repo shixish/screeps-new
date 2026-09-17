@@ -5,10 +5,11 @@
   E = sources * 10, score = E / (D + 1). May use a geometric midpoint that is
   not a valid STRUCTURE_SPAWN tile.
 
-  Pass-2 (published ranking): a precise placeable spawn, swamp treated as plain
-  (roads make swamp negligible soon after start), E2 = 10 * H where H is the
-  sum of open harvest seats. D2 is walk cost from that spawn to each source's
-  adjacent harvest tile plus the controller. score2 = E2 / (D2 + 1).
+  Pass-2 (published ranking, top N pass-1 rooms only): a precise placeable
+  spawn, swamp treated as plain (roads make swamp negligible soon after start),
+  E2 = 10 * H where H is the sum of open harvest seats. D2 is walk cost from
+  that spawn to each source's adjacent harvest tile plus the controller.
+  score2 = E2 / (D2 + 1).
 
   E2 = 10*H is a first-spawn / early-game multi-miner proxy. Add-on spawns later
   should use a different weighting (out of scope).
@@ -223,7 +224,7 @@ export function rankFirstRooms(rooms: NamedRoomScoreInput[]): RankedFirstRoom[] 
 }
 
 /*
-  Pass-2 (spawn-precise, published ranking).
+  Pass-2 (spawn-precise). Run only on the top N pass-1 rooms (default 10).
 
   Spawn = walk-cost optimum among valid STRUCTURE_SPAWN tiles (not walls,
   sources, minerals, controller, or room edges). Geometric midpoint is used
