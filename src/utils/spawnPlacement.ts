@@ -190,7 +190,7 @@ export interface HillClimbTileResult {
  * coordinate. Stops when no neighbor beats the current tile (local optimum).
  */
 export function hillClimbBestTile(input: HillClimbTileInput): HillClimbTileResult | null {
-  const { start, isPlaceable, scoreTile } = input;
+  const { start, isPlaceable } = input;
   const cache = new Map<number, number | null>();
   let evaluations = 0;
   let cacheHits = 0;
@@ -203,7 +203,7 @@ export function hillClimbBestTile(input: HillClimbTileInput): HillClimbTileResul
       return cached === undefined ? null : cached;
     }
     evaluations += 1;
-    const scored = scoreTile(pos);
+    const scored = input.scoreTile(pos);
     cache.set(idx, scored);
     return scored;
   };
