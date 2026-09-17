@@ -84,7 +84,7 @@ export function rankColor(rank: number): string {
 }
 
 export function topFirstRoomRanks(
-  ranked: ReadonlyArray<FirstRoomMapRank>,
+  ranked: readonly FirstRoomMapRank[],
   limit = FIRST_ROOM_MAP_TOP_N
 ): FirstRoomMapRank[] {
   const top: FirstRoomMapRank[] = [];
@@ -99,7 +99,7 @@ export function topFirstRoomRanks(
 }
 
 export function firstRoomMapMarkers(
-  ranked: ReadonlyArray<FirstRoomMapRank>,
+  ranked: readonly FirstRoomMapRank[],
   limit = FIRST_ROOM_MAP_TOP_N
 ): FirstRoomMapMarker[] {
   const top = topFirstRoomRanks(ranked, limit);
@@ -151,7 +151,7 @@ function paintMarker(visual: MapVisualLike, marker: FirstRoomMapMarker): boolean
  * Returns how many rooms were painted (0 when map visuals are unavailable).
  */
 export function paintTopFirstRoomsOnMap(
-  ranked: ReadonlyArray<FirstRoomMapRank> | undefined,
+  ranked: readonly FirstRoomMapRank[] | undefined,
   visual?: MapVisualLike
 ): number {
   const mapVisual = resolveMapVisual(visual);

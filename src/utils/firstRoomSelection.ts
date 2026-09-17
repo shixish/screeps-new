@@ -12,10 +12,12 @@
   walk cost from the sources+controller midpoint. Owned/NPC rooms are skipped.
 */
 
-import { paintTopFirstRoomsOnMap } from "./firstRoomMapVisual";
+import { FIRST_ROOM_MAP_TOP_N, paintTopFirstRoomsOnMap } from "./firstRoomMapVisual";
 import { RankedFirstRoom, rankFirstRooms } from "./firstRoomScore";
 import { RoomIndex, RoomRegion, defaultFirstRoomRegion, listRoomsInRegion } from "./roomNames";
 import { TilePos } from "./spawnPlacement";
+
+export { FIRST_ROOM_MAP_TOP_N };
 
 export const FIRST_ROOM_TTL = 1000;
 export const FIRST_ROOM_SCORED_PER_TICK = 4;

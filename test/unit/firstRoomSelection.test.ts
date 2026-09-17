@@ -2,13 +2,13 @@ import { assert } from "chai";
 import { RankedFirstRoom } from "../../src/utils/firstRoomScore";
 import {
   FIRST_ROOM_FLAG,
+  FIRST_ROOM_MAP_TOP_N,
   FirstRoomMemory,
   formatFirstRoomLog,
   paintFirstRoomRecommendation,
   toRankEntry,
   worldKeyForSelection
 } from "../../src/utils/firstRoomSelection";
-import { FIRST_ROOM_MAP_TOP_N } from "../../src/utils/firstRoomMapVisual";
 
 function ranked(partial: Partial<RankedFirstRoom> & Pick<RankedFirstRoom, "roomName">): RankedFirstRoom {
   return {
