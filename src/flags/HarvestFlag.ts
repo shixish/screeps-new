@@ -10,6 +10,9 @@ enum HarvestStatus{
   Harvest,
 }
 
+//Rough round-trip distance to fall back on when a source can't be pathed to (another room, mostly).
+const DEFAULT_SOURCE_PATH_COST = 50;
+
 interface HarvestSourceData{
   // path:Record<Room['name'], string>;
   pathCost: number;
@@ -40,13 +43,96 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     return this.memory.sourceData || (this.memory.sourceData = {});
   }
 
+  private _sources:CreepSourceAnchor[]|undefined;
+  /*
+    The sources this flag is responsible for. ClaimFlag drops one `harvest:` flag per source in a home
+    room, so a domestic flag only owns the source it is standing on - otherwise every flag would ask for
+    a miner for every source. Remote flags are placed by hand anywhere in the room, so they keep
+    covering all of them.
+  */
+  get sources():CreepSourceAnchor[]{
+    if (this._sources) return this._sources;
+    const sources = this.officeAudit?.sources ?? [];
+    const owned = this.domestic && sources.filter(source=>source.pos.isEqualTo(this.pos));
+    return this._sources = (owned && owned.length ? owned : sources);
+  }
+
+  /*
+    Distance from the room center out to a source, used to size the courier fleet. audit() fills this in
+    for every source it measures, but getRequestedCreep can run before the first audit (and the audit
+    can fail to path), so fall back to measuring it on demand rather than throwing.
+  */
+  getSourcePathCost(sourceAnchor:CreepSourceAnchor){
+    const stored = this.sourceData[sourceAnchor.id];
+    if (stored) return stored.pathCost;
+    const path = PathFinder.search(this.homeAudit.center, { pos: sourceAnchor.pos, range: 1 }, {
+      plainCost: 2,
+      swampCost: 3,
+    });
+    //A room we can't path into is roughly a room away, which is close enough to size a courier with.
+    const pathCost = path.incomplete ? DEFAULT_SOURCE_PATH_COST : path.cost;
+    this.sourceData[sourceAnchor.id] = { pathCost };
+    return pathCost;
+  }
+
   // officeIsBeingReserved(){
   //   return !this.office?.controller?.my && this.office?.controller?.reservation && this.office?.controller?.reservation?.username !== USERNAME;
   // }
 
   getTotalEnergyPerTick(){
     if (!this.officeAudit) return 0;
-    return this.officeAudit!.sources.reduce((total, source)=>total+source.getOptimalEnergyPerTick(), 0);
+    return this.sources.reduce((total, source)=>total+source.getOptimalEnergyPerTick(), 0);
+  }
+
+  /*
+    One dedicated static miner per source. The body is the biggest zero-CARRY harvester the room can
+    afford without overshooting the source's useful throughput (5 WORK == 10 energy/tick on a 3000
+    energy source), and we only ask for one when that body would actually add WORK the source isn't
+    covering yet. That keeps a single optimally sized miner on the container instead of a pile of tiny
+    ones filling every seat, while still letting an early 2 WORK miner be replaced by a 5 WORK one once
+    the extensions are up - the small one then retires on its own.
+  */
+  getRequestedMiner(sourceAnchor:CreepSourceAnchor){
+    if (sourceAnchor.availableSeats <= 0) return null;
+    const optimalWorkParts = sourceAnchor.getOptimalWorkParts();
+    if (optimalWorkParts <= 0) return null; //Invaded sources aren't worth mining.
+    const currentWorkParts = sourceAnchor.harvesters.counts[WORK] ?? 0;
+    if (currentWorkParts >= optimalWorkParts) return null;
+
+    const miner = this.findSpawnableCreep(CreepRoleName.Harvester, body=>(
+      body.counts[CARRY] === 0 && //Static miners drop straight into the container, they never haul.
+      body.counts[WORK] <= optimalWorkParts &&
+      //Domestic: 0 MOVE (courier tug) or 1 MOVE (self-walk fallback). Remote still needs travel MOVE.
+      (this.domestic ? body.counts[MOVE] <= 1 : body.counts[MOVE] >= 2) &&
+      //Prefer more WORK, then fewer MOVE (tug over self-walk) for domestic.
+      (optimalWorkParts - body.counts[WORK]) * 10 + (this.domestic ? body.counts[MOVE] : 0)
+    ), { anchor: sourceAnchor, cohort: sourceAnchor.harvesters, priority: CreepPriority.High });
+
+    //Only worth a seat if it brings more WORK than whatever is already sitting on this source.
+    if (miner && miner.tier.body.counts[WORK] > currentWorkParts) return miner;
+    return null;
+  }
+
+  /* Couriers haul what the static miner drops into the source container back to the spawn/extensions. */
+  getRequestedCourier(sourceAnchor:CreepSourceAnchor){
+    const minerWorkParts = sourceAnchor.harvesters.counts[WORK] ?? 0;
+    if (minerWorkParts === 0) return null; //Nothing is filling the container yet.
+
+    // 3000 energy nodes can optimially mine at 10 energy per tick, so 1500 nodes are 5 per tick.
+    // A part-grown miner produces less than that (2 energy per WORK part), so size the haul to it.
+    const energyPerTick = Math.min(sourceAnchor.getOptimalEnergyPerTick(), minerWorkParts*2);
+    if (energyPerTick <= 0) return null;
+    const moveCost = this.getSourcePathCost(sourceAnchor)*2; //ticks (both directions)
+    // const moveCost = this.memory.totalMoveCost; //This is the sum of both sources. This makes the math a little simpler which may help keep creep sizes whole/large
+    const optimalCourierParts = Math.ceil((moveCost*energyPerTick)/50); //can carry 50 energy per carry part
+    const neededCourierParts = optimalCourierParts - (sourceAnchor.couriers.counts[CARRY] ?? 0);
+    if (neededCourierParts <= 0) return null;
+
+    const courierType = this.domestic ? CreepRoleName.Courier : CreepRoleName.RemoteCourier;
+    return this.findSpawnableCreep(courierType, body=>(
+      neededCourierParts >= body.counts[CARRY] &&
+      neededCourierParts % body.counts[CARRY]
+    ), { anchor: sourceAnchor, cohort: sourceAnchor.couriers });
   }
 
   getRequestedCreep(currentPriorityLevel:CreepPriority){
@@ -67,37 +153,19 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     //Mining too much and not spending it gets things clogged up...
     if (this.domestic || this.home.storage && this.home.storage.store.getFreeCapacity() > 5000){
       //Take care of one source at a time. This way we can get it into production asap, funding other things.
-      for (const sourceAnchor of this.officeAudit.sources){
-        // console.log(`sourceAnchor.harvesters.counts`, JSON.stringify(sourceAnchor.harvesters.counts));
-        const optimalHarvesterParts = sourceAnchor.getOptimalWorkParts();
-        const neededHarvesterParts = optimalHarvesterParts - (sourceAnchor.harvesters.counts[WORK] || 0);
-        // this.flag.room?.visual.text(`Harvester: ${optimalHarvesterParts} - ${neededHarvesterParts} = ${neededHarvesterParts}`, sourceAnchor.pos.x, sourceAnchor.pos.y+1, { font: 0.25 });
+      for (const sourceAnchor of this.sources){
+        /*
+          Staging gate: a static miner has zero CARRY, so without a container to drop into everything it
+          mines just rots on the ground. Before the container is built the HomeFlag drones (Basic creeps
+          that carry their own energy home) stay the harvest plan, and this flag asks for nothing.
+        */
+        if (!sourceAnchor.containers.length) continue;
 
-        const harvester = neededHarvesterParts > 0 && sourceAnchor.availableSeats > 0 && this.findSpawnableCreep(CreepRoleName.Harvester, body=>(
-          neededHarvesterParts >= body.counts[WORK] &&
-          (this.domestic ? body.counts[MOVE] === 1 : body.counts[MOVE] >= 2) &&
-          neededHarvesterParts / body.counts[WORK] <= sourceAnchor.totalSeats &&
-          neededHarvesterParts % body.counts[WORK]
-        ), { anchor: sourceAnchor, cohort: sourceAnchor.harvesters });
-        if (harvester) return harvester;
+        const miner = this.getRequestedMiner(sourceAnchor);
+        if (miner) return miner;
 
-        // 3000 energy nodes can optimially mine at 10 energy per tick, so 1500 nodes are 5 per tick
-        const energyPerTick = sourceAnchor.getOptimalEnergyPerTick();
-        const moveCost = this.sourceData[sourceAnchor.id].pathCost*2; //ticks (both directions)
-        // const moveCost = this.memory.totalMoveCost; //This is the sum of both sources. This makes the math a little simpler which may help keep creep sizes whole/large
-        const optimalCourierParts = Math.ceil((moveCost*energyPerTick)/50); //can carry 50 energy per carry part
-        const neededCourierParts = optimalCourierParts - (sourceAnchor.couriers.counts[CARRY] || 0);
-        // this.flag.room?.visual.text(`Courier: ${optimalCourierParts} - ${neededCourierParts} = ${neededCourierParts}`, sourceAnchor.pos.x, sourceAnchor.pos.y+1.5, { font: 0.25 });
-
-        const courierType = this.domestic ? CreepRoleName.Courier : CreepRoleName.RemoteCourier;
-        const courier = neededCourierParts > 0 && this.findSpawnableCreep(courierType, body=>(
-          neededCourierParts >= body.counts[CARRY] &&
-          neededCourierParts % body.counts[CARRY]
-        ), { anchor: sourceAnchor, cohort: sourceAnchor.couriers });
-        if (courier){
-          // console.log(`Need a courier: ${neededCourierParts} - ${courier.tier.body.counts[CARRY]}`);
-          return courier;
-        }
+        const courier = this.getRequestedCourier(sourceAnchor);
+        if (courier) return courier;
       }
     }
 
@@ -132,12 +200,23 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     const getExitPos = (source:CreepSourceAnchor)=>source.anchor.pos.findClosestByRange(exit)!;
     const getExitRange = (source:CreepSourceAnchor)=>getExitPos(source).getRangeTo(source);
     //Sort the sources by range to the exit that connects rooms. This way we build the road to the closest one first, then leverage that road when connecting to the second source.
-    const sources = this.domestic ? this.officeAudit.sources : this.officeAudit.sources.sort((a, b)=>getExitRange(a) - getExitRange(b));
+    const sources = this.domestic ? this.sources : this.sources.slice().sort((a, b)=>getExitRange(a) - getExitRange(b));
 
-    const sourceContainers = sources.map(source=>getBestContainerLocation(source.pos, this.domestic ? this.homeAudit.center : getExitPos(source)));
-    sourceContainers.forEach(containerPos=>{
-      this.office!.createConstructionSite(containerPos, STRUCTURE_CONTAINER);
+    /*
+      HomeFlag owns the early layout of a home room (spawn roads, then source roads/seats, then the
+      controller road, then the source containers in CL1 substage 3). A domestic audit therefore only
+      measures the paths it needs for the courier math instead of racing HomeFlag with a second set of
+      container and road sites.
+    */
+    const sourceContainers = sources.map(source=>{
+      const [ container ] = source.containers;
+      return container?.pos || getBestContainerLocation(source.pos, this.domestic ? this.homeAudit.center : getExitPos(source));
     });
+    if (!this.domestic){
+      sourceContainers.forEach(containerPos=>{
+        this.office!.createConstructionSite(containerPos, STRUCTURE_CONTAINER);
+      });
+    }
 
     const paths:PathFinderPath[] = [];
     const getPathToPos = (pos:RoomPosition)=>{
@@ -188,8 +267,13 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     //Make construction zones to each source. This will make the second pass cheaper.
     sourceContainers.forEach((containerPos, p)=>{
       const path:PathFinderPath = getPathToPos(containerPos);
-      if (!path.path.length) throw `Unable to find a path to source:${sources[p].id}`;
+      if (!path.path.length){
+        //Domestic sources can sit right next to the center, which just means there's no road to build.
+        if (this.domestic) return;
+        throw `Unable to find a path to source:${sources[p].id}`;
+      }
       paths.push(path); //This will allow future paths to reuse these cheaper paths
+      if (this.domestic) return; //HomeFlag places the domestic roads.
       path.path.forEach(step=>{
         const room = Game.rooms[step.roomName];
         room.createConstructionSite(step.x, step.y, STRUCTURE_ROAD);
@@ -265,8 +349,8 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
 
   work() {
     if (this.status === HarvestStatus.Audit) this.audit();
-    if (this.officeAudit) for (const sourceAnchor of this.officeAudit.sources){
-      this.flag.room?.visual.text(`${this.sourceData[sourceAnchor.id].pathCost}`, sourceAnchor.pos.x, sourceAnchor.pos.y-1, { font: 0.5 });
+    for (const sourceAnchor of this.sources){
+      this.flag.room?.visual.text(`${this.getSourcePathCost(sourceAnchor)}`, sourceAnchor.pos.x, sourceAnchor.pos.y-1, { font: 0.5 });
     }
 
     if (this.officeIsHostile){

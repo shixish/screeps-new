@@ -1,13 +1,20 @@
-import { Anchor } from "utils/Anchor";
 import { getRoomAudit } from "utils/tickCache";
+import { followCourierTug } from "utils/seatTug";
 import { BasicCreep, CreepBody } from "./BasicCreep";
 
 export class HarvesterCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 2,
     tiers: [
+      //Domestic static miners: 0 MOVE prefers courier tug onto the container; 1 MOVE is the self-walk fallback.
+      {
+        body: new CreepBody([WORK, WORK], 200),
+      },
       {
         body: new CreepBody([WORK, WORK, MOVE], 250),
+      },
+      {
+        body: new CreepBody([WORK, WORK, WORK, WORK, WORK], 500),
       },
       {
         body: new CreepBody([WORK, WORK, WORK, WORK, WORK, MOVE], 550),
@@ -49,42 +56,39 @@ export class HarvesterCreep extends BasicCreep {
   }
 
   work(){
-    // if (!this.memory.anchor){
-    //   const roomAudit = getRoomAudit(this.room);
-    //   const creepAnchor = MinerCreep.config.getCreepAnchor!(roomAudit);
-    //   if (creepAnchor){
-    //     // console.log(`creepAnchor`, creepAnchor);
-    //     this.memory.anchor = creepAnchor.id;
-    //     creepAnchor.addOccupant(this.name);
-    //   }
-    // }
+    //Cooperate with an adjacent courier tug (intents apply same tick).
+    if (followCourierTug(this)) return;
 
-    // super.work();
     const anchor = this.getAnchorObject();
     if (anchor){
-      if (!this.memory.seated){
+      const roomAudit = getRoomAudit(this.room);
+      const sourceAnchor = roomAudit.sources.find(source=>source.id === this.memory.anchor);
+      if (this.moveWithinRange(anchor.pos, 1)){
         this.memory.seated = false; //This will disable resource spreading which will slow down these already slow creeps
-        if (this.moveWithinRange(anchor.pos, 1)) return;
-        const roomAudit = getRoomAudit(this.room);
-        const sourceAnchor = roomAudit.sources.find(source=>source.id === this.memory.anchor);
-        if (!sourceAnchor!.containers.length){
-          //If this source doesn't have any containers near it yet just have a seat anywhere
-          this.memory.seated = true;
-        }else{
-          const seatContainer = sourceAnchor!.containers.find(container=>{
-            //If you're already over a container or there's a open container nearby
-            return this.pos.isEqualTo(container.pos) || !container.pos.lookFor(LOOK_CREEPS).length;
-          });
-          //Another creep might be temporarily sitting on the desired container, or there might be multiple miners but only one box.
-          if (seatContainer){
-            if (this.pos.isEqualTo(seatContainer.pos)){
-              this.memory.seated = true;
-            }else{
-              this.moveTo(seatContainer);
-              return;
-            }
-          }
+        return;
+      }
+      /*
+        Static mining: sit right on the source's container so everything harvested (this body has zero
+        CARRY, so it all drops on the floor) lands in the container for the couriers to pick up. Seating
+        is re-checked every tick so a miner that had to settle for a plain seat moves onto the container
+        as soon as it gets built.
+      */
+      const containers = sourceAnchor?.containers ?? [];
+      if (!containers.length){
+        //If this source doesn't have any containers near it yet just have a seat anywhere
+        this.memory.seated = true;
+      }else{
+        const seatContainer = containers.find(container=>{
+          //If you're already over a container or there's a open container nearby
+          return this.pos.isEqualTo(container.pos) || !container.pos.lookFor(LOOK_CREEPS).length;
+        });
+        //Another creep might be temporarily sitting on the desired container, or there might be multiple miners but only one box.
+        if (seatContainer && !this.pos.isEqualTo(seatContainer.pos)){
+          this.memory.seated = false;
+          this.moveTo(seatContainer);
+          return;
         }
+        this.memory.seated = Boolean(seatContainer);
       }
     }
     this.startHarvesting(anchor);

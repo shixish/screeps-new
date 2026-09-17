@@ -184,3 +184,52 @@ export function getSourceSaturation(roomAudit:RoomAudit, droneCohort:Cohort):Sou
     saturated: seatsUsed >= seats || workUsed >= work,
   };
 }
+
+/*
+  A source counts as statically mined once it has a container to mine into and a dedicated harvester
+  cohort covering its useful throughput. At that point the HarvestFlag miner plus its couriers are the
+  harvest plan for that source, so the HomeFlag drones stop growing and the Basic creeps stop crowding
+  the seats (see BasicCreep.work).
+*/
+export function isSourceStaticallyMined(sourceAnchor:CreepSourceAnchor){
+  if (!sourceAnchor.containers.length) return false;
+  return (sourceAnchor.harvesters.counts[WORK] ?? 0) >= sourceAnchor.getOptimalWorkParts();
+}
+
+export function areSourcesStaticallyMined(roomAudit:RoomAudit){
+  return roomAudit.sources.length > 0 && roomAudit.sources.every(isSourceStaticallyMined);
+}
+
+/*
+  Harvest coverage before anyone feeds the controller.
+
+  A source is covered when a dedicated harvester (static miner) is assigned to it. During the
+  pre-container drone phase - no source has a container yet - HomeFlag Basics are the harvest plan,
+  so coverage means those drones (plus any early harvesters) have saturated the seats/WORK budget.
+
+  Always allow feeding the controller when ticksToDowngrade is under CONTROLLER_DOWNGRADE_GRACE so a
+  stalled miner plan can't lose the room. Otherwise roads must be placed AND every source must be
+  covered - harvest outranks upgrading.
+*/
+export function isSourceHarvestCovered(sourceAnchor:CreepSourceAnchor){
+  return sourceAnchor.harvesters.occupancy > 0 || (sourceAnchor.harvesters.counts[WORK] ?? 0) > 0;
+}
+
+export function areSourcesHarvestCovered(roomAudit:RoomAudit, droneCohort?:Cohort){
+  if (roomAudit.sources.length === 0) return true;
+  if (roomAudit.sources.every(isSourceHarvestCovered)) return true;
+
+  //Interim drone phase: no containers yet, Basics still haul for themselves.
+  const anyContainer = roomAudit.sources.some(source=>source.containers.length > 0);
+  if (!anyContainer && droneCohort){
+    return getSourceSaturation(roomAudit, droneCohort).saturated;
+  }
+  return false;
+}
+
+export function canFeedController(room:Room, roomAudit:RoomAudit, droneCohort?:Cohort){
+  const controller = room.controller;
+  if (controller?.my && controller.ticksToDowngrade < CONTROLLER_DOWNGRADE_GRACE) return true;
+  if (!isPriorityRoadWorkComplete(room)) return false;
+  return areSourcesHarvestCovered(roomAudit, droneCohort);
+}
