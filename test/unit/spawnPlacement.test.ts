@@ -1,15 +1,16 @@
 import { assert } from "chai";
 import {
+  ROOM_SIZE,
+  UNREACHABLE_COST,
   chebyshevDistance,
   computeWalkCostMap,
+  countWalkableNeighbors,
   findOptimalSpawnTile,
   isEdgeTile,
   isValidSpawnTile,
-  ROOM_SIZE,
   spawnMarkerName,
   spawnStructureName,
-  tileIndex,
-  UNREACHABLE_COST
+  tileIndex
 } from "../../src/utils/spawnPlacement";
 
 const PLAIN = 0;
@@ -79,7 +80,7 @@ describe("spawnPlacement", () => {
 
     const result = findOptimalSpawnTile({ getTerrain, goals });
     assert.isNotNull(result);
-    assert.isFalse(result!.usedChebyshev);
+    assert.isFalse(result.usedChebyshev);
 
     const sample = [
       { x: 5, y: 5 },
@@ -90,18 +91,18 @@ describe("spawnPlacement", () => {
     for (const tile of sample) {
       const maps = goals.map(goal => computeWalkCostMap(goal, getTerrain));
       const sampleCost = maps.reduce((sum, map) => sum + map[tileIndex(tile.x, tile.y)], 0);
-      assert.isAtMost(result!.cost, sampleCost);
+      assert.isAtMost(result.cost, sampleCost);
     }
 
-    assert.isAtLeast(result!.x, 1);
-    assert.isAtMost(result!.x, 48);
-    assert.isAtLeast(result!.y, 1);
-    assert.isAtMost(result!.y, 48);
+    assert.isAtLeast(result.x, 1);
+    assert.isAtMost(result.x, 48);
+    assert.isAtLeast(result.y, 1);
+    assert.isAtMost(result.y, 48);
     // Geometric median of the three goals sits in the upper-middle of the room.
-    assert.isAbove(result!.x, 15);
-    assert.isBelow(result!.x, 35);
-    assert.isAbove(result!.y, 12);
-    assert.isBelow(result!.y, 30);
+    assert.isAbove(result.x, 15);
+    assert.isBelow(result.x, 35);
+    assert.isAbove(result.y, 12);
+    assert.isBelow(result.y, 30);
   });
 
   it("routes around a wall gap instead of sitting on the chebyshev midpoint", () => {
@@ -124,9 +125,9 @@ describe("spawnPlacement", () => {
       isSpawnBlocked: (x, y) => goals.some(goal => goal.x === x && goal.y === y)
     });
     assert.isNotNull(result);
-    assert.isFalse(result!.usedChebyshev);
-    assert.isBelow(chebyshevDistance(result!.x, result!.y, junction.x, junction.y), 3);
-    assert.isTrue(isValidSpawnTile(result!.x, result!.y, getTerrain));
+    assert.isFalse(result.usedChebyshev);
+    assert.isBelow(chebyshevDistance(result.x, result.y, junction.x, junction.y), 3);
+    assert.isTrue(isValidSpawnTile(result.x, result.y, getTerrain));
   });
 
   it("skips spawn-blocked tiles and falls back to chebyshev when walks are impossible", () => {
@@ -143,7 +144,7 @@ describe("spawnPlacement", () => {
       isSpawnBlocked: (x, y) => blocked.has(tileIndex(x, y))
     });
     assert.isNotNull(result);
-    assert.isFalse(blocked.has(tileIndex(result!.x, result!.y)));
+    assert.isFalse(blocked.has(tileIndex(result.x, result.y)));
 
     const isolated = makeTerrain(WALL);
     setTile(isolated, 20, 20, PLAIN);
@@ -158,7 +159,7 @@ describe("spawnPlacement", () => {
       ]
     });
     assert.isNotNull(boxed);
-    assert.isTrue(boxed!.usedChebyshev);
+    assert.isTrue(boxed.usedChebyshev);
   });
 
   it("charges swamp tiles more than plains, matching PathFinder swampCost", () => {
@@ -175,5 +176,38 @@ describe("spawnPlacement", () => {
     assert.notEqual(acrossSwamp, UNREACHABLE_COST);
     assert.notEqual(aroundNorth, UNREACHABLE_COST);
     assert.isAbove(acrossSwamp, aroundNorth);
+  });
+
+  it("treats swamp as plain when swampCost equals plainCost", () => {
+    const plains = makeTerrain(PLAIN);
+    const swampy = makeTerrain(PLAIN);
+    for (let x = 15; x <= 40; x++) {
+      for (let y = 8; y <= 42; y++) {
+        setTile(swampy, x, y, SWAMP);
+      }
+    }
+    const origin = { x: 10, y: 25 };
+    const dest = tileIndex(45, 25);
+    const plainMap = computeWalkCostMap(origin, getter(plains), undefined, 1, 1);
+    const swampMap = computeWalkCostMap(origin, getter(swampy), undefined, 1, 1);
+    assert.equal(swampMap[dest], plainMap[dest]);
+
+    const defaultSwamp = computeWalkCostMap(origin, getter(swampy));
+    assert.isAbove(defaultSwamp[dest], swampMap[dest]);
+  });
+
+  it("counts walkable adjacent tiles as harvest seats (swamp yes, wall/out-of-bounds no)", () => {
+    const terrain = makeTerrain(PLAIN);
+    assert.equal(countWalkableNeighbors(25, 25, getter(terrain)), 8);
+
+    setTile(terrain, 24, 25, WALL);
+    setTile(terrain, 26, 25, WALL);
+    setTile(terrain, 25, 24, SWAMP);
+    assert.equal(countWalkableNeighbors(25, 25, getter(terrain)), 6);
+
+    const corner = makeTerrain(PLAIN);
+    assert.equal(countWalkableNeighbors(0, 0, getter(corner)), 3);
+    setTile(corner, 1, 0, WALL);
+    assert.equal(countWalkableNeighbors(0, 0, getter(corner)), 2);
   });
 });

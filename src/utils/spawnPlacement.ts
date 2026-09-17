@@ -78,21 +78,35 @@ function walkCostForTerrain(terrain: number, plainCost: number, swampCost: numbe
   return plainCost;
 }
 
-function hasWalkableNeighbor(
+/**
+ * Count 8-adjacent tiles a creep can stand on (in-room, not a wall).
+ * Swamp counts as a seat; `isWalkBlocked` is optional extra occupancy.
+ */
+export function countWalkableNeighbors(
   x: number,
   y: number,
   getTerrain: (x: number, y: number) => number,
   isWalkBlocked?: (x: number, y: number) => boolean
-): boolean {
+): number {
+  let seats = 0;
   for (let i = 0; i < DIR_X.length; i++) {
     const nx = x + DIR_X[i];
     const ny = y + DIR_Y[i];
     if (nx < 0 || ny < 0 || nx >= ROOM_SIZE || ny >= ROOM_SIZE) continue;
     if (getTerrain(nx, ny) === TERRAIN_WALL) continue;
     if (isWalkBlocked?.(nx, ny)) continue;
-    return true;
+    seats++;
   }
-  return false;
+  return seats;
+}
+
+function hasWalkableNeighbor(
+  x: number,
+  y: number,
+  getTerrain: (x: number, y: number) => number,
+  isWalkBlocked?: (x: number, y: number) => boolean
+): boolean {
+  return countWalkableNeighbors(x, y, getTerrain, isWalkBlocked) > 0;
 }
 
 export function isValidSpawnTile(
@@ -253,9 +267,14 @@ function markBlocked(blocked: boolean[], x: number, y: number): void {
   blocked[tileIndex(x, y)] = true;
 }
 
-export function findOptimalSpawnPosition(room: Room): SpawnTileScore | null {
+export function findOptimalSpawnPosition(
+  room: Room,
+  options?: { plainCost?: number; swampCost?: number }
+): SpawnTileScore | null {
   const controller = room.controller;
   if (!controller) return null;
+  const plainCost = options?.plainCost ?? PLAIN_WALK_COST;
+  const swampCost = options?.swampCost ?? SWAMP_WALK_COST;
 
   const sources = room.find(FIND_SOURCES);
   const goals: TilePos[] = sources.map(source => ({ x: source.pos.x, y: source.pos.y }));
@@ -293,17 +312,21 @@ export function findOptimalSpawnPosition(room: Room): SpawnTileScore | null {
     getTerrain: (x, y) => terrain.get(x, y),
     goals,
     isSpawnBlocked: (x, y) => spawnBlocked[tileIndex(x, y)],
-    isWalkBlocked: (x, y) => walkBlocked[tileIndex(x, y)]
+    isWalkBlocked: (x, y) => walkBlocked[tileIndex(x, y)],
+    plainCost,
+    swampCost
   });
   if (!tile) return null;
-  return confirmWithPathFinder(room, tile, goals, walkBlocked);
+  return confirmWithPathFinder(room, tile, goals, walkBlocked, plainCost, swampCost);
 }
 
 function confirmWithPathFinder(
   room: Room,
   tile: SpawnTileScore,
   goals: TilePos[],
-  walkBlocked: boolean[]
+  walkBlocked: boolean[],
+  plainCost = PLAIN_WALK_COST,
+  swampCost = SWAMP_WALK_COST
 ): SpawnTileScore {
   if (typeof PathFinder === "undefined" || !PathFinder.search) return tile;
   if (typeof PathFinder.CostMatrix !== "function") return tile;
@@ -323,8 +346,8 @@ function confirmWithPathFinder(
       {
         maxRooms: 1,
         maxOps: 4000,
-        plainCost: PLAIN_WALK_COST,
-        swampCost: SWAMP_WALK_COST,
+        plainCost,
+        swampCost,
         roomCallback: () => matrix
       }
     );

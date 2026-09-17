@@ -7,17 +7,25 @@
   a flag + RoomVisual. Spawn placement still uses the existing in-room
   bootstrap once the player is in (or can act on) that room.
 
-  Score (higher is better): E / (D + 1) where E is regen energy/tick and D is
-  walk cost from the sources+controller midpoint. Owned/NPC rooms are skipped.
+  Pass-2 (v2) then re-ranks the top N pass-1 rooms from the precise spawn
+  tile with swamp=plain and harvest-seat energy H*10. See scoreFirstRoomPass2.
 */
 
-import { RankedFirstRoom, rankFirstRooms } from "./firstRoomScore";
+import {
+  RankedFirstRoom,
+  RankedFirstRoomPass2,
+  compareFirstRoomPass2Scores,
+  rankFirstRooms,
+  rankFirstRoomsPass2
+} from "./firstRoomScore";
 import { RoomIndex, RoomRegion, defaultFirstRoomRegion, listRoomsInRegion } from "./roomNames";
 import { TilePos } from "./spawnPlacement";
 
 export const FIRST_ROOM_TTL = 1000;
 export const FIRST_ROOM_SCORED_PER_TICK = 4;
 export const FIRST_ROOM_TOP_N = 10;
+export const FIRST_ROOM_PASS2_TOP_N = 10;
+export const FIRST_ROOM_PASS2_PER_TICK = 1;
 export const FIRST_ROOM_FLAG = "first-room";
 
 export interface StoredRoomIntel {
@@ -27,6 +35,12 @@ export interface StoredRoomIntel {
   my?: boolean;
   reserved?: boolean;
   scannedAt: number;
+}
+
+export interface HarvestSeatMemory {
+  x: number;
+  y: number;
+  seats: number;
 }
 
 export interface FirstRoomRankEntry {
@@ -39,6 +53,35 @@ export interface FirstRoomRankEntry {
   midpoint?: TilePos;
   usedChebyshev: boolean;
   reason?: string;
+  spawnPos?: TilePos;
+  H?: number;
+  E2?: number;
+  D2?: number;
+  score2?: number;
+  harvestSeats?: HarvestSeatMemory[];
+}
+
+export interface FirstRoomPass2Entry {
+  roomName: string;
+  eligible: boolean;
+  spawnPos?: TilePos;
+  H: number;
+  E2: number;
+  D2: number;
+  score2: number;
+  harvestSeats: HarvestSeatMemory[];
+  usedChebyshev: boolean;
+  reason?: string;
+}
+
+export interface FirstRoomPass2Memory {
+  ranked: FirstRoomPass2Entry[];
+  pending: string[];
+  complete: boolean;
+  logged?: boolean;
+  topN: number;
+  shortlistKey: string;
+  bestRoom?: string;
 }
 
 export interface FirstRoomMemory {
@@ -53,12 +96,15 @@ export interface FirstRoomMemory {
   complete: boolean;
   logged?: boolean;
   settled?: boolean;
+  pass2?: FirstRoomPass2Memory;
 }
 
 declare global {
   interface Memory {
     firstRoom?: FirstRoomMemory;
     firstRoomRegion?: RoomRegion;
+    /** Override how many pass-1 rooms get the spawn-precise pass-2 score. */
+    firstRoomPass2TopN?: number;
   }
 }
 
@@ -223,6 +269,37 @@ export function toRankEntry(ranked: RankedFirstRoom): FirstRoomRankEntry {
   return entry;
 }
 
+export function toPass2Entry(ranked: RankedFirstRoomPass2): FirstRoomPass2Entry {
+  const entry: FirstRoomPass2Entry = {
+    roomName: ranked.roomName,
+    eligible: ranked.eligible,
+    H: ranked.H,
+    E2: ranked.E2,
+    D2: ranked.D2,
+    score2: ranked.score2,
+    harvestSeats: ranked.harvestSeats,
+    usedChebyshev: ranked.usedChebyshev
+  };
+  if (ranked.spawnPos) entry.spawnPos = ranked.spawnPos;
+  if (ranked.reason) entry.reason = ranked.reason;
+  return entry;
+}
+
+function applyPass2ToRankEntry(entry: FirstRoomRankEntry, pass2: FirstRoomPass2Entry): void {
+  entry.H = pass2.H;
+  entry.E2 = pass2.E2;
+  entry.D2 = pass2.D2;
+  entry.score2 = pass2.score2;
+  entry.harvestSeats = pass2.harvestSeats;
+  if (pass2.spawnPos) entry.spawnPos = pass2.spawnPos;
+}
+
+export function configuredPass2TopN(): number {
+  const override = typeof Memory !== "undefined" ? Memory.firstRoomPass2TopN : undefined;
+  if (typeof override === "number" && override > 0) return Math.floor(override);
+  return FIRST_ROOM_PASS2_TOP_N;
+}
+
 export function formatFirstRoomLog(memory: FirstRoomMemory): string {
   const top = memory.ranked.filter(entry => entry.eligible).slice(0, FIRST_ROOM_TOP_N);
   if (!top.length) {
@@ -244,6 +321,35 @@ export function formatFirstRoomLog(memory: FirstRoomMemory): string {
     `[first-room] Best room ${memory.bestRoom} (higher score is better). ` +
     `Formula: score = E / (D + 1) with E = numSources * (SOURCE_ENERGY_CAPACITY / ENERGY_REGEN_TIME), ` +
     `D = walk cost from midpoint(sources+controller). Minerals are not in D. See Memory.firstRoom.\n` +
+    lines.join("\n")
+  );
+}
+
+export function formatPass2Log(memory: FirstRoomMemory): string {
+  const pass2 = memory.pass2;
+  const top = (pass2?.ranked ?? []).filter(entry => entry.eligible).slice(0, FIRST_ROOM_TOP_N);
+  if (!pass2 || !top.length) {
+    return (
+      `[first-room pass-2] No spawn-precise scores yet. Pass-1 stays the coarse filter; ` +
+      `pass-2 runs on the top ${configuredPass2TopN()} rooms. ` +
+      `score2 = E2 / (D2 + 1); E2 = H * 10, H = harvest seats, D2 = walk from spawn (swamp=plain).`
+    );
+  }
+  const lines = top.map((entry, index) => {
+    const cheby = entry.usedChebyshev ? " chebyshev-fallback" : "";
+    const spawn = entry.spawnPos ? ` spawn=(${entry.spawnPos.x},${entry.spawnPos.y})` : "";
+    const seats = entry.harvestSeats.map(s => s.seats).join("+");
+    return (
+      `  ${index + 1}. ${entry.roomName} score2=${entry.score2.toFixed(4)} ` +
+      `E2=${entry.E2} D2=${entry.D2} H=${entry.H} seats=${seats}${spawn}${cheby}`
+    );
+  });
+  return (
+    `[first-room pass-2] Best room ${pass2.bestRoom ?? memory.bestRoom} (higher score2 is better). ` +
+    `Formula: score2 = E2 / (D2 + 1) with E2 = H * (SOURCE_ENERGY_CAPACITY / ENERGY_REGEN_TIME), ` +
+    `H = open harvest seats around energy sources (early-game miner multiplier), ` +
+    `D2 = walk cost from the precise spawn to sources+controller with swamp=plain. ` +
+    `See Memory.firstRoom.pass2.\n` +
     lines.join("\n")
   );
 }
@@ -271,14 +377,15 @@ function removeRecommendationFlag(): void {
 }
 
 function paintRecommendation(room: Room, entry: FirstRoomRankEntry): void {
-  const pos = entry.midpoint ?? room.controller?.pos ?? { x: 25, y: 3 };
+  const pos = entry.spawnPos ?? entry.midpoint ?? room.controller?.pos ?? { x: 25, y: 3 };
+  const labelScore = entry.score2 ?? entry.score;
   room.visual.rect(pos.x - 0.5, pos.y - 0.5, 1, 1, {
     fill: "transparent",
     stroke: "#33ffff",
     strokeWidth: 0.12,
     opacity: 0.9
   });
-  room.visual.text(`BEST ${entry.score.toFixed(3)}`, pos.x, pos.y - 0.7, {
+  room.visual.text(`BEST ${labelScore.toFixed(3)}`, pos.x, pos.y - 0.7, {
     font: 0.45,
     color: "#33ffff",
     stroke: "#000000",
@@ -306,11 +413,19 @@ function logOnce(memory: FirstRoomMemory): void {
   console.log(formatFirstRoomLog(memory));
 }
 
+function logPass2Once(memory: FirstRoomMemory): void {
+  const pass2 = memory.pass2;
+  if (!pass2 || pass2.logged || !pass2.complete) return;
+  pass2.logged = true;
+  console.log(formatPass2Log(memory));
+}
+
 export function settleFirstRoomSelection(): void {
   const memory = firstRoomMemory();
   if (memory) {
     memory.settled = true;
     memory.pending = [];
+    if (memory.pass2) memory.pass2.pending = [];
   }
   removeRecommendationFlag();
 }
@@ -334,6 +449,102 @@ function compareEntries(a: FirstRoomRankEntry, b: FirstRoomRankEntry): number {
   if (a.sourceCount !== b.sourceCount) return b.sourceCount - a.sourceCount;
   if (a.walkCost !== b.walkCost) return a.walkCost - b.walkCost;
   return a.roomName.localeCompare(b.roomName);
+}
+
+function comparePass2Entries(a: FirstRoomPass2Entry, b: FirstRoomPass2Entry): number {
+  const byScore = compareFirstRoomPass2Scores(a, b);
+  if (byScore !== 0) return byScore;
+  return a.roomName.localeCompare(b.roomName);
+}
+
+function emptyPass2(topN: number, shortlist: string[]): FirstRoomPass2Memory {
+  return {
+    ranked: [],
+    pending: shortlist.slice(),
+    complete: shortlist.length === 0,
+    logged: false,
+    topN,
+    shortlistKey: shortlist.join(",")
+  };
+}
+
+function mergePass2OntoRanked(memory: FirstRoomMemory): void {
+  if (!memory.pass2) return;
+  const byName = new Map(memory.pass2.ranked.map(entry => [entry.roomName, entry]));
+  for (const entry of memory.ranked) {
+    const pass2 = byName.get(entry.roomName);
+    if (pass2) applyPass2ToRankEntry(entry, pass2);
+  }
+}
+
+function seedPreferredSpawn(memory: FirstRoomMemory): void {
+  const pass2 = memory.pass2;
+  if (!pass2?.complete || !memory.bestRoom) return;
+  const room = Game.rooms?.[memory.bestRoom];
+  if (!room) return;
+  const entry = pass2.ranked.find(item => item.roomName === memory.bestRoom);
+  if (!entry?.spawnPos) return;
+  const previous = room.memory.spawnBootstrap;
+  room.memory.spawnBootstrap = {
+    x: entry.spawnPos.x,
+    y: entry.spawnPos.y,
+    cost: entry.D2,
+    usedChebyshev: entry.usedChebyshev,
+    logged: previous?.logged
+  };
+}
+
+/**
+ * After pass-1 finishes, score the top N rooms from the precise spawn with swamp=plain.
+ * One room per tick by default — Dijkstra-from-spawn is heavier than pass-1's midpoint map.
+ */
+export function refreshPass2Ranking(memory: FirstRoomMemory): void {
+  if (!memory.complete) return;
+
+  const topN = configuredPass2TopN();
+  const shortlist = memory.ranked.filter(entry => entry.eligible).slice(0, topN).map(entry => entry.roomName);
+  const shortlistKey = shortlist.join(",");
+  if (!memory.pass2 || memory.pass2.topN !== topN || memory.pass2.shortlistKey !== shortlistKey) {
+    memory.pass2 = emptyPass2(topN, shortlist);
+  }
+
+  const pass2 = memory.pass2;
+  const batch = pass2.pending.slice(0, FIRST_ROOM_PASS2_PER_TICK);
+  pass2.pending = pass2.pending.slice(batch.length);
+
+  if (batch.length) {
+    const inputs = scoreableInputs(batch, memory.intel);
+    const scoredByName = new Map(rankFirstRoomsPass2(inputs).map(ranked => [ranked.roomName, ranked]));
+    const byName = new Map(pass2.ranked.map(entry => [entry.roomName, entry]));
+    for (const roomName of batch) {
+      const scored = scoredByName.get(roomName);
+      if (scored) {
+        byName.set(roomName, toPass2Entry(scored));
+      } else {
+        byName.set(roomName, {
+          roomName,
+          eligible: false,
+          H: 0,
+          E2: 0,
+          D2: Number.POSITIVE_INFINITY,
+          score2: 0,
+          harvestSeats: [],
+          usedChebyshev: false,
+          reason: "no terrain"
+        });
+      }
+    }
+    pass2.ranked = Array.from(byName.values()).sort(comparePass2Entries);
+  }
+
+  pass2.complete = pass2.pending.length === 0;
+  mergePass2OntoRanked(memory);
+  if (pass2.complete) {
+    const best = pass2.ranked.find(entry => entry.eligible);
+    pass2.bestRoom = best?.roomName;
+    if (best) memory.bestRoom = best.roomName;
+    seedPreferredSpawn(memory);
+  }
 }
 
 /**
@@ -393,6 +604,7 @@ export function refreshFirstRoomRanking(time = Game.time): FirstRoomMemory {
   memory.bestRoom = eligible[0]?.roomName;
   memory.complete = memory.pending.length === 0;
   if (stale) memory.logged = false;
+  refreshPass2Ranking(memory);
 
   return setFirstRoomMemory(memory);
 }
@@ -400,6 +612,7 @@ export function refreshFirstRoomRanking(time = Game.time): FirstRoomMemory {
 export function paintFirstRoomRecommendation(memory: FirstRoomMemory = firstRoomMemory()!): void {
   if (!memory || memory.settled) return;
   logOnce(memory);
+  logPass2Once(memory);
   const best = memory.bestRoom;
   if (!best) {
     removeRecommendationFlag();
