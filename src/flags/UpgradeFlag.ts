@@ -1,4 +1,5 @@
 import { CreepPriority, CreepRoleName, UPGRADER_STORAGE_MIN } from "utils/constants";
+import { isPriorityRoadWorkComplete } from "utils/earlyEconomy";
 import { BasicFlag } from "./_BasicFlag";
 import { RemoteFlagMemory } from "./_RemoteFlag";
 
@@ -11,6 +12,9 @@ interface UpgradeFlagMemory extends RemoteFlagMemory{
 export class UpgradeFlag extends BasicFlag<UpgradeFlagMemory> {
   getRequestedCreep(currentPriorityLevel:CreepPriority){
     if (currentPriorityLevel < CreepPriority.Low) return null;
+
+    //Early game: don't fund dedicated upgraders/couriers until the priority roads are placed.
+    if (!isPriorityRoadWorkComplete(this.home)) return null;
 
     //Send 80% of total energy into the controller. If we're banking then ramp up the usage.
     const upgraderEnergyPerTick = this.homeAudit.totalEnergyIncomePerTick*(this.homeAudit.storedEnergy > UPGRADER_STORAGE_MIN ? 1.2 : 0.8);
