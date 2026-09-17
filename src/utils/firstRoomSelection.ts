@@ -3,17 +3,21 @@
 
   Runs from initialize() when Game.spawns is empty. Results are cached in
   Memory.firstRoom until the visible/known world changes or the TTL expires.
-  Logs the recommendation once (no spam) and marks the best visible room with
-  a flag + RoomVisual. Spawn placement still uses the existing in-room
+  Logs the recommendation once (no spam). While bootstrap is active, the world
+  map shows the top 5 ranks via Game.map.visual; the best visible room also
+  gets a flag + RoomVisual. Spawn placement still uses the existing in-room
   bootstrap once the player is in (or can act on) that room.
 
   Score (higher is better): E / (D + 1) where E is regen energy/tick and D is
   walk cost from the sources+controller midpoint. Owned/NPC rooms are skipped.
 */
 
+import { FIRST_ROOM_MAP_TOP_N, paintTopFirstRoomsOnMap } from "./firstRoomMapVisual";
 import { RankedFirstRoom, rankFirstRooms } from "./firstRoomScore";
 import { RoomIndex, RoomRegion, defaultFirstRoomRegion, listRoomsInRegion } from "./roomNames";
 import { TilePos } from "./spawnPlacement";
+
+export { FIRST_ROOM_MAP_TOP_N };
 
 export const FIRST_ROOM_TTL = 1000;
 export const FIRST_ROOM_SCORED_PER_TICK = 4;
@@ -33,6 +37,10 @@ export interface FirstRoomRankEntry {
   roomName: string;
   eligible: boolean;
   score: number;
+  /** Pass-2 score when present; map visuals prefer this over `score`. */
+  score2?: number;
+  /** Pass-2 spawn score when numeric. */
+  spawn?: number;
   energyPerTick: number;
   walkCost: number;
   sourceCount: number;
@@ -287,19 +295,6 @@ function paintRecommendation(room: Room, entry: FirstRoomRankEntry): void {
   ensureRecommendationFlag(room, { x: pos.x, y: pos.y });
 }
 
-function paintMapMarker(roomName: string): void {
-  const visual = Game.map?.visual;
-  if (!visual) return;
-  try {
-    const origin = new RoomPosition(0, 0, roomName);
-    const label = new RoomPosition(25, 25, roomName);
-    visual.rect(origin, 50, 50, { fill: "#00ffff", opacity: 0.12, stroke: "#00ffff" });
-    visual.text(`BEST ${roomName}`, label, { color: "#00ffff", fontSize: 6 });
-  } catch {
-    // Room names like "sim" still work; ignore map-visual failures.
-  }
-}
-
 function logOnce(memory: FirstRoomMemory): void {
   if (memory.logged || !memory.complete) return;
   memory.logged = true;
@@ -400,12 +395,12 @@ export function refreshFirstRoomRanking(time = Game.time): FirstRoomMemory {
 export function paintFirstRoomRecommendation(memory: FirstRoomMemory = firstRoomMemory()!): void {
   if (!memory || memory.settled) return;
   logOnce(memory);
+  if (memory.ranked.length) paintTopFirstRoomsOnMap(memory.ranked);
   const best = memory.bestRoom;
   if (!best) {
     removeRecommendationFlag();
     return;
   }
-  paintMapMarker(best);
   const room = Game.rooms?.[best];
   const entry = memory.ranked.find(item => item.roomName === best);
   if (room && entry) paintRecommendation(room, entry);

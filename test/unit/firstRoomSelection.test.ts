@@ -2,7 +2,10 @@ import { assert } from "chai";
 import { RankedFirstRoom } from "../../src/utils/firstRoomScore";
 import {
   FIRST_ROOM_FLAG,
+  FIRST_ROOM_MAP_TOP_N,
+  FirstRoomMemory,
   formatFirstRoomLog,
+  paintFirstRoomRecommendation,
   toRankEntry,
   worldKeyForSelection
 } from "../../src/utils/firstRoomSelection";
@@ -93,5 +96,76 @@ describe("firstRoomSelection", () => {
     const a = worldKeyForSelection(region, ["W1N1"], []);
     const b = worldKeyForSelection(region, ["W1N1", "W2N1"], []);
     assert.notEqual(a, b);
+  });
+
+  it("draws top 5 map ranks while bootstrap recommendation is active", () => {
+    class FakePos {
+      public constructor(
+        public x: number,
+        public y: number,
+        public roomName: string
+      ) {}
+    }
+    const previousPos = (global as { RoomPosition?: unknown }).RoomPosition;
+    const previousGame = (global as { Game?: unknown }).Game;
+    (global as { RoomPosition: typeof FakePos }).RoomPosition = FakePos;
+
+    const texts: string[] = [];
+    (global as { Game: unknown }).Game = {
+      rooms: {},
+      flags: {},
+      map: {
+        visual: {
+          rect() {
+            return undefined;
+          },
+          text(label: string, pos: FakePos) {
+            texts.push(`${pos.roomName}:${label}`);
+          }
+        }
+      }
+    };
+
+    const memory: FirstRoomMemory = {
+      bestRoom: "W1N1",
+      ranked: [1, 2, 3, 4, 5, 6].map(n => ({
+        roomName: `W${n}N1`,
+        eligible: true,
+        score: 1 - n * 0.1,
+        energyPerTick: 20,
+        walkCost: 40,
+        sourceCount: 2,
+        usedChebyshev: false
+      })),
+      candidates: [],
+      pending: [],
+      intel: {},
+      region: { type: "allOpen" },
+      worldKey: "test",
+      computedAt: 1,
+      complete: true,
+      logged: true
+    };
+
+    paintFirstRoomRecommendation(memory);
+    assert.equal(FIRST_ROOM_MAP_TOP_N, 5);
+    assert.equal(texts.length, 5);
+    assert.equal(texts[0], "W1N1:#1 0.90");
+    assert.isUndefined(texts.find(line => line.startsWith("W6N1")));
+
+    texts.length = 0;
+    paintFirstRoomRecommendation({ ...memory, settled: true });
+    assert.equal(texts.length, 0);
+
+    if (previousPos) {
+      (global as { RoomPosition: unknown }).RoomPosition = previousPos;
+    } else {
+      delete (global as { RoomPosition?: unknown }).RoomPosition;
+    }
+    if (previousGame) {
+      (global as { Game: unknown }).Game = previousGame;
+    } else {
+      delete (global as { Game?: unknown }).Game;
+    }
   });
 });
