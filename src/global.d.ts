@@ -159,6 +159,7 @@ declare global {
     sources: Id<Source>[];
     mineral: Id<Mineral>|null;
     spawnBootstrap?: import('utils/spawnPlacement').SpawnBootstrapMemory;
+    earlyRoads?: import('utils/earlyEconomy').EarlyRoadPlanMemory;
 
     // sources: {
     //   [id:string]:any

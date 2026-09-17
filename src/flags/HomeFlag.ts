@@ -1,5 +1,6 @@
 import { Cohort } from "utils/Cohort";
 import { CreepPriority, CreepRoleName } from "utils/constants";
+import { ensureEarlyRoadPlan, getSourceSaturation, isPriorityRoadWorkComplete, placeEarlyRoadSites } from "utils/earlyEconomy";
 import { diamondCoordinates, diamondRingCoordinates, findDiamondPlacement, getBestContainerLocation, getSpawnRoadPath, getStructureCostMatrix } from "utils/map";
 import { BasicFlag, BasicFlagMemory } from "./_BasicFlag";
 
@@ -17,6 +18,7 @@ export interface HomeFlagMemory extends BasicFlagMemory{
 export class HomeFlag extends BasicFlag<HomeFlagMemory> {
   cohorts = {
     scouts: new Cohort(this.name+'-scouts'),
+    drones: new Cohort(this.name+'-drones'),
     builders: new Cohort(this.name+'-builders'),
   }
 
@@ -88,20 +90,51 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     });
   }
 
+  /* The early road plan is the source of truth for the road-before-upgrade gate. */
+  get earlyRoadPlan(){
+    const [ spawn ] = this.home.find(FIND_MY_SPAWNS);
+    return ensureEarlyRoadPlan(this.home, spawn, this.homeAudit.sources);
+  }
+
+  /*
+    Early construction runs strictly in priority order. Nothing is allowed to feed the controller until
+    both road batches have their construction sites placed (see isPriorityRoadWorkComplete).
+      0: roads right around the spawn so the drones don't trip over each other on the way out
+      1: roads out to each source plus roads across that source's harvest seats
+      2: a road from the spawn to the controller
+      3: source containers, deferred so they can't hold up the roads
+  */
   createConstructionSitesCL1():boolean{
-      const [ spawn ] = this.home.find(FIND_MY_SPAWNS);
-      this.home.createConstructionSite(spawn.pos.x-1, spawn.pos.y, STRUCTURE_ROAD);
-      this.home.createConstructionSite(spawn.pos.x+1, spawn.pos.y, STRUCTURE_ROAD);
-      this.home.createConstructionSite(spawn.pos.x, spawn.pos.y-1, STRUCTURE_ROAD);
-      this.home.createConstructionSite(spawn.pos.x, spawn.pos.y+1, STRUCTURE_ROAD);
+    const [ spawn ] = this.home.find(FIND_MY_SPAWNS);
+    if (!spawn) return false; //Everything here is laid out relative to the spawn.
+    switch(this.buildSubStage){
+      case 0:{
+        this.home.createConstructionSite(spawn.pos.x-1, spawn.pos.y, STRUCTURE_ROAD);
+        this.home.createConstructionSite(spawn.pos.x+1, spawn.pos.y, STRUCTURE_ROAD);
+        this.home.createConstructionSite(spawn.pos.x, spawn.pos.y-1, STRUCTURE_ROAD);
+        this.home.createConstructionSite(spawn.pos.x, spawn.pos.y+1, STRUCTURE_ROAD);
 
-      const sources = this.home.find(FIND_SOURCES);
-      sources.forEach(source=>{
-        const sourceContainerPos = getBestContainerLocation(source.pos, spawn.pos);
-        this.home.createConstructionSite(sourceContainerPos, STRUCTURE_CONTAINER);
-      });
+        this.buildSubStage++;
+      }
+      break;
+      case 1:{
+        if (placeEarlyRoadSites(this.home, this.earlyRoadPlan.source) === 0) this.buildSubStage++;
+      }
+      break;
+      case 2:{
+        if (placeEarlyRoadSites(this.home, this.earlyRoadPlan.controller) === 0) this.buildSubStage++;
+      }
+      break;
+      case 3:{
+        this.homeAudit.sources.forEach(source=>{
+          const sourceContainerPos = getBestContainerLocation(source.pos, spawn.pos);
+          this.home.createConstructionSite(sourceContainerPos, STRUCTURE_CONTAINER);
+        });
 
-      return true;
+        return true;
+      }
+    }
+    return false;
   }
 
   createConstructionSitesCL2():boolean{
@@ -310,8 +343,28 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
   getRequestedCreep(currentPriorityLevel:CreepPriority){
     if (currentPriorityLevel < CreepPriority.Normal) return null;
     if (this.homeAudit.creeps.length === 0){
-      return this.findSpawnableCreep(CreepRoleName.Basic, true);
+      //Bootstrap: build whatever we can afford right now, otherwise the room can never recover.
+      return this.findSpawnableCreep(CreepRoleName.Basic, true, { cohort: this.cohorts.drones });
     }
+
+    /*
+      Stage 1: general purpose harvest drones. These collect energy themselves and carry it back into
+      the spawn. Keep making them until the sources are saturated (see getSourceSaturation), at which
+      point another drone wouldn't raise the room's harvest rate.
+    */
+    const saturation = getSourceSaturation(this.homeAudit, this.cohorts.drones);
+    if (!saturation.saturated){
+      const neededWorkParts = saturation.work - saturation.workUsed;
+      //Prefer the body whose WORK count lands closest to the throughput we're still missing.
+      const drone = this.findSpawnableCreep(CreepRoleName.Basic, body=>(
+        body.counts[WORK] > 0 &&
+        body.counts[CARRY] > 0 && //Drones have to be able to haul the energy home themselves
+        Math.abs(neededWorkParts - body.counts[WORK])
+      ), { cohort: this.cohorts.drones });
+      if (drone) return drone;
+    }
+
+    //Stage 2: the sources are covered, so surplus workers go into construction and then the controller.
 
     // const optimalScoutParts = 1;
     // const neededScoutParts = optimalScoutParts - (this.cohorts.scouts.counts[MOVE] || 0);
@@ -346,6 +399,10 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
 
     const controllerLevel = this.home.controller?.level || 0;
     this.home.visual.text(this.buildStage > 8 ? `8` : `${controllerLevel} → ${this.buildStage}`, this.home.controller.pos.x, this.home.controller.pos.y-1, { font: 0.5 });
+    if (!isPriorityRoadWorkComplete(this.home)){
+      //Upgrading is gated until the priority roads are placed, so make that obvious in the room.
+      this.home.visual.text(`roads first`, this.home.controller.pos.x, this.home.controller.pos.y-1.5, { font: 0.4, color: '#ff9999' });
+    }
 
     try{
       //The building placement logic is heavy on CPU so only try to place one thing per tick.

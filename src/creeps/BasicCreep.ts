@@ -1,5 +1,6 @@
 import { RemoteFlag } from "flags/_RemoteFlag";
 import { CreepRoleName, CreepRoleNames, DEBUG, FlagType, maxStorageFill, PARTS, PART_COST } from "utils/constants";
+import { isPriorityRoadWorkComplete } from "utils/earlyEconomy";
 import { claimAmount, getClaimedAmount, getFlagManager, getResourceAvailable, getResourceSpace, getRoomAudit } from "utils/tickCache";
 
 export function calculateBiteSize (creep:Creep){
@@ -843,7 +844,8 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
       if (this.rememberAction(this.startRepairing, 'repairing', ['upgrading'])) return;
       if (this.rememberAction(this.startStocking, 'stocking', ['upgrading'])) return;
       // if (this.rememberAction(this.startSpreading, 'spreading')) return; //basic workers don't need to spread their energy around
-      if (this.rememberAction(this.startUpgrading, 'upgrading')) return;
+      //Early game: the controller doesn't get fed until the priority roads (sources, then controller) are placed.
+      if (isPriorityRoadWorkComplete(this.room) && this.rememberAction(this.startUpgrading, 'upgrading')) return;
       if (this.rememberAction(this.startStoring, 'storing')) return;
     }
 
