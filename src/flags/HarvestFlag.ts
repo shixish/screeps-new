@@ -1,5 +1,6 @@
 import { Cohort } from "utils/Cohort";
 import { CreepPriority, CreepRoleName, FlagType, USERNAME } from "utils/constants";
+import { canSpawnStaticMiners, canStartStaticMinerPlan } from "utils/earlyEconomy";
 import { getBestContainerLocation } from "utils/map";
 import { random } from "utils/random";
 import { RemoteFlag, RemoteFlagMemory } from "./_RemoteFlag";
@@ -113,14 +114,22 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     return null;
   }
 
-  /* Couriers haul what the static miner drops into the source container back to the spawn/extensions. */
-  getRequestedCourier(sourceAnchor:CreepSourceAnchor){
+  /*
+    Couriers haul what the static miner drops into the source container, and also tug 0-MOVE
+    miners onto their seats. Bootstrap: when the static-miner plan is otherwise ready but the
+    room has no courier yet, request a small one even before the miner exists (chicken/egg for
+    the canSpawnStaticMiners courier gate).
+  */
+  getRequestedCourier(sourceAnchor:CreepSourceAnchor, bootstrap = false){
     const minerWorkParts = sourceAnchor.harvesters.counts[WORK] ?? 0;
-    if (minerWorkParts === 0) return null; //Nothing is filling the container yet.
+    if (minerWorkParts === 0 && !bootstrap) return null; //Nothing is filling the container yet.
 
     // 3000 energy nodes can optimially mine at 10 energy per tick, so 1500 nodes are 5 per tick.
     // A part-grown miner produces less than that (2 energy per WORK part), so size the haul to it.
-    const energyPerTick = Math.min(sourceAnchor.getOptimalEnergyPerTick(), minerWorkParts*2);
+    // Bootstrap uses a trickle so we only need one small courier to unlock miner spawning + tug.
+    const energyPerTick = minerWorkParts > 0
+      ? Math.min(sourceAnchor.getOptimalEnergyPerTick(), minerWorkParts*2)
+      : 2;
     if (energyPerTick <= 0) return null;
     const moveCost = this.getSourcePathCost(sourceAnchor)*2; //ticks (both directions)
     // const moveCost = this.memory.totalMoveCost; //This is the sum of both sources. This makes the math a little simpler which may help keep creep sizes whole/large
@@ -132,7 +141,7 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     return this.findSpawnableCreep(courierType, body=>(
       neededCourierParts >= body.counts[CARRY] &&
       neededCourierParts % body.counts[CARRY]
-    ), { anchor: sourceAnchor, cohort: sourceAnchor.couriers });
+    ), { anchor: sourceAnchor, cohort: sourceAnchor.couriers, priority: bootstrap ? CreepPriority.High : CreepPriority.Normal });
   }
 
   getRequestedCreep(currentPriorityLevel:CreepPriority){
@@ -152,6 +161,30 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
 
     //Mining too much and not spending it gets things clogged up...
     if (this.domestic || this.home.storage && this.home.storage.store.getFreeCapacity() > 5000){
+      const audit = this.officeAudit;
+
+      /*
+        Domestic static-miner gates (see canStartStaticMinerPlan / canSpawnStaticMiners):
+          roads + all source containers + at least one Basic still around.
+        Until that passes, ask for nothing here — HomeFlag drones keep harvesting.
+        Then bootstrap one courier (tug + haul) before any miner, then miners, then more couriers.
+      */
+      if (this.domestic){
+        if (!canStartStaticMinerPlan(audit)) return null;
+
+        //Bootstrap courier before miners so the courier-gate and tug seating can work.
+        if ((audit.creepCountsByRole[CreepRoleName.Courier] ?? 0) < 1){
+          for (const sourceAnchor of this.sources){
+            if (!sourceAnchor.containers.length) continue;
+            const bootstrapCourier = this.getRequestedCourier(sourceAnchor, true);
+            if (bootstrapCourier) return bootstrapCourier;
+          }
+          return null;
+        }
+
+        if (!canSpawnStaticMiners(audit)) return null;
+      }
+
       //Take care of one source at a time. This way we can get it into production asap, funding other things.
       for (const sourceAnchor of this.sources){
         /*
@@ -161,6 +194,7 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
         */
         if (!sourceAnchor.containers.length) continue;
 
+        //Miners outrank further courier growth for this source.
         const miner = this.getRequestedMiner(sourceAnchor);
         if (miner) return miner;
 
