@@ -148,6 +148,7 @@ describe("firstRoomSelection", () => {
       usedChebyshev: false,
       energyScore2: 110 / 41,
       danger: 0.4,
+      opportunity: 0.12,
       neighbors: [
         {
           roomName: "W1N3",
@@ -167,6 +168,7 @@ describe("firstRoomSelection", () => {
     assert.closeTo(entry.score2, 110 / 41, 1e-9);
     assert.equal(entry.legs?.[0].to, "source");
     assert.equal(entry.danger, 0.4);
+    assert.equal(entry.opportunity, 0.12);
     assert.equal(entry.energyScore2, 110 / 41);
     assert.equal(entry.neighbors?.[0].roomName, "W1N3");
   });
@@ -284,6 +286,7 @@ describe("firstRoomSelection", () => {
     assert.include(message, "placeable spawn");
     assert.include(message, "W2N1 score2=");
     assert.include(message, "danger");
+    assert.include(message, "opportunity");
     assert.include(message, "Memory.firstRoom.pass2");
     assert.include(message, "room + score only");
     assert.include(message, "Game.map.visual");

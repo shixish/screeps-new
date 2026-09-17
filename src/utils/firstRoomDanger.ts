@@ -1,25 +1,28 @@
 /*
-  Pass-2 neighbor danger (applied after spawn hill-climb; does not move the spawn).
+  Pass-2 adjacent-room terms (applied after spawn hill-climb; does not move the spawn).
 
   Adjacent rooms = 8-name Chebyshev ring. If the candidate name does not parse
   (e.g. "sim"), fall back to cardinal Game.map.describeExits.
 
-  Empty / unowned / reserved-only neighbors: penalty 0.
-  Invader, Source Keeper, or SK-sector rooms: NPC_DANGER_PENALTY (constant;
-  not scaled by a fake high RCL — they do not push unless provoked).
-  Player-owned: (controllerLevel + LEVEL_BIAS) / (distance + DIST_EPS).
-    Closer enemy spawn ⇒ larger penalty. Higher RCL ⇒ larger penalty.
+  Danger (occupied neighbors only):
+    Empty / unowned / reserved-only: penalty 0.
+    Invader, Source Keeper, or SK-sector: NPC_DANGER_PENALTY (constant).
+    Player-owned: (controllerLevel + LEVEL_BIAS) / (distanceToTheirSpawn + DIST_EPS).
+      Distance is spawn→exit toward them + remote leg to their spawn (controller
+      proxy if spawn is unseen). Closer + higher RCL ⇒ worse.
 
-  Distance (walk-cost units, swamp=plain like the rest of pass-2):
-    cardinal: walk(our spawn → exit toward them) + EXIT_STEP + remoteLeg
-    diagonal: min(the two cardinal exits) + EXIT_STEP + INTERMEDIATE_ROOM_COST
-              + EXIT_STEP + remoteLeg
-    remoteLeg: walk(their entrance → their spawn) when spawn+terrain are known;
-               Chebyshev to the entrance edge when spawn (or controller as a
-               spawn proxy) coords are known; UNKNOWN_SPAWN_DIST when not visible.
+  Opportunity (any scorable neighbor layout, including hostile):
+    pass-1 score of that room’s sources+controller (ownership ignored).
+    If the layout is not scorable (no controller, <2 sources, no terrain): bonus 0.
+    Distance is spawn→exit toward them + remote leg to their controller
+    (exit-aware walk; walls that force a detour raise distance).
+    Unreachable exits/controllers use BLOCKED_PATH_COST so adjacency without a
+    usable path barely helps.
+    bonus_i = pass1Score_neighbor / (distanceSpawnToTheirController + OPPORTUNITY_DIST_EPS)
 
-  Fold-in (keeps score2 positive and comparable; danger=0 matches E2/(D2+1)):
-    score2 = E2 / (D2 + 1 + DANGER_WEIGHT * sum(penalty_i))
+  Fold-in (keeps score2 positive; both terms 0 matches E2/(D2+1)):
+    score2 = (E2 + OPPORTUNITY_WEIGHT * opportunitySum)
+           / (D2 + 1 + DANGER_WEIGHT * dangerSum)
 */
 
 import {
@@ -47,12 +50,21 @@ export const UNKNOWN_SPAWN_DIST = 25;
 export const EXIT_STEP_COST = 1;
 /** Documented stand-in for traversing the intermediate room on a diagonal hop. */
 export const INTERMEDIATE_ROOM_COST = 25;
+/** No usable walk to an exit/controller; keeps the opportunity bonus tiny. */
+export const BLOCKED_PATH_COST = 1000;
+/** Same scale as pass-2 SCORE_EPSILON. */
+export const OPPORTUNITY_DIST_EPS = 1;
+/**
+ * Numerator weight. Neighbor pass-1 scores are ~0.4–2 and distances ~20–80, so
+ * opportunitySum is small; 60 lets a rich, reachable ring reorder similar rooms.
+ */
+export const OPPORTUNITY_WEIGHT = 60;
 
 const NPC_OWNERS = ["Invader", "Source Keeper"] as const;
 
 export type NeighborKind = "empty" | "player" | "npc";
 export type CardinalEdge = "north" | "east" | "south" | "west";
-export type DistanceFallback = "spawn-walk" | "spawn-chebyshev" | "unknown-spawn";
+export type DistanceFallback = "spawn-walk" | "spawn-chebyshev" | "unknown-spawn" | "blocked";
 
 export interface NeighborRoomIntel {
   roomName: string;
@@ -63,6 +75,9 @@ export interface NeighborRoomIntel {
   controllerLevel?: number;
   spawnPos?: TilePos | null;
   controller?: TilePos | null;
+  sources?: TilePos[];
+  /** Precomputed pass-1 layout score (ownership ignored). 0 / omitted ⇒ compute or skip. */
+  pass1Score?: number;
   getTerrain?: (x: number, y: number) => number;
 }
 
@@ -70,13 +85,17 @@ export interface NeighborDangerEntry {
   roomName: string;
   kind: NeighborKind;
   penalty: number;
+  bonus?: number;
+  pass1Score?: number;
   controllerLevel?: number;
   distance?: number;
+  controllerDistance?: number;
   distanceFallback?: DistanceFallback;
 }
 
 export interface NeighborDangerResult {
   danger: number;
+  opportunity: number;
   neighbors: NeighborDangerEntry[];
 }
 
@@ -113,15 +132,37 @@ export function playerNeighborPenalty(controllerLevel: number, distance: number)
   return (level + DANGER_LEVEL_BIAS) / (dist + DANGER_DIST_EPS);
 }
 
+export function neighborOpportunityBonus(pass1Score: number, distance: number): number {
+  if (!(pass1Score > 0)) return 0;
+  return pass1Score / (Math.max(0, distance) + OPPORTUNITY_DIST_EPS);
+}
+
+export function applyNeighborTermsToScore2(
+  energy: number,
+  walkCost: number,
+  danger: number,
+  opportunity = 0,
+  options?: { dangerWeight?: number; opportunityWeight?: number; epsilon?: number }
+): number {
+  const dangerWeight = options?.dangerWeight ?? DANGER_WEIGHT;
+  const opportunityWeight = options?.opportunityWeight ?? OPPORTUNITY_WEIGHT;
+  const epsilon = options?.epsilon ?? 1;
+  return (
+    (energy + opportunityWeight * Math.max(0, opportunity)) /
+    (walkCost + epsilon + dangerWeight * Math.max(0, danger))
+  );
+}
+
 export function applyDangerToScore2(
   energy: number,
   walkCost: number,
   danger: number,
   options?: { weight?: number; epsilon?: number }
 ): number {
-  const weight = options?.weight ?? DANGER_WEIGHT;
-  const epsilon = options?.epsilon ?? 1;
-  return energy / (walkCost + epsilon + weight * Math.max(0, danger));
+  return applyNeighborTermsToScore2(energy, walkCost, danger, 0, {
+    dangerWeight: options?.weight,
+    epsilon: options?.epsilon
+  });
 }
 
 function roomDelta(fromName: string, toName: string): RoomXY | null {
@@ -165,29 +206,37 @@ function minCostOnEdge(map: number[], edge: CardinalEdge): number {
   return best;
 }
 
-function walkToEdge(origin: TilePos, edge: CardinalEdge, map: number[] | undefined): number {
+function walkToEdge(
+  origin: TilePos,
+  edge: CardinalEdge,
+  map: number[] | undefined,
+  blockedCost?: number
+): number {
   if (map) {
     const walked = minCostOnEdge(map, edge);
     if (walked !== UNREACHABLE_COST) return walked;
+    if (blockedCost !== undefined) return blockedCost;
   }
   const target = edgeTile(edge, edge === "north" || edge === "south" ? origin.x : origin.y);
   return chebyshevDistance(origin.x, origin.y, target.x, target.y);
 }
 
-function remoteLeg(
-  neighbor: NeighborRoomIntel,
-  entrance: CardinalEdge
+function remoteLegTo(
+  target: TilePos | null | undefined,
+  getTerrain: ((x: number, y: number) => number) | undefined,
+  entrance: CardinalEdge,
+  blockedCost?: number
 ): { cost: number; fallback: DistanceFallback } {
-  const spawn = neighbor.spawnPos ?? neighbor.controller ?? null;
-  if (spawn && neighbor.getTerrain) {
-    const map = computeWalkCostMap(spawn, neighbor.getTerrain, undefined, PLAIN_WALK_COST, PLAIN_WALK_COST);
+  if (target && getTerrain) {
+    const map = computeWalkCostMap(target, getTerrain, undefined, PLAIN_WALK_COST, PLAIN_WALK_COST);
     const walked = minCostOnEdge(map, entrance);
     if (walked !== UNREACHABLE_COST) return { cost: walked, fallback: "spawn-walk" };
+    if (blockedCost !== undefined) return { cost: blockedCost, fallback: "blocked" };
   }
-  if (spawn) {
-    const target = edgeTile(entrance, entrance === "north" || entrance === "south" ? spawn.x : spawn.y);
+  if (target) {
+    const edge = edgeTile(entrance, entrance === "north" || entrance === "south" ? target.x : target.y);
     return {
-      cost: chebyshevDistance(spawn.x, spawn.y, target.x, target.y),
+      cost: chebyshevDistance(target.x, target.y, edge.x, edge.y),
       fallback: "spawn-chebyshev"
     };
   }
@@ -198,28 +247,32 @@ export function estimateNeighborDistance(
   originName: string,
   spawnPos: TilePos,
   neighbor: NeighborRoomIntel,
-  originMap?: number[]
+  originMap?: number[],
+  options?: { target?: TilePos | null; blockedCost?: number }
 ): { distance: number; fallback: DistanceFallback } {
   const delta = roomDelta(originName, neighbor.roomName);
   const edges: CardinalEdge[] = delta ? cardinalEdgesForDelta(delta.x, delta.y) : ["east"];
   let bestExit = UNREACHABLE_COST;
   let bestEdge: CardinalEdge = edges[0] ?? "east";
   for (const edge of edges) {
-    const cost = walkToEdge(spawnPos, edge, originMap);
+    const cost = walkToEdge(spawnPos, edge, originMap, options?.blockedCost);
     if (cost < bestExit) {
       bestExit = cost;
       bestEdge = edge;
     }
   }
-  if (bestExit === UNREACHABLE_COST) bestExit = UNKNOWN_SPAWN_DIST;
+  if (bestExit === UNREACHABLE_COST) {
+    bestExit = options?.blockedCost ?? UNKNOWN_SPAWN_DIST;
+  }
 
   const diagonal = edges.length > 1;
   const hops = EXIT_STEP_COST + (diagonal ? INTERMEDIATE_ROOM_COST + EXIT_STEP_COST : 0);
-  const remote = remoteLeg(neighbor, oppositeEdge(bestEdge));
+  const target = options?.target !== undefined ? options.target : neighbor.spawnPos ?? neighbor.controller;
+  const remote = remoteLegTo(target, neighbor.getTerrain, oppositeEdge(bestEdge), options?.blockedCost);
   return { distance: bestExit + hops + remote.cost, fallback: remote.fallback };
 }
 
-export function scoreNeighborDanger(input: {
+export function scoreAdjacentNeighbors(input: {
   roomName: string;
   spawnPos: TilePos;
   getTerrain: (x: number, y: number) => number;
@@ -231,37 +284,63 @@ export function scoreNeighborDanger(input: {
   const originMap = computeWalkCostMap(input.spawnPos, input.getTerrain, undefined, PLAIN_WALK_COST, PLAIN_WALK_COST);
 
   let danger = 0;
+  let opportunity = 0;
   const entries: NeighborDangerEntry[] = [];
 
   for (const name of names) {
     const intel = byName.get(name) ?? { roomName: name };
     const kind = classifyNeighbor(intel);
-    if (kind === "empty") continue;
+
+    let penalty = 0;
+    let distance: number | undefined;
+    let distanceFallback: DistanceFallback | undefined;
+    let controllerLevel: number | undefined;
 
     if (kind === "npc") {
-      danger += NPC_DANGER_PENALTY;
-      entries.push({ roomName: name, kind, penalty: NPC_DANGER_PENALTY });
-      continue;
+      penalty = NPC_DANGER_PENALTY;
+    } else if (kind === "player") {
+      controllerLevel = intel.controllerLevel ?? 0;
+      const estimated = estimateNeighborDistance(input.roomName, input.spawnPos, intel, originMap);
+      penalty = playerNeighborPenalty(controllerLevel, estimated.distance);
+      distance = estimated.distance;
+      distanceFallback = estimated.fallback;
     }
 
-    const level = intel.controllerLevel ?? 0;
-    const estimated = estimateNeighborDistance(
-      input.roomName,
-      input.spawnPos,
-      intel,
-      originMap
-    );
-    const penalty = playerNeighborPenalty(level, estimated.distance);
+    let bonus = 0;
+    let controllerDistance: number | undefined;
+    const pass1Score = intel.pass1Score ?? 0;
+    if (pass1Score > 0 && intel.controller) {
+      const toController = estimateNeighborDistance(input.roomName, input.spawnPos, intel, originMap, {
+        target: intel.controller,
+        blockedCost: BLOCKED_PATH_COST
+      });
+      bonus = neighborOpportunityBonus(pass1Score, toController.distance);
+      controllerDistance = toController.distance;
+      if (!distanceFallback) distanceFallback = toController.fallback;
+    }
+
     danger += penalty;
-    entries.push({
-      roomName: name,
-      kind,
-      penalty,
-      controllerLevel: level,
-      distance: estimated.distance,
-      distanceFallback: estimated.fallback
-    });
+    opportunity += bonus;
+    if (penalty <= 0 && bonus <= 0) continue;
+
+    const entry: NeighborDangerEntry = { roomName: name, kind, penalty, bonus };
+    if (controllerLevel !== undefined) entry.controllerLevel = controllerLevel;
+    if (distance !== undefined) entry.distance = distance;
+    if (controllerDistance !== undefined) entry.controllerDistance = controllerDistance;
+    if (distanceFallback) entry.distanceFallback = distanceFallback;
+    if (pass1Score > 0) entry.pass1Score = pass1Score;
+    entries.push(entry);
   }
 
-  return { danger, neighbors: entries };
+  return { danger, opportunity, neighbors: entries };
+}
+
+export function scoreNeighborDanger(input: {
+  roomName: string;
+  spawnPos: TilePos;
+  getTerrain: (x: number, y: number) => number;
+  neighbors?: NeighborRoomIntel[];
+  exits?: readonly string[] | null;
+}): NeighborDangerResult {
+  return scoreAdjacentNeighbors(input);
 }

@@ -1,24 +1,35 @@
 import { assert } from "chai";
 import {
+  BLOCKED_PATH_COST,
   DANGER_WEIGHT,
   NPC_DANGER_PENALTY,
+  OPPORTUNITY_WEIGHT,
   applyDangerToScore2,
+  applyNeighborTermsToScore2,
   classifyNeighbor,
+  neighborOpportunityBonus,
   playerNeighborPenalty,
+  scoreAdjacentNeighbors,
   scoreNeighborDanger
 } from "../../src/utils/firstRoomDanger";
 import {
   SCORE_EPSILON,
   compareFirstRoomPass2Scores,
   rankFirstRoomsPass2,
-  scoreFirstRoomPass2
+  scoreFirstRoomPass2,
+  scoreRoomLayout
 } from "../../src/utils/firstRoomScore";
 import { ROOM_SIZE, tileIndex } from "../../src/utils/spawnPlacement";
 
 const PLAIN = 0;
+const WALL = 1;
 
 function makeTerrain(fill = PLAIN): number[] {
   return new Array<number>(ROOM_SIZE * ROOM_SIZE).fill(fill);
+}
+
+function setTile(grid: number[], x: number, y: number, value: number): void {
+  grid[tileIndex(x, y)] = value;
 }
 
 function getter(grid: number[]) {
@@ -238,7 +249,255 @@ describe("firstRoomDanger", () => {
       scored.score2,
       scored.E2 / (scored.D2 + SCORE_EPSILON + DANGER_WEIGHT * (scored.danger ?? 0))
     );
+    assert.equal(scored.opportunity, 0);
     assert.lengthOf(scored.neighbors ?? [], 1);
     assert.equal(scored.neighbors![0].roomName, "W0N1");
+  });
+
+  it("adds an opportunity bonus from a scorable empty neighbor's pass-1 / controller distance", () => {
+    const layout = scoreRoomLayout({
+      getTerrain: open,
+      sources: compactSources,
+      controller: compactController
+    });
+    assert.isTrue(layout.eligible);
+    assert.isAbove(layout.score, 0);
+
+    const close = scoreAdjacentNeighbors({
+      roomName: "W1N1",
+      spawnPos: { x: 25, y: 25 },
+      getTerrain: open,
+      neighbors: [
+        {
+          roomName: "W0N1",
+          sources: compactSources,
+          controller: { x: 2, y: 25 },
+          getTerrain: open,
+          pass1Score: layout.score
+        }
+      ]
+    });
+    const far = scoreAdjacentNeighbors({
+      roomName: "W1N1",
+      spawnPos: { x: 25, y: 25 },
+      getTerrain: open,
+      neighbors: [
+        {
+          roomName: "W0N1",
+          sources: compactSources,
+          controller: { x: 47, y: 25 },
+          getTerrain: open,
+          pass1Score: layout.score
+        }
+      ]
+    });
+
+    assert.equal(close.danger, 0);
+    assert.equal(close.neighbors[0].kind, "empty");
+    assert.equal(close.neighbors[0].penalty, 0);
+    assert.isAbove(close.opportunity, 0);
+    assert.isAbove(close.opportunity, far.opportunity);
+    assert.isBelow(close.neighbors[0].controllerDistance!, far.neighbors[0].controllerDistance!);
+    assert.equal(
+      close.neighbors[0].bonus,
+      neighborOpportunityBonus(layout.score, close.neighbors[0].controllerDistance!)
+    );
+  });
+
+  it("gives opportunity 0 when the neighbor layout is not scorable", () => {
+    const none = scoreAdjacentNeighbors({
+      roomName: "W1N1",
+      spawnPos: { x: 25, y: 25 },
+      getTerrain: open,
+      neighbors: [
+        { roomName: "W0N1", controller: { x: 10, y: 10 }, sources: [{ x: 12, y: 12 }], getTerrain: open },
+        { roomName: "W2N1", sources: compactSources, getTerrain: open }
+      ]
+    });
+    assert.equal(none.opportunity, 0);
+    assert.deepEqual(
+      none.neighbors.filter(entry => (entry.bonus ?? 0) > 0),
+      []
+    );
+  });
+
+  it("still scores a hostile neighbor's resource layout for opportunity", () => {
+    const layout = scoreRoomLayout({
+      getTerrain: open,
+      sources: compactSources,
+      controller: compactController
+    });
+    const result = scoreAdjacentNeighbors({
+      roomName: "W1N1",
+      spawnPos: { x: 25, y: 25 },
+      getTerrain: open,
+      neighbors: [
+        {
+          roomName: "W0N1",
+          owner: "Alice",
+          controllerLevel: 3,
+          spawnPos: { x: 2, y: 25 },
+          controller: { x: 2, y: 25 },
+          sources: compactSources,
+          getTerrain: open,
+          pass1Score: layout.score
+        }
+      ]
+    });
+    assert.isAbove(result.danger, 0);
+    assert.isAbove(result.opportunity, 0);
+    assert.equal(result.neighbors[0].kind, "player");
+    assert.equal(result.neighbors[0].pass1Score, layout.score);
+  });
+
+  it("shrinks opportunity when walls force a long walk to the neighbor controller", () => {
+    const layout = scoreRoomLayout({
+      getTerrain: open,
+      sources: compactSources,
+      controller: compactController
+    });
+    const neighbor = {
+      roomName: "W0N1",
+      sources: compactSources,
+      controller: { x: 2, y: 25 },
+      getTerrain: open,
+      pass1Score: layout.score
+    };
+    const openPath = scoreAdjacentNeighbors({
+      roomName: "W1N1",
+      spawnPos: { x: 25, y: 25 },
+      getTerrain: open,
+      neighbors: [neighbor]
+    });
+
+    const blockedGrid = makeTerrain();
+    for (let y = 1; y < ROOM_SIZE; y++) {
+      setTile(blockedGrid, 35, y, WALL);
+    }
+    const blockedPath = scoreAdjacentNeighbors({
+      roomName: "W1N1",
+      spawnPos: { x: 25, y: 25 },
+      getTerrain: getter(blockedGrid),
+      neighbors: [neighbor]
+    });
+
+    assert.isAbove(blockedPath.neighbors[0].controllerDistance!, openPath.neighbors[0].controllerDistance!);
+    assert.isBelow(blockedPath.opportunity, openPath.opportunity);
+  });
+
+  it("uses a blocked-path cost so unusable adjacency barely helps", () => {
+    const layout = scoreRoomLayout({
+      getTerrain: open,
+      sources: compactSources,
+      controller: compactController
+    });
+    const sealed = makeTerrain();
+    for (let y = 0; y < ROOM_SIZE; y++) {
+      setTile(sealed, 49, y, WALL);
+    }
+    const result = scoreAdjacentNeighbors({
+      roomName: "W1N1",
+      spawnPos: { x: 25, y: 25 },
+      getTerrain: getter(sealed),
+      neighbors: [
+        {
+          roomName: "W0N1",
+          sources: compactSources,
+          controller: { x: 2, y: 25 },
+          getTerrain: open,
+          pass1Score: layout.score
+        }
+      ]
+    });
+    assert.isAtLeast(result.neighbors[0].controllerDistance!, BLOCKED_PATH_COST);
+    assert.isBelow(result.opportunity, neighborOpportunityBonus(layout.score, BLOCKED_PATH_COST - 1));
+  });
+
+  it("folds opportunity into the numerator and danger into the denominator", () => {
+    const layout = scoreRoomLayout({
+      getTerrain: open,
+      sources: compactSources,
+      controller: compactController
+    });
+    const isolated = scoreFirstRoomPass2({
+      roomName: "W8N1",
+      getTerrain: open,
+      sources: compactSources,
+      controller: compactController
+    });
+    const connected = scoreFirstRoomPass2({
+      roomName: "W1N1",
+      getTerrain: open,
+      sources: compactSources,
+      controller: compactController,
+      neighbors: [
+        {
+          roomName: "W0N1",
+          sources: compactSources,
+          controller: { x: 2, y: 25 },
+          getTerrain: open,
+          pass1Score: layout.score
+        }
+      ]
+    });
+
+    assert.deepEqual(connected.spawnPos, isolated.spawnPos);
+    assert.equal(connected.D2, isolated.D2);
+    assert.equal(connected.E2, isolated.E2);
+    assert.equal(isolated.opportunity, 0);
+    assert.isAbove(connected.opportunity!, 0);
+    assert.equal(
+      connected.score2,
+      applyNeighborTermsToScore2(connected.E2, connected.D2, connected.danger ?? 0, connected.opportunity ?? 0, {
+        epsilon: SCORE_EPSILON
+      })
+    );
+    assert.isAbove(connected.score2, isolated.score2);
+    assert.equal(OPPORTUNITY_WEIGHT, 60);
+    assert.isBelow(compareFirstRoomPass2Scores(connected, isolated), 0);
+  });
+
+  it("ranks a well-connected room above an equal-layout isolated room", () => {
+    const layout = scoreRoomLayout({
+      getTerrain: open,
+      sources: compactSources,
+      controller: compactController
+    });
+    const ranked = rankFirstRoomsPass2([
+      {
+        roomName: "W8N1",
+        getTerrain: open,
+        sources: compactSources,
+        controller: compactController
+      },
+      {
+        roomName: "W1N1",
+        getTerrain: open,
+        sources: compactSources,
+        controller: compactController,
+        neighbors: [
+          {
+            roomName: "W0N1",
+            sources: compactSources,
+            controller: { x: 2, y: 25 },
+            getTerrain: open,
+            pass1Score: layout.score
+          }
+        ]
+      }
+    ]);
+
+    assert.equal(ranked[0].roomName, "W1N1");
+    assert.equal(ranked[1].roomName, "W8N1");
+    assert.equal(ranked[0].E2, ranked[1].E2);
+    assert.equal(ranked[0].D2, ranked[1].D2);
+    assert.isAbove(ranked[0].opportunity!, ranked[1].opportunity!);
+  });
+
+  it("increases opportunity bonus with neighbor pass-1 score and decreases it with distance", () => {
+    assert.equal(neighborOpportunityBonus(1.2, 24), 1.2 / 25);
+    assert.isAbove(neighborOpportunityBonus(2, 24), neighborOpportunityBonus(1, 24));
+    assert.isBelow(neighborOpportunityBonus(1.2, 80), neighborOpportunityBonus(1.2, 24));
+    assert.equal(neighborOpportunityBonus(0, 10), 0);
   });
 });
