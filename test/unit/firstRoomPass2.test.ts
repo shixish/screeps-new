@@ -73,6 +73,8 @@ describe("firstRoomScore pass-2", () => {
     assert.equal(scored.E2, energyPerTick(16));
     assert.equal(scored.E2, 10 * scored.H);
     assert.equal(scored.score2, scored.E2 / (scored.D2 + SCORE_EPSILON));
+    assert.equal(scored.energyScore2, scored.score2);
+    assert.equal(scored.danger, 0);
     assert.equal(PASS2_SWAMP_COST, PLAIN_WALK_COST);
     assert.lengthOf(scored.harvestSeats, 2);
     assert.equal(

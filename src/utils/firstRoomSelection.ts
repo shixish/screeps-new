@@ -19,9 +19,12 @@
   midpoint (swampCost=5). Pass-2 (spiral to a placeable spawn, then local
   hill-climb with cached tile scores; harvest seats; swamp-as-plain) runs only
   on the top N pass-1 rooms (default 10, override Memory.firstRoomPass2TopN).
-  Published top 5 / map labels use score2.
+  After the spawn is chosen, occupied adjacent rooms add a danger term:
+  score2 = E2 / (D2 + 1 + DANGER_WEIGHT * danger). Published top 5 / map labels
+  use score2 (room + score only; danger breakdown lives in Memory).
 */
 
+import { DANGER_WEIGHT, NeighborDangerEntry, NeighborRoomIntel } from "./firstRoomDanger";
 import { FIRST_ROOM_MAP_TOP_N, paintTopFirstRoomsInVisibleRooms, paintTopFirstRoomsOnMap } from "./firstRoomMapVisual";
 import {
   RankedFirstRoom,
@@ -30,7 +33,7 @@ import {
   rankFirstRooms,
   rankFirstRoomsPass2
 } from "./firstRoomScore";
-import { RoomIndex, RoomRegion, defaultFirstRoomRegion, listRoomsInRegion } from "./roomNames";
+import { RoomIndex, RoomRegion, adjacentRoomNames, defaultFirstRoomRegion, listRoomsInRegion } from "./roomNames";
 import { TilePos } from "./spawnPlacement";
 
 export { FIRST_ROOM_MAP_TOP_N };
@@ -50,6 +53,9 @@ export interface StoredRoomIntel {
   owner?: string | null;
   my?: boolean;
   reserved?: boolean;
+  reservationOwner?: string | null;
+  controllerLevel?: number;
+  spawns?: TilePos[];
   scannedAt: number;
 }
 
@@ -83,6 +89,9 @@ export interface FirstRoomRankEntry {
   H?: number;
   E2?: number;
   D2?: number;
+  energyScore2?: number;
+  danger?: number;
+  neighbors?: NeighborDangerEntry[];
   harvestSeats?: HarvestSeatMemory[];
   legs?: FirstRoomPathLegMemory[];
   usedChebyshev: boolean;
@@ -96,6 +105,9 @@ export interface FirstRoomPass2Entry {
   H: number;
   E2: number;
   D2: number;
+  energyScore2?: number;
+  danger?: number;
+  neighbors?: NeighborDangerEntry[];
   score2: number;
   harvestSeats: HarvestSeatMemory[];
   legs?: FirstRoomPathLegMemory[];
@@ -207,7 +219,8 @@ export function worldKeyForSelection(region: RoomRegion, candidates: string[], v
       const room = Game.rooms?.[name];
       const sources = room?.find ? room.find(FIND_SOURCES).length : 0;
       const owner = room?.controller?.owner?.username ?? "";
-      return `${name}:${sources}:${owner}`;
+      const level = room?.controller?.level ?? 0;
+      return `${name}:${sources}:${owner}:${level}`;
     })
     .sort()
     .join(",");
@@ -236,6 +249,10 @@ export function intelFromRoom(room: Room, time: number): StoredRoomIntel | null 
   if (!controller) return null;
   const sources = room.find(FIND_SOURCES);
   const minerals = room.find(FIND_MINERALS);
+  const spawnType = typeof STRUCTURE_SPAWN === "string" ? STRUCTURE_SPAWN : "spawn";
+  const spawns = room.find(FIND_STRUCTURES, {
+    filter: structure => structure.structureType === spawnType
+  });
   return {
     sources: sources.map(source => ({ x: source.pos.x, y: source.pos.y })),
     controller: { x: controller.pos.x, y: controller.pos.y },
@@ -243,6 +260,9 @@ export function intelFromRoom(room: Room, time: number): StoredRoomIntel | null 
     owner: controller.owner?.username ?? null,
     my: Boolean(controller.my),
     reserved: Boolean(controller.reservation),
+    reservationOwner: controller.reservation?.username ?? null,
+    controllerLevel: typeof controller.level === "number" ? controller.level : 0,
+    spawns: spawns.map(spawn => ({ x: spawn.pos.x, y: spawn.pos.y })),
     scannedAt: time
   };
 }
@@ -263,9 +283,41 @@ function scanVisibleIntel(intel: { [roomName: string]: StoredRoomIntel }, time: 
   }
 }
 
+function describeExitsFor(roomName: string): string[] | null {
+  const map = typeof Game !== "undefined" ? Game.map : undefined;
+  if (!map?.describeExits) return null;
+  try {
+    const exits = map.describeExits(roomName);
+    if (!exits) return null;
+    return Object.values(exits).filter((name): name is string => Boolean(name));
+  } catch {
+    return null;
+  }
+}
+
+function neighborIntelList(roomName: string, intel: { [name: string]: StoredRoomIntel }): NeighborRoomIntel[] {
+  const names = adjacentRoomNames(roomName, describeExitsFor(roomName));
+  return names.map(name => {
+    const snapshot = intel[name];
+    const getTerrain = terrainGetter(name);
+    return {
+      roomName: name,
+      owner: snapshot?.owner,
+      my: snapshot?.my,
+      reserved: snapshot?.reserved,
+      reservationOwner: snapshot?.reservationOwner,
+      controllerLevel: snapshot?.controllerLevel,
+      spawnPos: snapshot?.spawns?.[0] ?? null,
+      controller: snapshot?.controller,
+      getTerrain: getTerrain ?? undefined
+    };
+  });
+}
+
 function scoreableInputs(
   roomNames: string[],
-  intel: { [roomName: string]: StoredRoomIntel }
+  intel: { [roomName: string]: StoredRoomIntel },
+  options?: { includeNeighbors?: boolean }
 ): {
   roomName: string;
   sources: TilePos[];
@@ -275,6 +327,8 @@ function scoreableInputs(
   my?: boolean;
   reserved?: boolean;
   blockedTiles?: TilePos[];
+  neighbors?: NeighborRoomIntel[];
+  exits?: string[] | null;
 }[] {
   const inputs = [];
   for (const roomName of roomNames) {
@@ -290,7 +344,9 @@ function scoreableInputs(
       my: snapshot.my,
       reserved: snapshot.reserved,
       blockedTiles: snapshot.minerals,
-      getTerrain
+      getTerrain,
+      neighbors: options?.includeNeighbors ? neighborIntelList(roomName, intel) : undefined,
+      exits: options?.includeNeighbors ? describeExitsFor(roomName) : undefined
     });
   }
   return inputs;
@@ -325,6 +381,9 @@ export function toPass2Entry(ranked: RankedFirstRoomPass2): FirstRoomPass2Entry 
   if (ranked.spawnPos) entry.spawnPos = ranked.spawnPos;
   if (ranked.legs) entry.legs = ranked.legs;
   if (ranked.reason) entry.reason = ranked.reason;
+  if (typeof ranked.energyScore2 === "number") entry.energyScore2 = ranked.energyScore2;
+  if (typeof ranked.danger === "number") entry.danger = ranked.danger;
+  if (ranked.neighbors && ranked.neighbors.length) entry.neighbors = ranked.neighbors;
   return entry;
 }
 
@@ -335,6 +394,12 @@ function applyPass2ToRankEntry(entry: FirstRoomRankEntry, pass2: FirstRoomPass2E
   entry.D2 = pass2.D2;
   entry.score2 = pass2.score2;
   entry.harvestSeats = pass2.harvestSeats;
+  if (typeof pass2.energyScore2 === "number") entry.energyScore2 = pass2.energyScore2;
+  else delete entry.energyScore2;
+  if (typeof pass2.danger === "number") entry.danger = pass2.danger;
+  else delete entry.danger;
+  if (pass2.neighbors && pass2.neighbors.length) entry.neighbors = pass2.neighbors;
+  else delete entry.neighbors;
   if (pass2.spawnPos) entry.spawnPos = pass2.spawnPos;
   if (pass2.legs) entry.legs = pass2.legs;
   if (pass2.reason) entry.reason = pass2.reason;
@@ -407,25 +472,30 @@ export function formatFirstRoomLog(memory: FirstRoomMemory): string {
     if (!top.length) {
       return (
         `[first-room] No eligible rooms after pass-2 (need a placeable spawn, ≥2 sources, uncontrolled). ` +
-        `score2 = E2 / (D2 + 1); E2 = 10 * H for the first spawn only (add-on spawns later use a different weighting).`
+        `score2 = E2 / (D2 + 1 + ${DANGER_WEIGHT} * danger); E2 = 10 * H for the first spawn only (add-on spawns later use a different weighting).`
       );
     }
     const lines = top.map((entry, index) => {
       const spawn = entry.spawnPos ? ` spawn=(${entry.spawnPos.x},${entry.spawnPos.y})` : "";
       const seats = (entry.harvestSeats ?? []).map(seat => seat.seats).join("+");
       const seatLabel = seats ? ` seats=${seats}` : "";
+      const dangerLabel =
+        typeof entry.danger === "number" && entry.danger > 0 ? ` danger=${entry.danger.toFixed(3)}` : "";
       return (
         `  ${index + 1}. ${entry.roomName} score2=${(entry.score2 ?? 0).toFixed(4)} ` +
-        `E2=${entry.E2} D2=${entry.D2} H=${entry.H}${seatLabel}${spawn}`
+        `E2=${entry.E2} D2=${entry.D2} H=${entry.H}${seatLabel}${spawn}${dangerLabel}`
       );
     });
     return (
       `[first-room] Best room ${memory.bestRoom} (pass-2; higher score2 is better). ` +
-      `Formula: score2 = E2 / (D2 + 1) with E2 = 10 * H for the first spawn only ` +
+      `Formula: score2 = E2 / (D2 + 1 + ${DANGER_WEIGHT} * danger) with E2 = 10 * H for the first spawn only ` +
       `(add-on spawns later use a different weighting). ` +
       `H = open harvest seats around energy sources (early multi-miner proxy; not raw source count). ` +
       `D2 = walk cost from a placeable spawn to each source (adjacent tile) + controller; swamp=plain ` +
-      `because roads make swamp negligible soon after start. See Memory.firstRoom. ${overlayNote}\n` +
+      `because roads make swamp negligible soon after start. ` +
+      `danger is the sum of occupied-neighbor penalties (player: (RCL + 2) / (dist + 10); ` +
+      `Invader/SK/NPC: constant; empty: 0); breakdown in Memory.firstRoom.pass2. ` +
+      `Map labels stay room + score only. See Memory.firstRoom. ${overlayNote}\n` +
       lines.join("\n")
     );
   }
@@ -604,7 +674,7 @@ export function refreshPass2Ranking(memory: FirstRoomMemory): void {
   pass2.pending = pass2.pending.slice(batch.length);
 
   if (batch.length) {
-    const inputs = scoreableInputs(batch, memory.intel);
+    const inputs = scoreableInputs(batch, memory.intel, { includeNeighbors: true });
     const scoredByName = new Map(rankFirstRoomsPass2(inputs).map(ranked => [ranked.roomName, ranked]));
     const byName = new Map(pass2.ranked.map(entry => [entry.roomName, entry]));
     for (const roomName of batch) {

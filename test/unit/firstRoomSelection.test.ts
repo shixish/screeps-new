@@ -145,7 +145,18 @@ describe("firstRoomSelection", () => {
         { to: "source", x: 10, y: 10, cost: 12, seat: { x: 11, y: 10 } },
         { to: "controller", x: 20, y: 20, cost: 16, seat: { x: 20, y: 21 } }
       ],
-      usedChebyshev: false
+      usedChebyshev: false,
+      energyScore2: 110 / 41,
+      danger: 0.4,
+      neighbors: [
+        {
+          roomName: "W1N3",
+          kind: "player",
+          penalty: 0.4,
+          controllerLevel: 6,
+          distance: 20
+        }
+      ]
     });
     assert.equal(entry.roomName, "W2N3");
     assert.deepEqual(entry.spawnPos, { x: 18, y: 22 });
@@ -155,6 +166,9 @@ describe("firstRoomSelection", () => {
     assert.deepEqual(entry.harvestSeats.map(seat => seat.seats), [8, 3]);
     assert.closeTo(entry.score2, 110 / 41, 1e-9);
     assert.equal(entry.legs?.[0].to, "source");
+    assert.equal(entry.danger, 0.4);
+    assert.equal(entry.energyScore2, 110 / 41);
+    assert.equal(entry.neighbors?.[0].roomName, "W1N3");
   });
 
   it("publishes the top 5 from pass-2 score2, not pass-1 midpoint order", () => {
@@ -269,6 +283,9 @@ describe("firstRoomSelection", () => {
     assert.include(message, "swamp=plain");
     assert.include(message, "placeable spawn");
     assert.include(message, "W2N1 score2=");
+    assert.include(message, "danger");
+    assert.include(message, "Memory.firstRoom.pass2");
+    assert.include(message, "room + score only");
     assert.include(message, "Game.map.visual");
     assert.notInclude(message, "W1N1 score=");
   });
