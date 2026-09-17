@@ -14,8 +14,8 @@ import {
 import {
   PLAIN_WALK_COST,
   ROOM_SIZE,
-  findOptimalSpawnTile,
   isValidSpawnTile,
+  spiralToPlaceableSpawn,
   tileIndex
 } from "../../src/utils/spawnPlacement";
 
@@ -170,29 +170,29 @@ describe("firstRoomScore pass-2", () => {
     assert.match(reserved.reason || "", /reserved/);
   });
 
-  it("picks the precise spawn tile rather than the pass-1 midpoint", () => {
+  it("hill-climbs from the first spiral placeable instead of scanning the room", () => {
     const getTerrain = getter(makeTerrain());
     const sources = [
-      { x: 10, y: 10 },
-      { x: 12, y: 10 }
+      { x: 40, y: 25 },
+      { x: 42, y: 25 }
     ];
-    const controller = { x: 40, y: 40 };
+    const controller = { x: 8, y: 25 };
     const pass1 = scoreFirstRoom({ getTerrain, sources, controller });
     const pass2 = scoreFirstRoomPass2({ getTerrain, sources, controller });
-    const goals = sources.concat([controller]);
-    const spawn = findOptimalSpawnTile({
-      getTerrain,
-      goals,
-      isSpawnBlocked: (x, y) => goals.some(goal => goal.x === x && goal.y === y),
-      isWalkBlocked: (x, y) => goals.some(goal => goal.x === x && goal.y === y),
-      swampCost: PASS2_SWAMP_COST,
-      allowChebyshevFallback: false
-    });
+    const midpoint = averageMidpoint(sources.concat([controller]));
+    const spiralStart = spiralToPlaceableSpawn(midpoint, getTerrain, (x, y) =>
+      [...sources, controller].some(goal => goal.x === x && goal.y === y)
+    );
 
+    assert.deepEqual(midpoint, { x: 30, y: 25 });
     assert.isDefined(pass2.spawnPos);
-    assert.deepEqual(pass2.spawnPos, { x: spawn!.x, y: spawn!.y });
+    assert.isTrue(isValidSpawnTile(pass2.spawnPos!.x, pass2.spawnPos!.y, getTerrain));
     assert.isDefined(pass1.midpoint);
-    assert.isFalse(pass2.spawnPos!.x === pass1.midpoint!.x && pass2.spawnPos!.y === pass1.midpoint!.y);
+    // 1D median of (8, 40, 42) is 40; climb should move east from the midpoint.
+    assert.isAbove(pass2.spawnPos!.x, midpoint.x);
+    assert.equal(pass2.spawnPos!.y, 25);
+    assert.isDefined(spiralStart);
+    assert.isFalse(pass2.spawnPos!.x === spiralStart!.x && pass2.spawnPos!.y === spiralStart!.y);
   });
 
   it("ignores swamp in D2 (swamp treated as plain)", () => {

@@ -3,13 +3,16 @@ import {
   ROOM_SIZE,
   UNREACHABLE_COST,
   chebyshevDistance,
+  chebyshevRing,
   computeWalkCostMap,
   countWalkableNeighbors,
   findOptimalSpawnTile,
+  hillClimbBestTile,
   isEdgeTile,
   isValidSpawnTile,
   spawnMarkerName,
   spawnStructureName,
+  spiralToPlaceableSpawn,
   tileIndex
 } from "../../src/utils/spawnPlacement";
 
@@ -226,5 +229,103 @@ describe("spawnPlacement", () => {
       allowChebyshevFallback: false
     });
     assert.isNull(boxed);
+  });
+});
+
+describe("pass-2 spawn search (spiral + hill-climb)", () => {
+  it("spirals to the first placeable spawn tile", () => {
+    const terrain = makeTerrain(PLAIN);
+    const getTerrain = getter(terrain);
+
+    const origin = { x: 20, y: 20 };
+    assert.deepEqual(spiralToPlaceableSpawn(origin, getTerrain), origin);
+
+    setTile(terrain, 20, 20, WALL);
+    setTile(terrain, 19, 19, WALL);
+    setTile(terrain, 20, 19, WALL);
+    setTile(terrain, 21, 19, WALL);
+    setTile(terrain, 19, 20, WALL);
+    // First radius-1 tile in dy,dx order that is still open is (21, 20).
+    const firstRing = chebyshevRing(20, 20, 1);
+    const firstOpen = firstRing.find(tile => getTerrain(tile.x, tile.y) !== WALL);
+    assert.deepEqual(firstOpen, { x: 21, y: 20 });
+    assert.deepEqual(spiralToPlaceableSpawn(origin, getTerrain), { x: 21, y: 20 });
+
+    const blocked = makeTerrain(WALL);
+    for (let x = 0; x < ROOM_SIZE; x++) {
+      setTile(blocked, x, 0, PLAIN);
+    }
+    assert.isNull(spiralToPlaceableSpawn({ x: 25, y: 25 }, getter(blocked)));
+  });
+
+  it("skips sources/controller occupancy while spiraling", () => {
+    const getTerrain = getter(makeTerrain(PLAIN));
+    const blocked = new Set([tileIndex(25, 25), tileIndex(24, 24), tileIndex(25, 24)]);
+    const found = spiralToPlaceableSpawn({ x: 25, y: 25 }, getTerrain, (x, y) =>
+      blocked.has(tileIndex(x, y))
+    );
+    assert.isNotNull(found);
+    assert.isFalse(blocked.has(tileIndex(found!.x, found!.y)));
+    assert.isTrue(isValidSpawnTile(found!.x, found!.y, getTerrain, (x, y) => blocked.has(tileIndex(x, y))));
+  });
+
+  it("hill-climbs to a better 8-neighbor", () => {
+    const calls: string[] = [];
+    const result = hillClimbBestTile({
+      start: { x: 10, y: 10 },
+      isPlaceable: () => true,
+      scoreTile: pos => {
+        calls.push(`${pos.x},${pos.y}`);
+        return pos.x === 11 && pos.y === 10 ? 100 : 1;
+      }
+    });
+
+    assert.isNotNull(result);
+    assert.deepEqual(result!.pos, { x: 11, y: 10 });
+    assert.equal(result!.score, 100);
+    assert.include(calls, "10,10");
+    assert.include(calls, "11,10");
+  });
+
+  it("caches scores so overlapping rings never re-evaluate a tile", () => {
+    const calls: string[] = [];
+    const result = hillClimbBestTile({
+      start: { x: 10, y: 10 },
+      isPlaceable: (x, y) => x >= 1 && y >= 1 && x <= 48 && y <= 48,
+      scoreTile: pos => {
+        calls.push(`${pos.x},${pos.y}`);
+        return pos.x <= 12 ? pos.x : 24 - pos.x;
+      }
+    });
+
+    assert.isNotNull(result);
+    assert.equal(result!.pos.x, 12);
+    assert.equal(result!.pos.y, 10);
+    assert.equal(result!.evaluations, calls.length);
+    assert.equal(calls.length, new Set(calls).size);
+    assert.isAbove(result!.cacheHits, 0);
+    // A radius-12 brute-force ring would score hundreds of tiles; the climb
+    // only scores the start plus each unique ring tile along a short path.
+    assert.isBelow(result!.evaluations, 40);
+  });
+
+  it("stops at a local optimum and does not jump to a farther global peak", () => {
+    const result = hillClimbBestTile({
+      start: { x: 10, y: 10 },
+      isPlaceable: () => true,
+      scoreTile: pos => {
+        if (pos.x === 14 && pos.y === 10) return 100;
+        if (pos.x === 12 && pos.y === 10) return 10;
+        if (pos.x === 11 && pos.y === 10) return 5;
+        if (pos.x === 10 && pos.y === 10) return 1;
+        if (pos.x === 13 && pos.y === 10) return 4;
+        return 0;
+      }
+    });
+
+    assert.isNotNull(result);
+    assert.deepEqual(result!.pos, { x: 12, y: 10 });
+    assert.equal(result!.score, 10);
+    assert.notDeepEqual(result!.pos, { x: 14, y: 10 });
   });
 });

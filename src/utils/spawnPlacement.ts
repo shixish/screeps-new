@@ -124,6 +124,137 @@ export function isValidSpawnTile(
   return hasWalkableNeighbor(x, y, getTerrain, isWalkBlocked);
 }
 
+/**
+ * Chebyshev ring around (cx, cy) at a given radius (radius 0 is the origin).
+ * In-room tiles only. Order is dy, then dx, matching snap-style spirals.
+ */
+export function chebyshevRing(cx: number, cy: number, radius: number): TilePos[] {
+  if (radius === 0) {
+    if (cx < 0 || cy < 0 || cx >= ROOM_SIZE || cy >= ROOM_SIZE) return [];
+    return [{ x: cx, y: cy }];
+  }
+  const tiles: TilePos[] = [];
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+      const x = cx + dx;
+      const y = cy + dy;
+      if (x < 0 || y < 0 || x >= ROOM_SIZE || y >= ROOM_SIZE) continue;
+      tiles.push({ x, y });
+    }
+  }
+  return tiles;
+}
+
+/**
+ * Spiral outward from origin (Chebyshev rings) until the first valid
+ * STRUCTURE_SPAWN tile. Origin itself is tried first even if it is a wall.
+ */
+export function spiralToPlaceableSpawn(
+  origin: TilePos,
+  getTerrain: (x: number, y: number) => number,
+  isSpawnBlocked?: (x: number, y: number) => boolean,
+  isWalkBlocked?: (x: number, y: number) => boolean
+): TilePos | null {
+  const maxRadius = ROOM_SIZE;
+  for (let radius = 0; radius <= maxRadius; radius++) {
+    const ring = chebyshevRing(origin.x, origin.y, radius);
+    for (const tile of ring) {
+      if (isValidSpawnTile(tile.x, tile.y, getTerrain, isSpawnBlocked, isWalkBlocked)) {
+        return tile;
+      }
+    }
+  }
+  return null;
+}
+
+export interface HillClimbTileInput {
+  start: TilePos;
+  isPlaceable: (x: number, y: number) => boolean;
+  /** Higher is better. Return null when the tile cannot be scored. */
+  scoreTile: (pos: TilePos) => number | null;
+}
+
+export interface HillClimbTileResult {
+  pos: TilePos;
+  score: number;
+  /** Times `scoreTile` ran (cache misses). */
+  evaluations: number;
+  /** Ring lookups satisfied by the per-tile cache. */
+  cacheHits: number;
+}
+
+/**
+ * Local steepest-ascent on the Chebyshev ring of radius 1 (8-neighbors).
+ * Scores are cached by tile so overlapping rings never re-evaluate the same
+ * coordinate. Stops when no neighbor beats the current tile (local optimum).
+ */
+export function hillClimbBestTile(input: HillClimbTileInput): HillClimbTileResult | null {
+  const { start, isPlaceable, scoreTile } = input;
+  const cache = new Map<number, number | null>();
+  let evaluations = 0;
+  let cacheHits = 0;
+
+  const cachedScore = (pos: TilePos): number | null => {
+    const idx = tileIndex(pos.x, pos.y);
+    if (cache.has(idx)) {
+      cacheHits += 1;
+      const cached = cache.get(idx);
+      return cached === undefined ? null : cached;
+    }
+    evaluations += 1;
+    const scored = scoreTile(pos);
+    cache.set(idx, scored);
+    return scored;
+  };
+
+  if (!isPlaceable(start.x, start.y)) return null;
+  const startScore = cachedScore(start);
+  if (startScore === null) return null;
+
+  let bestPos = start;
+  let bestScore = startScore;
+  const maxSteps = ROOM_SIZE * ROOM_SIZE;
+
+  for (let step = 0; step < maxSteps; step++) {
+    let ringBestPos = bestPos;
+    let ringBestScore = bestScore;
+    const ring = chebyshevRing(bestPos.x, bestPos.y, 1);
+    for (const tile of ring) {
+      if (!isPlaceable(tile.x, tile.y)) continue;
+      const scored = cachedScore(tile);
+      if (scored === null || scored <= bestScore) continue;
+      if (scored > ringBestScore) {
+        ringBestScore = scored;
+        ringBestPos = tile;
+        continue;
+      }
+      if (scored === ringBestScore && orthogonalTieBetter(tile, ringBestPos, bestPos)) {
+        ringBestPos = tile;
+      }
+    }
+    if (ringBestPos.x === bestPos.x && ringBestPos.y === bestPos.y) {
+      return { pos: bestPos, score: bestScore, evaluations, cacheHits };
+    }
+    bestPos = ringBestPos;
+    bestScore = ringBestScore;
+  }
+
+  return { pos: bestPos, score: bestScore, evaluations, cacheHits };
+}
+
+/** Prefer cardinal neighbors over diagonals when ring scores tie. */
+function orthogonalTieBetter(candidate: TilePos, currentBest: TilePos, origin: TilePos): boolean {
+  const candDist =
+    (candidate.x - origin.x) * (candidate.x - origin.x) + (candidate.y - origin.y) * (candidate.y - origin.y);
+  const bestDist =
+    (currentBest.x - origin.x) * (currentBest.x - origin.x) +
+    (currentBest.y - origin.y) * (currentBest.y - origin.y);
+  if (candDist !== bestDist) return candDist < bestDist;
+  if (candidate.y !== currentBest.y) return candidate.y < currentBest.y;
+  return candidate.x < currentBest.x;
+}
+
 function pushHeap(heap: number[], dist: number[], node: number): void {
   heap.push(node);
   let i = heap.length - 1;

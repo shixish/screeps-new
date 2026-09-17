@@ -5,11 +5,13 @@
   E = sources * 10, score = E / (D + 1). May use a geometric midpoint that is
   not a valid STRUCTURE_SPAWN tile.
 
-  Pass-2 (published ranking, top N pass-1 rooms only): a precise placeable
-  spawn, swamp treated as plain (roads make swamp negligible soon after start),
-  E2 = 10 * H where H is the sum of open harvest seats. D2 is walk cost from
-  that spawn to each source's adjacent harvest tile plus the controller.
-  score2 = E2 / (D2 + 1).
+  Pass-2 (published ranking, top N pass-1 rooms only): spiral from the
+  sources+controller midpoint to the first placeable STRUCTURE_SPAWN tile,
+  then hill-climb the 8-neighbor ring until score2 stops improving (local
+  optimum; scores cached per tile). Swamp treated as plain (roads make swamp
+  negligible soon after start). E2 = 10 * H where H is the sum of open harvest
+  seats. D2 is walk cost from that spawn to each source's adjacent harvest tile
+  plus the controller. score2 = E2 / (D2 + 1).
 
   E2 = 10*H is a first-spawn / early-game multi-miner proxy. Add-on spawns later
   should use a different weighting (out of scope).
@@ -27,8 +29,9 @@ import {
   chebyshevDistance,
   computeWalkCostMap,
   countWalkableNeighbors,
-  findOptimalSpawnTile,
+  hillClimbBestTile,
   isValidSpawnTile,
+  spiralToPlaceableSpawn,
   tileIndex
 } from "./spawnPlacement";
 
@@ -226,9 +229,15 @@ export function rankFirstRooms(rooms: NamedRoomScoreInput[]): RankedFirstRoom[] 
 /*
   Pass-2 (spawn-precise). Run only on the top N pass-1 rooms (default 10).
 
-  Spawn = walk-cost optimum among valid STRUCTURE_SPAWN tiles (not walls,
-  sources, minerals, controller, or room edges). Geometric midpoint is used
-  only if that tile itself is a valid spawn; otherwise it is rejected.
+  Spawn search (not a full-room / radius-12/25 scan):
+  1. Naive midpoint of sources+controller (same as pass-1 center).
+  2. Spiral outward until the first valid STRUCTURE_SPAWN tile (not wall, edge,
+     source, mineral, controller; must be placeable).
+  3. Score that spawn (swamp=plain, D2, score2).
+  4. Score the 8-neighbor ring of placeable tiles; cache by tile so overlapping
+     rings never re-path the same coordinate.
+  5. If a neighbor is better, move there and repeat.
+  6. Stop at a local optimum. A better spawn farther away may exist.
 
   Swamp cost = plain cost (roads cancel swamp shortly after start).
   H = sum of open harvest seats (walkable 8-adjacent tiles per energy source).
@@ -334,6 +343,45 @@ function ineligiblePass2(harvestSeats: HarvestSeatCount[], reason: string): Firs
   };
 }
 
+type Pass2SpawnEval =
+  | { ok: true; D2: number; score2: number; legs: FirstRoomPathLeg[] }
+  | { ok: false; reason: string };
+
+function evaluatePass2AtSpawn(
+  spawnPos: TilePos,
+  sources: TilePos[],
+  controller: TilePos,
+  getTerrain: (x: number, y: number) => number,
+  isBlocked: (x: number, y: number) => boolean,
+  plainCost: number,
+  swampCost: number,
+  E2: number
+): Pass2SpawnEval {
+  const map = computeWalkCostMap(spawnPos, getTerrain, isBlocked, plainCost, swampCost);
+  const legs: FirstRoomPathLeg[] = [];
+  let D2 = 0;
+
+  for (const source of sources) {
+    const walked = cheapestAdjacentSeat(map, source, getTerrain, isBlocked);
+    if (!walked) return { ok: false, reason: "unreachable source" };
+    D2 += walked.cost;
+    legs.push({ to: "source", x: source.x, y: source.y, cost: walked.cost, seat: walked.seat });
+  }
+
+  const toController = cheapestAdjacentSeat(map, controller, getTerrain, isBlocked);
+  if (!toController) return { ok: false, reason: "unreachable controller" };
+  D2 += toController.cost;
+  legs.push({
+    to: "controller",
+    x: controller.x,
+    y: controller.y,
+    cost: toController.cost,
+    seat: toController.seat
+  });
+
+  return { ok: true, D2, score2: E2 / (D2 + SCORE_EPSILON), legs };
+}
+
 export function scoreFirstRoomPass2(input: FirstRoomPass2Input): FirstRoomPass2Score {
   const { sources, getTerrain } = input;
   const controller = input.controller ?? null;
@@ -357,55 +405,62 @@ export function scoreFirstRoomPass2(input: FirstRoomPass2Input): FirstRoomPass2S
     return ineligiblePass2(harvestSeats, `fewer than ${MIN_SOURCES} sources`);
   }
 
-  const goals: TilePos[] = sources.concat([controller]);
-  const spawn = findOptimalSpawnTile({
-    getTerrain,
-    goals,
-    isSpawnBlocked: isBlocked,
-    isWalkBlocked: isBlocked,
-    plainCost,
-    swampCost,
-    allowChebyshevFallback: false
-  });
-  if (!spawn) return ineligiblePass2(harvestSeats, "no placeable spawn");
-  if (!isValidSpawnTile(spawn.x, spawn.y, getTerrain, isBlocked, isBlocked)) {
+  const origin = averageMidpoint(sources.concat([controller]));
+  const start = spiralToPlaceableSpawn(origin, getTerrain, isBlocked, isBlocked);
+  if (!start) return ineligiblePass2(harvestSeats, "no placeable spawn");
+  if (!isValidSpawnTile(start.x, start.y, getTerrain, isBlocked, isBlocked)) {
     return ineligiblePass2(harvestSeats, "no placeable spawn");
   }
 
-  const spawnPos: TilePos = { x: spawn.x, y: spawn.y };
-  const map = computeWalkCostMap(spawnPos, getTerrain, isBlocked, plainCost, swampCost);
-  const legs: FirstRoomPathLeg[] = [];
-  let D2 = 0;
+  const E2 = energyPerTick(H, input.sourceEnergyCapacity, input.energyRegenTime);
+  const evals = new Map<number, Pass2SpawnEval>();
 
-  for (const source of sources) {
-    const walked = cheapestAdjacentSeat(map, source, getTerrain, isBlocked);
-    if (!walked) return ineligiblePass2(harvestSeats, "unreachable source");
-    D2 += walked.cost;
-    legs.push({ to: "source", x: source.x, y: source.y, cost: walked.cost, seat: walked.seat });
-  }
+  const scoreTile = (pos: TilePos): number | null => {
+    const idx = tileIndex(pos.x, pos.y);
+    let evaluated = evals.get(idx);
+    if (!evaluated) {
+      evaluated = evaluatePass2AtSpawn(
+        pos,
+        sources,
+        controller,
+        getTerrain,
+        isBlocked,
+        plainCost,
+        swampCost,
+        E2
+      );
+      evals.set(idx, evaluated);
+    }
+    return evaluated.ok ? evaluated.score2 : null;
+  };
 
-  const toController = cheapestAdjacentSeat(map, controller, getTerrain, isBlocked);
-  if (!toController) return ineligiblePass2(harvestSeats, "unreachable controller");
-  D2 += toController.cost;
-  legs.push({
-    to: "controller",
-    x: controller.x,
-    y: controller.y,
-    cost: toController.cost,
-    seat: toController.seat
+  const climbed = hillClimbBestTile({
+    start,
+    isPlaceable: (x, y) => isValidSpawnTile(x, y, getTerrain, isBlocked, isBlocked),
+    scoreTile
   });
 
-  const E2 = energyPerTick(H, input.sourceEnergyCapacity, input.energyRegenTime);
-  const score2 = E2 / (D2 + SCORE_EPSILON);
+  const startEval = evals.get(tileIndex(start.x, start.y));
+  if (!climbed) {
+    const reason = startEval && !startEval.ok ? startEval.reason : "no placeable spawn";
+    return ineligiblePass2(harvestSeats, reason);
+  }
+
+  const best = evals.get(tileIndex(climbed.pos.x, climbed.pos.y));
+  if (!best || !best.ok) {
+    const reason = best && !best.ok ? best.reason : "no placeable spawn";
+    return ineligiblePass2(harvestSeats, reason);
+  }
+
   return {
     eligible: true,
-    spawnPos,
+    spawnPos: climbed.pos,
     H,
     E2,
-    D2,
-    score2,
+    D2: best.D2,
+    score2: best.score2,
     harvestSeats,
-    legs,
+    legs: best.legs,
     usedChebyshev: false
   };
 }
