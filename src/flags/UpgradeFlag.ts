@@ -1,5 +1,5 @@
-import { CreepPriority, CreepRoleName, UPGRADER_STORAGE_MIN } from "utils/constants";
-import { isPriorityRoadWorkComplete } from "utils/earlyEconomy";
+import { CreepPriority, CreepRoleName, FlagType, UPGRADER_STORAGE_MIN } from "utils/constants";
+import { canFeedController } from "utils/earlyEconomy";
 import { BasicFlag } from "./_BasicFlag";
 import { RemoteFlagMemory } from "./_RemoteFlag";
 
@@ -11,42 +11,54 @@ interface UpgradeFlagMemory extends RemoteFlagMemory{
 
 export class UpgradeFlag extends BasicFlag<UpgradeFlagMemory> {
   getRequestedCreep(currentPriorityLevel:CreepPriority){
-    if (currentPriorityLevel < CreepPriority.Low) return null;
+    if (currentPriorityLevel < CreepPriority.Normal) return null;
 
-    //Early game: don't fund dedicated upgraders/couriers until the priority roads are placed.
-    if (!isPriorityRoadWorkComplete(this.home)) return null;
+    const homeDrones = this.homeAudit.flags[FlagType.Home]?.[0]?.cohorts?.drones;
+    /*
+      Harvest coverage outranks upgrading. Until every owned source has a miner (or interim drone
+      saturation before containers exist) - and priority roads are placed - do not fund dedicated
+      upgraders or controller couriers. Basics also respect the same gate.
+    */
+    if (!canFeedController(this.home, this.homeAudit, homeDrones)) return null;
+
+    const controllerAnchor = this.homeAudit.controller;
+    if (!controllerAnchor) return null;
+
+    //Static upgrader needs the controller-adjacent container to sit on and withdraw from.
+    if (!controllerAnchor.containers.length) return null;
 
     //Send 80% of total energy into the controller. If we're banking then ramp up the usage.
     const upgraderEnergyPerTick = this.homeAudit.totalEnergyIncomePerTick*(this.homeAudit.storedEnergy > UPGRADER_STORAGE_MIN ? 1.2 : 0.8);
-    if (this.homeAudit.controller){
-      const controllerAnchor = this.homeAudit.controller;
 
-      //Produce couriers to ferry energy to the controller upgraders
-      const roundTrip = controllerAnchor.anchor.pos.getRangeTo(this.homeAudit.center)*2; //rough range estimate
-      const optimalCourierParts = Math.ceil((roundTrip*upgraderEnergyPerTick)/50); //can carry 50 energy per carry part
-      const neededCourierParts = optimalCourierParts - (controllerAnchor.couriers.counts[CARRY] || 0);
-      const courier = neededCourierParts > 0 && this.findSpawnableCreep(CreepRoleName.Courier, body=>(
-        body.counts[CARRY] > 0 && neededCourierParts % body.counts[CARRY]
-      ), { anchor: controllerAnchor, cohort: controllerAnchor.couriers });
-      if (courier) return courier;
+    //Couriers ferry energy from source containers / storage into the controller container.
+    const roundTrip = controllerAnchor.anchor.pos.getRangeTo(this.homeAudit.center)*2; //rough range estimate
+    const energyPerTickForHaul = Math.max(upgraderEnergyPerTick, 2); //at least keep a trickle flowing
+    const optimalCourierParts = Math.ceil((roundTrip*energyPerTickForHaul)/50); //can carry 50 energy per carry part
+    const neededCourierParts = optimalCourierParts - (controllerAnchor.couriers.counts[CARRY] || 0);
+    const courier = neededCourierParts > 0 && this.findSpawnableCreep(CreepRoleName.Courier, body=>(
+      body.counts[CARRY] > 0 && neededCourierParts % body.counts[CARRY]
+    ), { anchor: controllerAnchor, cohort: controllerAnchor.couriers });
+    if (courier) return courier;
 
-
-      // roomAudit.storedEnergy > UPGRADER_STORAGE_MIN
-      // if (controllerAnchor.upgraders.list.length < 5){}
-      const optimalUpgraderWorkParts = upgraderEnergyPerTick/2; //Upgrading uses 2 Energy per WORK part
-      const neededUpgraderParts = optimalUpgraderWorkParts - (controllerAnchor.upgraders.counts[WORK] || 0);
-      const optimalUpgrader = neededUpgraderParts > 0 && this.findSpawnableCreep(CreepRoleName.Upgrader, body=>(
+    /*
+      One dedicated static upgrader on the controller container. Prefer bodies with a single MOVE (walks
+      onto the seat once) and small CARRY; pick the largest affordable WORK count that doesn't wildly
+      overshoot the energy we expect to feed it.
+    */
+    const currentUpgraderWork = controllerAnchor.upgraders.counts[WORK] || 0;
+    const optimalUpgraderWorkParts = Math.max(2, Math.ceil(upgraderEnergyPerTick)); //upgrade burns 1 energy/WORK/tick
+    if (currentUpgraderWork < optimalUpgraderWorkParts){
+      const upgrader = this.findSpawnableCreep(CreepRoleName.Upgrader, body=>(
         body.counts[WORK] > 0 &&
-        optimalUpgraderWorkParts / body.counts[WORK] < 5 &&
-        optimalUpgraderWorkParts % body.counts[WORK]
-      ), { anchor: controllerAnchor, cohort: controllerAnchor.upgraders, priority:CreepPriority.Low });
-      if (optimalUpgrader && optimalUpgrader.tier.body.counts[WORK] <= neededUpgraderParts) return optimalUpgrader;
+        body.counts[CARRY] > 0 &&
+        body.counts[MOVE] >= 1 &&
+        body.counts[WORK] <= optimalUpgraderWorkParts &&
+        //Prefer fewer MOVE parts (static seat), then closest WORK match
+        (body.counts[MOVE]-1)*100 + Math.abs(optimalUpgraderWorkParts - body.counts[WORK])
+      ), { anchor: controllerAnchor, cohort: controllerAnchor.upgraders, priority: CreepPriority.Low });
+      //Only spawn if it adds WORK vs what's already seated (replace small with larger over time).
+      if (upgrader && upgrader.tier.body.counts[WORK] > currentUpgraderWork) return upgrader;
     }
-
-    // const optimalScoutParts = 1;
-    // const neededScoutParts = optimalScoutParts - (this.scouts.counts[MOVE] || 0);
-    // const scout = neededScoutParts > 0 && this.findSpawnableCreep(CreepRoleName.Scout, body=>0, { cohort: this.scouts });
-    // if (scout) return scout;
 
     return null;
   }

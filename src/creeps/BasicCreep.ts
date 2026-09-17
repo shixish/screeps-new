@@ -1,6 +1,6 @@
 import { RemoteFlag } from "flags/_RemoteFlag";
 import { CreepRoleName, CreepRoleNames, DEBUG, FlagType, maxStorageFill, PARTS, PART_COST } from "utils/constants";
-import { areSourcesStaticallyMined, isPriorityRoadWorkComplete } from "utils/earlyEconomy";
+import { areSourcesStaticallyMined, canFeedController } from "utils/earlyEconomy";
 import { claimAmount, getClaimedAmount, getFlagManager, getResourceAvailable, getResourceSpace, getRoomAudit } from "utils/tickCache";
 
 export function calculateBiteSize (creep:Creep){
@@ -844,8 +844,14 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
       if (this.rememberAction(this.startRepairing, 'repairing', ['upgrading'])) return;
       if (this.rememberAction(this.startStocking, 'stocking', ['upgrading'])) return;
       // if (this.rememberAction(this.startSpreading, 'spreading')) return; //basic workers don't need to spread their energy around
-      //Early game: the controller doesn't get fed until the priority roads (sources, then controller) are placed.
-      if (isPriorityRoadWorkComplete(this.room) && this.rememberAction(this.startUpgrading, 'upgrading')) return;
+      /*
+        Basics only dump into the controller as a last resort. Harvest coverage outranks upgrading
+        (canFeedController), and once a dedicated Upgrader is seated on the controller container the
+        Basics stop upgrading entirely - their job is to build/repair/stock that container instead.
+      */
+      const homeDrones = roomAudit.flags[FlagType.Home]?.[0]?.cohorts?.drones;
+      const dedicatedUpgrader = roomAudit.creepCountsByRole[CreepRoleName.Upgrader] > 0;
+      if (!dedicatedUpgrader && canFeedController(this.room, roomAudit, homeDrones) && this.rememberAction(this.startUpgrading, 'upgrading')) return;
       if (this.rememberAction(this.startStoring, 'storing')) return;
     }
 
