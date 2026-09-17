@@ -475,13 +475,20 @@ function bootstrapRoomSpawn(room: Room): void {
 /**
  * Places (or marks) the first spawn in owned/unclaimed visible rooms when none exist yet.
  * No-ops once any owned spawn is present in the empire.
+ * When `preferredRoom` is visible, only that room is bootstrapped so a first-room
+ * ranking can steer placement; otherwise every visible room is considered.
  */
-export function bootstrapFirstSpawns(): void {
+export function bootstrapFirstSpawns(preferredRoom?: string): void {
   const empireHasSpawn = Object.keys(Game.spawns).length > 0;
   if (empireHasSpawn) {
     for (const roomName in Game.rooms) {
       cleanupSpawnBootstrap(Game.rooms[roomName]);
     }
+    return;
+  }
+
+  if (preferredRoom && Game.rooms[preferredRoom]) {
+    bootstrapRoomSpawn(Game.rooms[preferredRoom]);
     return;
   }
 

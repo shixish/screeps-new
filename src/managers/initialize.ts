@@ -1,9 +1,11 @@
 import { ClaimFlag } from "flags/ClaimFlag";
+import { bootstrapFirstRoomSelection } from "utils/firstRoomSelection";
 import { bootstrapFirstSpawns } from "utils/spawnPlacement";
 import { getRoomAudit } from "utils/tickCache";
 
 export function initialize(){
-  bootstrapFirstSpawns();
+  const preferredRoom = bootstrapFirstRoomSelection();
+  bootstrapFirstSpawns(preferredRoom);
 
   if (Memory.initialized) return;
 
