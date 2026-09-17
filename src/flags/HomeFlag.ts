@@ -1,6 +1,6 @@
 import { Cohort } from "utils/Cohort";
 import { CreepPriority, CreepRoleName } from "utils/constants";
-import { ensureEarlyRoadPlan, getSourceSaturation, isPriorityRoadWorkComplete, placeEarlyRoadSites } from "utils/earlyEconomy";
+import { areSourcesStaticallyMined, ensureEarlyRoadPlan, getSourceSaturation, isPriorityRoadWorkComplete, placeEarlyRoadSites } from "utils/earlyEconomy";
 import { diamondCoordinates, diamondRingCoordinates, findDiamondPlacement, getBestContainerLocation, getSpawnRoadPath, getStructureCostMatrix } from "utils/map";
 import { BasicFlag, BasicFlagMemory } from "./_BasicFlag";
 
@@ -344,16 +344,22 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     if (currentPriorityLevel < CreepPriority.Normal) return null;
     if (this.homeAudit.creeps.length === 0){
       //Bootstrap: build whatever we can afford right now, otherwise the room can never recover.
-      return this.findSpawnableCreep(CreepRoleName.Basic, true, { cohort: this.cohorts.drones });
+      //Nothing outranks this, otherwise a pricier request (a static miner for instance) could sit there
+      //waiting on energy that no creep is left alive to deliver.
+      return this.findSpawnableCreep(CreepRoleName.Basic, true, { cohort: this.cohorts.drones, priority: CreepPriority.Now });
     }
 
     /*
       Stage 1: general purpose harvest drones. These collect energy themselves and carry it back into
       the spawn. Keep making them until the sources are saturated (see getSourceSaturation), at which
       point another drone wouldn't raise the room's harvest rate.
+
+      Drones are only the harvest plan until the source containers come online. Once every source has a
+      container with a dedicated static miner sat on it, the harvest flags own the harvest (miner +
+      couriers) and the drone pool stops growing - surplus workers go into construction below instead.
     */
     const saturation = getSourceSaturation(this.homeAudit, this.cohorts.drones);
-    if (!saturation.saturated){
+    if (!saturation.saturated && !areSourcesStaticallyMined(this.homeAudit)){
       const neededWorkParts = saturation.work - saturation.workUsed;
       //Prefer the body whose WORK count lands closest to the throughput we're still missing.
       const drone = this.findSpawnableCreep(CreepRoleName.Basic, body=>(

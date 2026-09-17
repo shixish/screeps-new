@@ -1,6 +1,6 @@
 import { RemoteFlag } from "flags/_RemoteFlag";
 import { CreepRoleName, CreepRoleNames, DEBUG, FlagType, maxStorageFill, PARTS, PART_COST } from "utils/constants";
-import { isPriorityRoadWorkComplete } from "utils/earlyEconomy";
+import { areSourcesStaticallyMined, isPriorityRoadWorkComplete } from "utils/earlyEconomy";
 import { claimAmount, getClaimedAmount, getFlagManager, getResourceAvailable, getResourceSpace, getRoomAudit } from "utils/tickCache";
 
 export function calculateBiteSize (creep:Creep){
@@ -849,8 +849,14 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
       if (this.rememberAction(this.startStoring, 'storing')) return;
     }
 
-    if (roomAudit.creepCountsByRole[CreepRoleName.Harvester] < roomAudit.sourceSeats && !roomAudit.creepCountsByRole[CreepRoleName.RemoteWorker]){
-      //Let the miners do it, the basic creeps are jamming things up...
+    /*
+      Opportunistic harvest, last resort only: everything above this (hauling, building, repairing,
+      upgrading) already declined, so this creep has nothing better to do. Once every source has a
+      container with a dedicated static miner covering it, the basics stay off the sources entirely and
+      take their energy out of the containers/storage instead (see startTakingEnergy above) - otherwise
+      they just jam up the seats the miners need.
+    */
+    if (!areSourcesStaticallyMined(roomAudit) && !roomAudit.creepCountsByRole[CreepRoleName.RemoteWorker]){
       if (this.rememberAction(this.startHarvesting, 'mining')) return;
     }
 

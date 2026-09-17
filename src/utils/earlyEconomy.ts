@@ -184,3 +184,18 @@ export function getSourceSaturation(roomAudit:RoomAudit, droneCohort:Cohort):Sou
     saturated: seatsUsed >= seats || workUsed >= work,
   };
 }
+
+/*
+  A source counts as statically mined once it has a container to mine into and a dedicated harvester
+  cohort covering its useful throughput. At that point the HarvestFlag miner plus its couriers are the
+  harvest plan for that source, so the HomeFlag drones stop growing and the Basic creeps stop crowding
+  the seats (see BasicCreep.work).
+*/
+export function isSourceStaticallyMined(sourceAnchor:CreepSourceAnchor){
+  if (!sourceAnchor.containers.length) return false;
+  return (sourceAnchor.harvesters.counts[WORK] ?? 0) >= sourceAnchor.getOptimalWorkParts();
+}
+
+export function areSourcesStaticallyMined(roomAudit:RoomAudit){
+  return roomAudit.sources.length > 0 && roomAudit.sources.every(isSourceStaticallyMined);
+}
