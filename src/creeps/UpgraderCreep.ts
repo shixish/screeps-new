@@ -1,4 +1,5 @@
 import { getRoomAudit, claimAmount } from "utils/tickCache";
+import { followCourierTug } from "utils/seatTug";
 import { BasicCreep, CreepBody } from "./BasicCreep";
 
 /*
@@ -12,7 +13,14 @@ export class UpgraderCreep extends BasicCreep {
     authority: 1,
     tiers: [
       {
-        //Early / RCL1-2: enough WORK to matter, tiny CARRY, 1 MOVE to seat itself.
+        //0 MOVE: courier tugs onto the controller container. Tiny CARRY since the box is underfoot.
+        body: new CreepBody([
+          WORK, WORK,
+          CARRY,
+        ], 250),
+      },
+      {
+        //1 MOVE self-walk fallback if no courier is free to tug.
         body: new CreepBody([
           WORK, WORK,
           CARRY,
@@ -113,6 +121,7 @@ export class UpgraderCreep extends BasicCreep {
   }
 
   work(){
+    if (followCourierTug(this)) return;
     if (this.seatAtController()) return;
 
     const energyCapacity = this.store.getUsedCapacity(RESOURCE_ENERGY);

@@ -1,4 +1,5 @@
 import { claimAmount, getResourceSpace } from "utils/tickCache";
+import { tugStaticCreepToSeat } from "utils/seatTug";
 import { BasicCreep, CreepBody, CreepTiers } from "./BasicCreep";
 
 export class CourierCreep extends BasicCreep {
@@ -113,6 +114,13 @@ export class CourierCreep extends BasicCreep {
 
   work(){
     if (this.commute()) return;
+
+    //Position static miners/upgraders onto their containers before normal haul duty.
+    //Couriers are the intended tug (Basics never pull). 1-MOVE statics can also self-walk.
+    if (tugStaticCreepToSeat(this)){
+      this.say('tug');
+      return;
+    }
 
     const usedCapacity = this.store.getUsedCapacity();
     const energyCapacity = this.store.getUsedCapacity(RESOURCE_ENERGY);

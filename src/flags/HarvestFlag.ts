@@ -102,8 +102,10 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     const miner = this.findSpawnableCreep(CreepRoleName.Harvester, body=>(
       body.counts[CARRY] === 0 && //Static miners drop straight into the container, they never haul.
       body.counts[WORK] <= optimalWorkParts &&
-      (this.domestic ? body.counts[MOVE] === 1 : body.counts[MOVE] >= 2) &&
-      optimalWorkParts - body.counts[WORK] //Prefer the body that comes closest to the source throughput
+      //Domestic: 0 MOVE (courier tug) or 1 MOVE (self-walk fallback). Remote still needs travel MOVE.
+      (this.domestic ? body.counts[MOVE] <= 1 : body.counts[MOVE] >= 2) &&
+      //Prefer more WORK, then fewer MOVE (tug over self-walk) for domestic.
+      (optimalWorkParts - body.counts[WORK]) * 10 + (this.domestic ? body.counts[MOVE] : 0)
     ), { anchor: sourceAnchor, cohort: sourceAnchor.harvesters, priority: CreepPriority.High });
 
     //Only worth a seat if it brings more WORK than whatever is already sitting on this source.

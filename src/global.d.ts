@@ -115,6 +115,7 @@ declare global {
     // targetRoom?: Room['name'];
     anchor?: Id<RoomObject>;
     seated?: boolean;
+    tugTarget?: Creep['name']; //Courier is pulling this static miner/upgrader onto its container seat
     flag?: BasicFlag['name'];
     target?: Target;
     action?: string;

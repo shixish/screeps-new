@@ -1,13 +1,20 @@
-import { Anchor } from "utils/Anchor";
 import { getRoomAudit } from "utils/tickCache";
+import { followCourierTug } from "utils/seatTug";
 import { BasicCreep, CreepBody } from "./BasicCreep";
 
 export class HarvesterCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 2,
     tiers: [
+      //Domestic static miners: 0 MOVE prefers courier tug onto the container; 1 MOVE is the self-walk fallback.
+      {
+        body: new CreepBody([WORK, WORK], 200),
+      },
       {
         body: new CreepBody([WORK, WORK, MOVE], 250),
+      },
+      {
+        body: new CreepBody([WORK, WORK, WORK, WORK, WORK], 500),
       },
       {
         body: new CreepBody([WORK, WORK, WORK, WORK, WORK, MOVE], 550),
@@ -49,6 +56,9 @@ export class HarvesterCreep extends BasicCreep {
   }
 
   work(){
+    //Cooperate with an adjacent courier tug (intents apply same tick).
+    if (followCourierTug(this)) return;
+
     const anchor = this.getAnchorObject();
     if (anchor){
       const roomAudit = getRoomAudit(this.room);

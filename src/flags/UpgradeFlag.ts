@@ -51,10 +51,10 @@ export class UpgradeFlag extends BasicFlag<UpgradeFlagMemory> {
       const upgrader = this.findSpawnableCreep(CreepRoleName.Upgrader, body=>(
         body.counts[WORK] > 0 &&
         body.counts[CARRY] > 0 &&
-        body.counts[MOVE] >= 1 &&
+        body.counts[MOVE] <= 1 && //0 MOVE + courier tug, or 1 MOVE self-walk fallback
         body.counts[WORK] <= optimalUpgraderWorkParts &&
-        //Prefer fewer MOVE parts (static seat), then closest WORK match
-        (body.counts[MOVE]-1)*100 + Math.abs(optimalUpgraderWorkParts - body.counts[WORK])
+        //Prefer fewer MOVE (courier tug), then closest WORK match
+        body.counts[MOVE]*100 + Math.abs(optimalUpgraderWorkParts - body.counts[WORK])
       ), { anchor: controllerAnchor, cohort: controllerAnchor.upgraders, priority: CreepPriority.Low });
       //Only spawn if it adds WORK vs what's already seated (replace small with larger over time).
       if (upgrader && upgrader.tier.body.counts[WORK] > currentUpgraderWork) return upgrader;
