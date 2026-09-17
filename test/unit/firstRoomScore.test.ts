@@ -2,16 +2,14 @@ import { assert } from "chai";
 import {
   CHEBYSHEV_PENALTY,
   MIN_SOURCES,
-  SOURCE_PAIR_WEIGHT,
+  SCORE_EPSILON,
+  averageMidpoint,
   compareFirstRoomScores,
+  energyPerTick,
   rankFirstRooms,
   scoreFirstRoom
 } from "../../src/utils/firstRoomScore";
-import {
-  ROOM_SIZE,
-  computeWalkCostMap,
-  tileIndex
-} from "../../src/utils/spawnPlacement";
+import { ROOM_SIZE, tileIndex } from "../../src/utils/spawnPlacement";
 
 const PLAIN = 0;
 const WALL = 1;
@@ -46,74 +44,125 @@ describe("firstRoomScore", () => {
     assert.isFalse(one.eligible);
     assert.isFalse(none.eligible);
     assert.equal(one.sourceCount, 1);
-    assert.equal(none.sourceCount, 0);
-    assert.equal(one.rankCost, Number.POSITIVE_INFINITY);
+    assert.equal(none.score, 0);
     assert.match(one.reason || "", /sources/);
     assert.equal(MIN_SOURCES, 2);
   });
 
-  it("rejects rooms without a controller", () => {
-    const scored = scoreFirstRoom({
-      getTerrain: getter(makeTerrain()),
-      sources: [
-        { x: 10, y: 10 },
-        { x: 12, y: 10 }
-      ]
+  it("rejects rooms without a controller or owned by another user/NPC", () => {
+    const getTerrain = getter(makeTerrain());
+    const sources = [
+      { x: 10, y: 10 },
+      { x: 12, y: 10 }
+    ];
+    const noController = scoreFirstRoom({ getTerrain, sources });
+    const npc = scoreFirstRoom({
+      getTerrain,
+      sources,
+      controller: { x: 20, y: 20 },
+      owner: "Invader",
+      my: false
     });
-    assert.isFalse(scored.eligible);
-    assert.match(scored.reason || "", /controller/);
+    const mine = scoreFirstRoom({
+      getTerrain,
+      sources,
+      controller: { x: 20, y: 20 },
+      owner: "me",
+      my: true
+    });
+
+    assert.isFalse(noController.eligible);
+    assert.match(noController.reason || "", /controller/);
+    assert.isFalse(npc.eligible);
+    assert.match(npc.reason || "", /owned/);
+    assert.isTrue(mine.eligible);
   });
 
-  it("prefers a closer source pair over a closer controller", () => {
-    const getTerrain = getter(makeTerrain());
-    const closePair = scoreFirstRoom({
-      getTerrain,
+  it("uses E = sources * 10 and score = E / (D + epsilon)", () => {
+    const scored = scoreFirstRoom({
+      getTerrain: getter(makeTerrain()),
       sources: [
         { x: 20, y: 20 },
         { x: 24, y: 20 }
       ],
-      controller: { x: 45, y: 45 }
+      controller: { x: 22, y: 24 }
     });
-    const farPair = scoreFirstRoom({
+    assert.isTrue(scored.eligible);
+    assert.equal(scored.energyPerTick, energyPerTick(2));
+    assert.equal(scored.energyPerTick, 20);
+    assert.equal(scored.score, scored.energyPerTick / (scored.walkCost + SCORE_EPSILON));
+    assert.isDefined(scored.midpoint);
+  });
+
+  it("averages sources and the controller for the midpoint, ignoring extra mineral points", () => {
+    const points = [
+      { x: 10, y: 10 },
+      { x: 30, y: 10 },
+      { x: 20, y: 40 }
+    ];
+    assert.deepEqual(averageMidpoint(points), { x: 20, y: 20 });
+
+    const scored = scoreFirstRoom({
+      getTerrain: getter(makeTerrain()),
+      sources: [
+        { x: 10, y: 10 },
+        { x: 30, y: 10 }
+      ],
+      controller: { x: 20, y: 40 }
+    });
+    assert.deepEqual(scored.midpoint, { x: 20, y: 20 });
+  });
+
+  it("prefers a compact layout (lower D) when source count is equal", () => {
+    const getTerrain = getter(makeTerrain());
+    const compact = scoreFirstRoom({
+      getTerrain,
+      sources: [
+        { x: 22, y: 22 },
+        { x: 24, y: 22 }
+      ],
+      controller: { x: 23, y: 24 }
+    });
+    const sprawled = scoreFirstRoom({
       getTerrain,
       sources: [
         { x: 5, y: 5 },
-        { x: 45, y: 45 }
+        { x: 45, y: 5 }
       ],
-      controller: { x: 25, y: 25 }
+      controller: { x: 25, y: 45 }
     });
 
-    assert.isTrue(closePair.eligible);
-    assert.isTrue(farPair.eligible);
-    assert.isBelow(closePair.sourcePairCost, farPair.sourcePairCost);
-    assert.isBelow(closePair.rankCost, farPair.rankCost);
-    assert.equal(closePair.rankCost, closePair.sourcePairCost * SOURCE_PAIR_WEIGHT + closePair.controllerCost);
+    assert.equal(compact.energyPerTick, sprawled.energyPerTick);
+    assert.isBelow(compact.walkCost, sprawled.walkCost);
+    assert.isAbove(compact.score, sprawled.score);
   });
 
-  it("uses controller walk from the source-pair rendezvous as the tie-breaker", () => {
+  it("generally ranks 3-source rooms above 2-source rooms with similar sprawl", () => {
     const getTerrain = getter(makeTerrain());
-    const sources = [
-      { x: 10, y: 25 },
-      { x: 20, y: 25 }
-    ];
-    const near = scoreFirstRoom({
+    const two = scoreFirstRoom({
       getTerrain,
-      sources,
-      controller: { x: 15, y: 28 }
+      sources: [
+        { x: 20, y: 20 },
+        { x: 28, y: 20 }
+      ],
+      controller: { x: 24, y: 28 }
     });
-    const far = scoreFirstRoom({
+    const three = scoreFirstRoom({
       getTerrain,
-      sources,
-      controller: { x: 15, y: 45 }
+      sources: [
+        { x: 20, y: 20 },
+        { x: 28, y: 20 },
+        { x: 24, y: 23 }
+      ],
+      controller: { x: 24, y: 28 }
     });
 
-    assert.equal(near.sourcePairCost, far.sourcePairCost);
-    assert.isBelow(near.controllerCost, far.controllerCost);
-    assert.isBelow(near.rankCost, far.rankCost);
-    assert.isDefined(near.rendezvous);
+    assert.equal(two.energyPerTick, 20);
+    assert.equal(three.energyPerTick, 30);
+    assert.isAbove(three.score, two.score);
   });
 
-  it("measures source proximity by walk cost around walls, not chebyshev", () => {
+  it("increases D when walls force a longer walk from the midpoint", () => {
     const open = makeTerrain();
     const walled = makeTerrain();
     for (let y = 0; y < ROOM_SIZE; y++) {
@@ -124,24 +173,22 @@ describe("firstRoomScore", () => {
       { x: 10, y: 10 },
       { x: 40, y: 10 }
     ];
-    const controller = { x: 25, y: 40 };
+    const controller = { x: 10, y: 40 };
     const openScore = scoreFirstRoom({ getTerrain: getter(open), sources, controller });
     const wallScore = scoreFirstRoom({ getTerrain: getter(walled), sources, controller });
 
     assert.isTrue(openScore.eligible);
     assert.isTrue(wallScore.eligible);
     assert.isFalse(openScore.usedChebyshev);
-    assert.isAbove(wallScore.sourcePairCost, openScore.sourcePairCost);
-
-    const map = computeWalkCostMap(sources[0], getter(walled));
-    assert.equal(wallScore.sourcePairCost, map[tileIndex(sources[1].x, sources[1].y)]);
+    assert.isAbove(wallScore.walkCost, openScore.walkCost);
+    assert.isBelow(wallScore.score, openScore.score);
   });
 
-  it("charges swamp tiles between sources more than plains", () => {
+  it("charges swamp tiles more than plains in D", () => {
     const plains = makeTerrain(PLAIN);
     const swampy = makeTerrain(PLAIN);
     for (let x = 15; x <= 35; x++) {
-      for (let y = 20; y <= 30; y++) {
+      for (let y = 15; y <= 35; y++) {
         setTile(swampy, x, y, SWAMP);
       }
     }
@@ -149,32 +196,12 @@ describe("firstRoomScore", () => {
       { x: 10, y: 25 },
       { x: 40, y: 25 }
     ];
-    const controller = { x: 25, y: 5 };
+    const controller = { x: 25, y: 10 };
     const plainScore = scoreFirstRoom({ getTerrain: getter(plains), sources, controller });
     const swampScore = scoreFirstRoom({ getTerrain: getter(swampy), sources, controller });
 
-    assert.isBelow(plainScore.sourcePairCost, swampScore.sourcePairCost);
-    assert.isFalse(plainScore.usedChebyshev);
-    assert.isFalse(swampScore.usedChebyshev);
-  });
-
-  it("uses the closest of three sources as the pair", () => {
-    const scored = scoreFirstRoom({
-      getTerrain: getter(makeTerrain()),
-      sources: [
-        { x: 10, y: 10 },
-        { x: 12, y: 10 },
-        { x: 40, y: 40 }
-      ],
-      controller: { x: 25, y: 25 }
-    });
-    assert.isTrue(scored.eligible);
-    assert.equal(scored.sourceCount, 3);
-    assert.deepEqual(scored.pair, [
-      { x: 10, y: 10 },
-      { x: 12, y: 10 }
-    ]);
-    assert.isBelow(scored.sourcePairCost, 10);
+    assert.isBelow(plainScore.walkCost, swampScore.walkCost);
+    assert.isAbove(plainScore.score, swampScore.score);
   });
 
   it("penalizes chebyshev fallback so disconnected rooms lose to walkable ones", () => {
@@ -209,11 +236,11 @@ describe("firstRoomScore", () => {
     });
 
     assert.isTrue(disconnected.usedChebyshev);
-    assert.isAbove(disconnected.sourcePairCost, CHEBYSHEV_PENALTY);
-    assert.isBelow(open.rankCost, disconnected.rankCost);
+    assert.isAbove(disconnected.walkCost, CHEBYSHEV_PENALTY);
+    assert.isAbove(open.score, disconnected.score);
   });
 
-  it("ranks eligible rooms ahead of rejected rooms", () => {
+  it("ranks eligible compact rooms first and owned/1-source rooms last", () => {
     const getTerrain = getter(makeTerrain());
     const ranked = rankFirstRooms([
       {
@@ -227,27 +254,38 @@ describe("firstRoomScore", () => {
         getTerrain,
         sources: [
           { x: 10, y: 10 },
-          { x: 30, y: 10 }
+          { x: 40, y: 10 }
         ],
-        controller: { x: 20, y: 20 }
+        controller: { x: 25, y: 40 }
       },
       {
         roomName: "W3N1",
         getTerrain,
         sources: [
-          { x: 10, y: 10 },
-          { x: 12, y: 10 }
+          { x: 20, y: 20 },
+          { x: 24, y: 20 },
+          { x: 22, y: 18 }
         ],
-        controller: { x: 11, y: 12 }
+        controller: { x: 22, y: 24 }
+      },
+      {
+        roomName: "W4N1",
+        getTerrain,
+        sources: [
+          { x: 20, y: 20 },
+          { x: 24, y: 20 }
+        ],
+        controller: { x: 22, y: 24 },
+        owner: "Invader"
       }
     ]);
 
     assert.equal(ranked[0].roomName, "W3N1");
     assert.equal(ranked[1].roomName, "W2N1");
-    assert.equal(ranked[2].roomName, "W1N1");
     assert.isTrue(ranked[0].eligible);
     assert.isTrue(ranked[1].eligible);
     assert.isFalse(ranked[2].eligible);
+    assert.isFalse(ranked[3].eligible);
     assert.isBelow(compareFirstRoomScores(ranked[0], ranked[1]), 0);
   });
 });

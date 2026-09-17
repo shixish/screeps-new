@@ -1,33 +1,19 @@
 /*
-  First-room score.
+  First-room score (v1, energy only).
 
-  Walk costs match PathFinder.search with { plainCost: 1, swampCost: 5 } and
-  8-directional movement, via computeWalkCostMap (same as spawn placement).
-  Chebyshev is used only when a walk is unreachable, and is penalized so a
-  real walk always ranks better than a disconnected estimate.
+  Skip rooms with no controller or with a controller owned by someone else
+  (including NPC bots). Require ≥2 energy sources.
 
-  Eligibility:
-    - A controller is required.
-    - At least 2 energy sources. Fewer sources are rejected (eligible=false).
+  Points = every energy source plus the controller (minerals are not included).
+  midpoint = rounded average (x, y) of those points, snapped to a walkable tile.
+  D = sum of PathFinder-style walk costs from the midpoint to each point
+      (plain=1, swamp=5, 8-directional via computeWalkCostMap).
+  E = numSources * (SOURCE_ENERGY_CAPACITY / ENERGY_REGEN_TIME)  // typically 10 each
+  score = E / (D + SCORE_EPSILON)
 
-  Closest source pair:
-    sourcePairCost = minimum Dijkstra walk cost between any two sources.
-
-  Rendezvous:
-    The walkable tile that minimizes dist(sourceA) + dist(sourceB) for that
-    closest pair (tiles on a shortest A–B path). Ties break by lowest
-    walk cost to the controller. That tile is the "best access" between the
-    two sources.
-
-  Controller access:
-    controllerCost = walk cost from the rendezvous to the controller.
-    If no rendezvous exists, fall back to sourceA→controller + sourceB→controller.
-
-  Rank (lower is better):
-    rankCost = sourcePairCost * SOURCE_PAIR_WEIGHT + controllerCost
-
-  SOURCE_PAIR_WEIGHT is 10000, so a 1-step difference in source proximity
-  outranks any controller distance inside a 50x50 room (controllerCost < 10000).
+  Higher score is better. More sources raise E; sprawl or swamps raise D.
+  3-source rooms generally beat 2-source rooms unless the extra source is far.
+  Chebyshev is used only when a walk is unreachable, and is penalized.
 */
 
 import {
@@ -41,9 +27,13 @@ import {
   UNREACHABLE_COST
 } from "./spawnPlacement";
 
-export const SOURCE_PAIR_WEIGHT = 10000;
-export const CHEBYSHEV_PENALTY = 1000;
 export const MIN_SOURCES = 2;
+export const SCORE_EPSILON = 1;
+export const CHEBYSHEV_PENALTY = 1000;
+export const DEFAULT_SOURCE_ENERGY_CAPACITY = 3000;
+export const DEFAULT_ENERGY_REGEN_TIME = 300;
+
+const TERRAIN_WALL = 1;
 
 export interface FirstRoomScoreInput {
   sources: TilePos[];
@@ -51,21 +41,68 @@ export interface FirstRoomScoreInput {
   getTerrain: (x: number, y: number) => number;
   plainCost?: number;
   swampCost?: number;
+  owner?: string | null;
+  my?: boolean;
+  sourceEnergyCapacity?: number;
+  energyRegenTime?: number;
 }
 
 export interface FirstRoomScore {
   eligible: boolean;
-  rankCost: number;
+  score: number;
+  energyPerTick: number;
+  walkCost: number;
   sourceCount: number;
-  sourcePairCost: number;
-  controllerCost: number;
+  midpoint?: TilePos;
   usedChebyshev: boolean;
-  pair?: [TilePos, TilePos];
-  rendezvous?: TilePos;
   reason?: string;
 }
 
-function walkOrChebyshev(
+export function sourceRegenPerTick(capacity?: number, regenTime?: number): number {
+  const cap =
+    capacity ??
+    (typeof SOURCE_ENERGY_CAPACITY === "number" ? SOURCE_ENERGY_CAPACITY : DEFAULT_SOURCE_ENERGY_CAPACITY);
+  const regen =
+    regenTime ?? (typeof ENERGY_REGEN_TIME === "number" ? ENERGY_REGEN_TIME : DEFAULT_ENERGY_REGEN_TIME);
+  return cap / regen;
+}
+
+export function energyPerTick(sourceCount: number, capacity?: number, regenTime?: number): number {
+  return sourceCount * sourceRegenPerTick(capacity, regenTime);
+}
+
+export function isOwnedByOther(owner?: string | null, my?: boolean): boolean {
+  if (!owner) return false;
+  return !my;
+}
+
+export function averageMidpoint(points: TilePos[]): TilePos {
+  const count = points.length;
+  const x = points.reduce((sum, point) => sum + point.x, 0) / count;
+  const y = points.reduce((sum, point) => sum + point.y, 0) / count;
+  return {
+    x: Math.max(0, Math.min(ROOM_SIZE - 1, Math.round(x))),
+    y: Math.max(0, Math.min(ROOM_SIZE - 1, Math.round(y)))
+  };
+}
+
+export function snapToWalkable(pos: TilePos, getTerrain: (x: number, y: number) => number): TilePos {
+  if (getTerrain(pos.x, pos.y) !== TERRAIN_WALL) return pos;
+  for (let radius = 1; radius <= 5; radius++) {
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+        const x = pos.x + dx;
+        const y = pos.y + dy;
+        if (x < 0 || y < 0 || x >= ROOM_SIZE || y >= ROOM_SIZE) continue;
+        if (getTerrain(x, y) !== TERRAIN_WALL) return { x, y };
+      }
+    }
+  }
+  return pos;
+}
+
+function walkCostFromMap(
   map: number[],
   origin: TilePos,
   dest: TilePos
@@ -91,58 +128,13 @@ function walkOrChebyshev(
   return { cost: estimate, usedChebyshev: true };
 }
 
-function findClosestPair(
-  sources: TilePos[],
-  maps: number[][]
-): { i: number; j: number; cost: number; usedChebyshev: boolean } | null {
-  let best: { i: number; j: number; cost: number; usedChebyshev: boolean } | null = null;
-  for (let i = 0; i < sources.length; i++) {
-    for (let j = i + 1; j < sources.length; j++) {
-      const walked = walkOrChebyshev(maps[i], sources[i], sources[j]);
-      if (!best || walked.cost < best.cost || (walked.cost === best.cost && walked.usedChebyshev === false && best.usedChebyshev)) {
-        best = { i, j, cost: walked.cost, usedChebyshev: walked.usedChebyshev };
-      }
-    }
-  }
-  return best;
-}
-
-function findRendezvous(
-  mapA: number[],
-  mapB: number[],
-  mapController: number[]
-): { pos: TilePos; controllerCost: number } | null {
-  let bestSum = UNREACHABLE_COST;
-  let bestController = UNREACHABLE_COST;
-  let bestPos: TilePos | null = null;
-
-  for (let y = 0; y < ROOM_SIZE; y++) {
-    for (let x = 0; x < ROOM_SIZE; x++) {
-      const idx = tileIndex(x, y);
-      const a = mapA[idx];
-      const b = mapB[idx];
-      const ctrl = mapController[idx];
-      if (a === UNREACHABLE_COST || b === UNREACHABLE_COST || ctrl === UNREACHABLE_COST) continue;
-      const sum = a + b;
-      if (sum < bestSum || (sum === bestSum && ctrl < bestController)) {
-        bestSum = sum;
-        bestController = ctrl;
-        bestPos = { x, y };
-      }
-    }
-  }
-
-  if (!bestPos) return null;
-  return { pos: bestPos, controllerCost: bestController };
-}
-
 function ineligible(sourceCount: number, reason: string): FirstRoomScore {
   return {
     eligible: false,
-    rankCost: Number.POSITIVE_INFINITY,
+    score: 0,
+    energyPerTick: energyPerTick(sourceCount),
+    walkCost: Number.POSITIVE_INFINITY,
     sourceCount,
-    sourcePairCost: Number.POSITIVE_INFINITY,
-    controllerCost: Number.POSITIVE_INFINITY,
     usedChebyshev: false,
     reason
   };
@@ -155,50 +147,40 @@ export function scoreFirstRoom(input: FirstRoomScoreInput): FirstRoomScore {
   const plainCost = input.plainCost ?? PLAIN_WALK_COST;
   const swampCost = input.swampCost ?? SWAMP_WALK_COST;
 
+  if (isOwnedByOther(input.owner, input.my)) return ineligible(sourceCount, "owned");
   if (!controller) return ineligible(sourceCount, "no controller");
   if (sourceCount < MIN_SOURCES) return ineligible(sourceCount, `fewer than ${MIN_SOURCES} sources`);
 
-  const sourceMaps = sources.map(source => computeWalkCostMap(source, getTerrain, undefined, plainCost, swampCost));
-  const controllerMap = computeWalkCostMap(controller, getTerrain, undefined, plainCost, swampCost);
+  const points: TilePos[] = sources.concat([controller]);
+  const midpoint = snapToWalkable(averageMidpoint(points), getTerrain);
+  const map = computeWalkCostMap(midpoint, getTerrain, undefined, plainCost, swampCost);
 
-  const pair = findClosestPair(sources, sourceMaps);
-  if (!pair) return ineligible(sourceCount, "no source pair");
-
-  const sourceA = sources[pair.i];
-  const sourceB = sources[pair.j];
-  const rendezvous = findRendezvous(sourceMaps[pair.i], sourceMaps[pair.j], controllerMap);
-
-  let controllerCost: number;
-  let usedChebyshev = pair.usedChebyshev;
-  let rendezvousPos: TilePos | undefined;
-
-  if (rendezvous) {
-    controllerCost = rendezvous.controllerCost;
-    rendezvousPos = rendezvous.pos;
-  } else {
-    const aToCtrl = walkOrChebyshev(sourceMaps[pair.i], sourceA, controller);
-    const bToCtrl = walkOrChebyshev(sourceMaps[pair.j], sourceB, controller);
-    controllerCost = aToCtrl.cost + bToCtrl.cost;
-    usedChebyshev = usedChebyshev || aToCtrl.usedChebyshev || bToCtrl.usedChebyshev;
+  let walkCost = 0;
+  let usedChebyshev = false;
+  for (const point of points) {
+    const walked = walkCostFromMap(map, midpoint, point);
+    walkCost += walked.cost;
+    usedChebyshev = usedChebyshev || walked.usedChebyshev;
   }
 
-  const rankCost = pair.cost * SOURCE_PAIR_WEIGHT + controllerCost;
+  const e = energyPerTick(sourceCount, input.sourceEnergyCapacity, input.energyRegenTime);
+  const score = e / (walkCost + SCORE_EPSILON);
   return {
     eligible: true,
-    rankCost,
+    score,
+    energyPerTick: e,
+    walkCost,
     sourceCount,
-    sourcePairCost: pair.cost,
-    controllerCost,
-    usedChebyshev,
-    pair: [sourceA, sourceB],
-    rendezvous: rendezvousPos
+    midpoint,
+    usedChebyshev
   };
 }
 
 export function compareFirstRoomScores(a: FirstRoomScore, b: FirstRoomScore): number {
   if (a.eligible !== b.eligible) return a.eligible ? -1 : 1;
-  if (a.rankCost !== b.rankCost) return a.rankCost - b.rankCost;
+  if (a.score !== b.score) return b.score - a.score;
   if (a.sourceCount !== b.sourceCount) return b.sourceCount - a.sourceCount;
+  if (a.walkCost !== b.walkCost) return a.walkCost - b.walkCost;
   return 0;
 }
 

@@ -6,9 +6,12 @@
   Logs the recommendation once (no spam) and marks the best visible room with
   a flag + RoomVisual. Spawn placement still uses the existing in-room
   bootstrap once the player is in (or can act on) that room.
+
+  Score (higher is better): E / (D + 1) where E is regen energy/tick and D is
+  walk cost from the sources+controller midpoint. Owned/NPC rooms are skipped.
 */
 
-import { RankedFirstRoom, SOURCE_PAIR_WEIGHT, rankFirstRooms } from "./firstRoomScore";
+import { RankedFirstRoom, rankFirstRooms } from "./firstRoomScore";
 import { RoomIndex, RoomRegion, defaultFirstRoomRegion, listRoomsInRegion } from "./roomNames";
 import { TilePos } from "./spawnPlacement";
 
@@ -29,12 +32,12 @@ export interface StoredRoomIntel {
 export interface FirstRoomRankEntry {
   roomName: string;
   eligible: boolean;
-  rankCost: number;
+  score: number;
+  energyPerTick: number;
+  walkCost: number;
   sourceCount: number;
-  sourcePairCost: number;
-  controllerCost: number;
+  midpoint?: TilePos;
   usedChebyshev: boolean;
-  rendezvous?: TilePos;
   reason?: string;
 }
 
@@ -168,8 +171,7 @@ export function intelFromRoom(room: Room, time: number): StoredRoomIntel | null 
 }
 
 function isClaimableIntel(intel: StoredRoomIntel): boolean {
-  if (intel.my) return true;
-  if (intel.owner) return false;
+  if (intel.owner && !intel.my) return false;
   if (intel.reserved) return false;
   return Boolean(intel.controller);
 }
@@ -187,7 +189,7 @@ function scanVisibleIntel(intel: { [roomName: string]: StoredRoomIntel }, time: 
 function scoreableInputs(
   roomNames: string[],
   intel: { [roomName: string]: StoredRoomIntel }
-): { roomName: string; sources: TilePos[]; controller?: TilePos; getTerrain: (x: number, y: number) => number }[] {
+): { roomName: string; sources: TilePos[]; controller?: TilePos; getTerrain: (x: number, y: number) => number; owner?: string | null; my?: boolean }[] {
   const inputs = [];
   for (const roomName of roomNames) {
     const snapshot = intel[roomName];
@@ -198,6 +200,8 @@ function scoreableInputs(
       roomName,
       sources: snapshot.sources,
       controller: snapshot.controller,
+      owner: snapshot.owner,
+      my: snapshot.my,
       getTerrain
     });
   }
@@ -208,13 +212,13 @@ export function toRankEntry(ranked: RankedFirstRoom): FirstRoomRankEntry {
   const entry: FirstRoomRankEntry = {
     roomName: ranked.roomName,
     eligible: ranked.eligible,
-    rankCost: ranked.rankCost,
+    score: ranked.score,
+    energyPerTick: ranked.energyPerTick,
+    walkCost: ranked.walkCost,
     sourceCount: ranked.sourceCount,
-    sourcePairCost: ranked.sourcePairCost,
-    controllerCost: ranked.controllerCost,
     usedChebyshev: ranked.usedChebyshev
   };
-  if (ranked.rendezvous) entry.rendezvous = ranked.rendezvous;
+  if (ranked.midpoint) entry.midpoint = ranked.midpoint;
   if (ranked.reason) entry.reason = ranked.reason;
   return entry;
 }
@@ -224,21 +228,23 @@ export function formatFirstRoomLog(memory: FirstRoomMemory): string {
   if (!top.length) {
     return (
       `[first-room] No eligible rooms yet (${memory.candidates.length} candidates, ` +
-      `${Object.keys(memory.intel).length} with intel). Need a visible unowned controller and ≥2 sources. ` +
-      `rankCost = sourcePairWalk * ${SOURCE_PAIR_WEIGHT} + controllerWalk (lower is better).`
+      `${Object.keys(memory.intel).length} with intel). Need an uncontrolled room with ≥2 sources. ` +
+      `score = E / (D + 1); E = sources * 10, D = walk cost from sources+controller midpoint.`
     );
   }
   const lines = top.map((entry, index) => {
     const cheby = entry.usedChebyshev ? " chebyshev-fallback" : "";
+    const mid = entry.midpoint ? ` mid=(${entry.midpoint.x},${entry.midpoint.y})` : "";
     return (
-      `  ${index + 1}. ${entry.roomName} rankCost=${entry.rankCost} ` +
-      `sources=${entry.sourceCount} pair=${entry.sourcePairCost} controller=${entry.controllerCost}${cheby}`
+      `  ${index + 1}. ${entry.roomName} score=${entry.score.toFixed(4)} ` +
+      `E=${entry.energyPerTick} D=${entry.walkCost} sources=${entry.sourceCount}${mid}${cheby}`
     );
   });
   return (
-    `[first-room] Best room ${memory.bestRoom} (lower rankCost is better). ` +
-    `Formula: rankCost = closestSourcePairWalk * ${SOURCE_PAIR_WEIGHT} + rendezvous→controllerWalk. ` +
-    `See Memory.firstRoom.\n${lines.join("\n")}`
+    `[first-room] Best room ${memory.bestRoom} (higher score is better). ` +
+    `Formula: score = E / (D + 1) with E = numSources * (SOURCE_ENERGY_CAPACITY / ENERGY_REGEN_TIME), ` +
+    `D = walk cost from midpoint(sources+controller). Minerals are not in D. See Memory.firstRoom.\n` +
+    lines.join("\n")
   );
 }
 
@@ -265,14 +271,14 @@ function removeRecommendationFlag(): void {
 }
 
 function paintRecommendation(room: Room, entry: FirstRoomRankEntry): void {
-  const pos = entry.rendezvous ?? room.controller?.pos ?? { x: 25, y: 3 };
+  const pos = entry.midpoint ?? room.controller?.pos ?? { x: 25, y: 3 };
   room.visual.rect(pos.x - 0.5, pos.y - 0.5, 1, 1, {
     fill: "transparent",
     stroke: "#33ffff",
     strokeWidth: 0.12,
     opacity: 0.9
   });
-  room.visual.text(`BEST ROOM ${entry.rankCost}`, pos.x, pos.y - 0.7, {
+  room.visual.text(`BEST ${entry.score.toFixed(3)}`, pos.x, pos.y - 0.7, {
     font: 0.45,
     color: "#33ffff",
     stroke: "#000000",
@@ -322,6 +328,14 @@ function emptyMemory(region: RoomRegion, candidates: string[], worldKey: string,
   };
 }
 
+function compareEntries(a: FirstRoomRankEntry, b: FirstRoomRankEntry): number {
+  if (a.eligible !== b.eligible) return a.eligible ? -1 : 1;
+  if (a.score !== b.score) return b.score - a.score;
+  if (a.sourceCount !== b.sourceCount) return b.sourceCount - a.sourceCount;
+  if (a.walkCost !== b.walkCost) return a.walkCost - b.walkCost;
+  return a.roomName.localeCompare(b.roomName);
+}
+
 /**
  * Refresh ranking when there is no owned spawn. Safe to call every tick:
  * caches until TTL / worldKey change, scores a few rooms per tick.
@@ -353,10 +367,12 @@ export function refreshFirstRoomRanking(time = Game.time): FirstRoomMemory {
     memory.candidates = candidates;
   }
 
-  const pendingSet = new Set(memory.pending.filter(name => {
-    const snapshot = intel[name];
-    return Boolean(snapshot && isClaimableIntel(snapshot));
-  }));
+  const pendingSet = new Set(
+    memory.pending.filter(name => {
+      const snapshot = intel[name];
+      return Boolean(snapshot && isClaimableIntel(snapshot));
+    })
+  );
   for (const name of candidates) {
     const snapshot = intel[name];
     if (!snapshot || !isClaimableIntel(snapshot)) continue;
@@ -370,12 +386,7 @@ export function refreshFirstRoomRanking(time = Game.time): FirstRoomMemory {
     const scored = rankFirstRooms(scoreableInputs(batch, intel));
     const byName = new Map(memory.ranked.map(entry => [entry.roomName, entry]));
     for (const ranked of scored) byName.set(ranked.roomName, toRankEntry(ranked));
-    memory.ranked = Array.from(byName.values()).sort((a, b) => {
-      if (a.eligible !== b.eligible) return a.eligible ? -1 : 1;
-      if (a.rankCost !== b.rankCost) return a.rankCost - b.rankCost;
-      if (a.sourceCount !== b.sourceCount) return b.sourceCount - a.sourceCount;
-      return a.roomName.localeCompare(b.roomName);
-    });
+    memory.ranked = Array.from(byName.values()).sort(compareEntries);
   }
 
   const eligible = memory.ranked.filter(entry => entry.eligible);
