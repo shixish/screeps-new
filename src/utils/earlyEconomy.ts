@@ -1,3 +1,4 @@
+import { CreepRoleName } from "./constants";
 import { getSpawnRoadPath } from "./map";
 
 /*
@@ -232,4 +233,41 @@ export function canFeedController(room:Room, roomAudit:RoomAudit, droneCohort?:C
   if (controller?.my && controller.ticksToDowngrade < CONTROLLER_DOWNGRADE_GRACE) return true;
   if (!isPriorityRoadWorkComplete(room)) return false;
   return areSourcesHarvestCovered(roomAudit, droneCohort);
+}
+
+/*
+  Infrastructure needed before the static-miner plan (and its bootstrap courier) can start.
+  Until this passes, HomeFlag Basic drones remain the harvest plan — never starve sources to
+  rush miners or the upgrader.
+*/
+export function canStartStaticMinerPlan(roomAudit:RoomAudit){
+  if (!isPriorityRoadWorkComplete(roomAudit.room)) return false;
+  if (!roomAudit.sources.length) return false;
+  //Every source needs its container seat before we commit to static miners.
+  if (!roomAudit.sources.every(source=>source.containers.length > 0)) return false;
+  //Keep at least one Basic alive so the room isn't emptied into miners-only.
+  if ((roomAudit.creepCountsByRole[CreepRoleName.Basic] ?? 0) < 1) return false;
+  return true;
+}
+
+/*
+  Dedicated static miners also need an active courier (haul + courier-tug seating).
+  HarvestFlag bootstraps one courier first when canStartStaticMinerPlan is true but no courier
+  exists yet; miners only spawn once this full gate passes.
+*/
+export function canSpawnStaticMiners(roomAudit:RoomAudit){
+  if (!canStartStaticMinerPlan(roomAudit)) return false;
+  if ((roomAudit.creepCountsByRole[CreepRoleName.Courier] ?? 0) < 1) return false;
+  return true;
+}
+
+/*
+  Dedicated miners are "in place" once every source has a container and at least one harvester
+  WORK part assigned. The static controller upgrader stays below this — miners first.
+*/
+export function areDedicatedMinersInPlace(roomAudit:RoomAudit){
+  if (!roomAudit.sources.length) return false;
+  return roomAudit.sources.every(source=>{
+    return source.containers.length > 0 && (source.harvesters.counts[WORK] ?? 0) > 0;
+  });
 }

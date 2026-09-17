@@ -1,5 +1,5 @@
 import { CreepPriority, CreepRoleName, FlagType, UPGRADER_STORAGE_MIN } from "utils/constants";
-import { canFeedController } from "utils/earlyEconomy";
+import { areDedicatedMinersInPlace, canFeedController } from "utils/earlyEconomy";
 import { BasicFlag } from "./_BasicFlag";
 import { RemoteFlagMemory } from "./_RemoteFlag";
 
@@ -15,11 +15,12 @@ export class UpgradeFlag extends BasicFlag<UpgradeFlagMemory> {
 
     const homeDrones = this.homeAudit.flags[FlagType.Home]?.[0]?.cohorts?.drones;
     /*
-      Harvest coverage outranks upgrading. Until every owned source has a miner (or interim drone
-      saturation before containers exist) - and priority roads are placed - do not fund dedicated
-      upgraders or controller couriers. Basics also respect the same gate.
+      Harvest coverage outranks upgrading, and dedicated miners outrank the static upgrader.
+      Until every source has its miner in place (plus the shared canFeedController road/coverage
+      gate), do not fund dedicated upgraders or controller couriers.
     */
     if (!canFeedController(this.home, this.homeAudit, homeDrones)) return null;
+    if (!areDedicatedMinersInPlace(this.homeAudit)) return null;
 
     const controllerAnchor = this.homeAudit.controller;
     if (!controllerAnchor) return null;
