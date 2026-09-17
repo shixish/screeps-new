@@ -1,9 +1,16 @@
 /*
-  World-map overlay for first-room ranking.
+  Overlays for first-room ranking (pre-spawn only).
 
-  Draws only the top 5 eligible rooms via Game.map.visual (CPU-light: a rect
-  and a short label per room). Call from the first-room bootstrap loop; do not
-  console.log here — the one-shot ranking log already lives in selection.
+  World map: Game.map.visual draws the top 5 eligible rooms (a rect and a
+  short label per room). In-room: RoomVisual rank/score text when that room
+  is already visible.
+
+  These visuals only exist while the player script is running and there is
+  still no owned spawn. Official/sim empty worlds do not run player code
+  before the first spawn, so nothing can appear on the room-picker UI.
+  After a spawn exists, selection settles and must not keep painting.
+
+  Do not console.log here — the one-shot ranking log lives in selection.
 */
 
 export const FIRST_ROOM_MAP_TOP_N = 5;
@@ -21,6 +28,7 @@ export interface FirstRoomMapRank {
   spawn?: number;
   energyPerTick?: number;
   walkCost?: number;
+  midpoint?: { x: number; y: number };
 }
 
 export interface FirstRoomMapMarker {
@@ -46,6 +54,27 @@ export interface MapVisualStyle {
 export interface MapVisualLike {
   rect?(pos: RoomPosition, width: number, height: number, style?: MapVisualStyle): unknown;
   text?(text: string, pos: RoomPosition, style?: MapVisualStyle): unknown;
+}
+
+export interface RoomVisualLike {
+  rect?(x: number, y: number, width: number, height: number, style?: MapVisualStyle): unknown;
+  text?(
+    text: string,
+    x: number,
+    y: number,
+    style?: {
+      font?: number | string;
+      color?: string;
+      stroke?: string;
+      strokeWidth?: number;
+    }
+  ): unknown;
+}
+
+export interface VisibleRoomLike {
+  name: string;
+  controller?: { pos: { x: number; y: number } };
+  visual?: RoomVisualLike;
 }
 
 function finiteNumber(value: unknown): number | undefined {
@@ -117,22 +146,44 @@ export function firstRoomMapMarkers(
   });
 }
 
+/**
+ * MapVisual.rect uses `opacity`. Markers store that value as `fillOpacity`
+ * (not `fillsOpacity`) so the interface name matches the field we read.
+ */
+export function mapMarkerRectStyle(marker: FirstRoomMapMarker): MapVisualStyle {
+  return {
+    fill: marker.color,
+    stroke: marker.color,
+    strokeWidth: marker.strokeWidth,
+    opacity: marker.fillOpacity
+  };
+}
+
+export function inRoomOverlayAnchor(
+  room: VisibleRoomLike,
+  entry?: Pick<FirstRoomMapRank, "midpoint">
+): { x: number; y: number } {
+  if (room.controller?.pos) return { x: room.controller.pos.x, y: room.controller.pos.y };
+  if (entry?.midpoint) return { x: entry.midpoint.x, y: entry.midpoint.y };
+  return { x: 25, y: 25 };
+}
+
 function resolveMapVisual(visual?: MapVisualLike): MapVisualLike | undefined {
   if (visual) return visual;
   const map = typeof Game !== "undefined" ? Game.map : undefined;
   return map?.visual as MapVisualLike | undefined;
 }
 
+function resolveVisibleRooms(rooms?: { [roomName: string]: VisibleRoomLike }): { [roomName: string]: VisibleRoomLike } | undefined {
+  if (rooms) return rooms;
+  return typeof Game !== "undefined" ? (Game.rooms as { [roomName: string]: VisibleRoomLike } | undefined) : undefined;
+}
+
 function paintMarker(visual: MapVisualLike, marker: FirstRoomMapMarker): boolean {
   try {
     const origin = new RoomPosition(0, 0, marker.roomName);
     const labelPos = new RoomPosition(25, 22, marker.roomName);
-    visual.rect?.(origin, 50, 50, {
-      fill: marker.color,
-      stroke: marker.color,
-      strokeWidth: marker.strokeWidth,
-      opacity: marker.fillOpacity
-    });
+    visual.rect?.(origin, 50, 50, mapMarkerRectStyle(marker));
     visual.text?.(marker.label, labelPos, {
       color: marker.color,
       fontSize: marker.fontSize,
@@ -146,9 +197,33 @@ function paintMarker(visual: MapVisualLike, marker: FirstRoomMapMarker): boolean
   }
 }
 
+function paintInRoomMarker(room: VisibleRoomLike, marker: FirstRoomMapMarker, entry?: FirstRoomMapRank): boolean {
+  const visual = room.visual;
+  if (!visual) return false;
+  const pos = inRoomOverlayAnchor(room, entry);
+  try {
+    visual.rect?.(pos.x - 0.5, pos.y - 0.5, 1, 1, {
+      fill: "transparent",
+      stroke: marker.color,
+      strokeWidth: 0.12,
+      opacity: 0.9
+    });
+    visual.text?.(marker.label, pos.x, pos.y - 0.7, {
+      font: 0.45,
+      color: marker.color,
+      stroke: "#000000",
+      strokeWidth: 0.12
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Draw rank `#1`…`#5` plus a short score on the world map.
  * Returns how many rooms were painted (0 when map visuals are unavailable).
+ * Call only while bootstrap is active (no owned spawn).
  */
 export function paintTopFirstRoomsOnMap(
   ranked: readonly FirstRoomMapRank[] | undefined,
@@ -160,6 +235,28 @@ export function paintTopFirstRoomsOnMap(
   let painted = 0;
   for (const marker of markers) {
     if (paintMarker(mapVisual, marker)) painted += 1;
+  }
+  return painted;
+}
+
+/**
+ * Draw rank `#1`…`#5` in any currently visible top room (RoomVisual).
+ * Useful only while there is no owned spawn and the player already has
+ * visibility into that room — rare on an empty official/sim world.
+ */
+export function paintTopFirstRoomsInVisibleRooms(
+  ranked: readonly FirstRoomMapRank[] | undefined,
+  rooms?: { [roomName: string]: VisibleRoomLike }
+): number {
+  const visible = resolveVisibleRooms(rooms);
+  if (!visible || !ranked || !ranked.length) return 0;
+  const byName = new Map(ranked.map(entry => [entry.roomName, entry]));
+  const markers = firstRoomMapMarkers(ranked);
+  let painted = 0;
+  for (const marker of markers) {
+    const room = visible[marker.roomName];
+    if (!room) continue;
+    if (paintInRoomMarker(room, marker, byName.get(marker.roomName))) painted += 1;
   }
   return painted;
 }

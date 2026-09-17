@@ -4,6 +4,7 @@ import {
   FIRST_ROOM_FLAG,
   FIRST_ROOM_MAP_TOP_N,
   FirstRoomMemory,
+  bootstrapFirstRoomSelection,
   formatFirstRoomLog,
   paintFirstRoomRecommendation,
   toRankEntry,
@@ -88,6 +89,9 @@ describe("firstRoomSelection", () => {
     assert.include(message, "Memory.firstRoom");
     assert.include(message, "W1N1 score=");
     assert.include(message, "E=20 D=39");
+    assert.include(message, "Game.map.visual");
+    assert.include(message, "room picker");
+    assert.include(message, "stop once a spawn exists");
     assert.notInclude(message, "W2N1");
   });
 
@@ -156,6 +160,196 @@ describe("firstRoomSelection", () => {
     texts.length = 0;
     paintFirstRoomRecommendation({ ...memory, settled: true });
     assert.equal(texts.length, 0);
+
+    if (previousPos) {
+      (global as { RoomPosition: unknown }).RoomPosition = previousPos;
+    } else {
+      delete (global as { RoomPosition?: unknown }).RoomPosition;
+    }
+    if (previousGame) {
+      (global as { Game: unknown }).Game = previousGame;
+    } else {
+      delete (global as { Game?: unknown }).Game;
+    }
+  });
+
+  it("settles and does not paint overlays once an owned spawn exists", () => {
+    class FakePos {
+      public constructor(
+        public x: number,
+        public y: number,
+        public roomName: string
+      ) {}
+    }
+    const previousPos = (global as { RoomPosition?: unknown }).RoomPosition;
+    const previousGame = (global as { Game?: unknown }).Game;
+    const previousMemory = (global as { Memory?: unknown }).Memory;
+    (global as { RoomPosition: typeof FakePos }).RoomPosition = FakePos;
+
+    const mapTexts: string[] = [];
+    const roomTexts: string[] = [];
+    const firstRoom: FirstRoomMemory = {
+      bestRoom: "W1N1",
+      ranked: [1, 2, 3].map(n => ({
+        roomName: `W${n}N1`,
+        eligible: true,
+        score: 1 - n * 0.1,
+        energyPerTick: 20,
+        walkCost: 40,
+        sourceCount: 2,
+        usedChebyshev: false
+      })),
+      candidates: ["W1N1"],
+      pending: ["W2N1"],
+      intel: {},
+      region: { type: "allOpen" },
+      worldKey: "test",
+      computedAt: 1,
+      complete: true,
+      logged: true,
+      settled: false
+    };
+
+    (global as { Memory: unknown }).Memory = { firstRoom };
+    (global as { Game: unknown }).Game = {
+      time: 10,
+      spawns: { Spawn1: { id: "spawn" } },
+      rooms: {
+        W1N1: {
+          name: "W1N1",
+          controller: { pos: { x: 10, y: 10 } },
+          visual: {
+            rect() {
+              return undefined;
+            },
+            text(label: string) {
+              roomTexts.push(label);
+            }
+          },
+          createFlag() {
+            return 0;
+          }
+        }
+      },
+      flags: {},
+      map: {
+        visual: {
+          rect() {
+            return undefined;
+          },
+          text(label: string, pos: FakePos) {
+            mapTexts.push(`${pos.roomName}:${label}`);
+          }
+        }
+      }
+    };
+
+    const recommended = bootstrapFirstRoomSelection();
+    assert.isUndefined(recommended);
+    assert.isTrue(firstRoom.settled);
+    assert.deepEqual(firstRoom.pending, []);
+    assert.equal(mapTexts.length, 0);
+    assert.equal(roomTexts.length, 0);
+
+    if (previousPos) {
+      (global as { RoomPosition: unknown }).RoomPosition = previousPos;
+    } else {
+      delete (global as { RoomPosition?: unknown }).RoomPosition;
+    }
+    if (previousGame) {
+      (global as { Game: unknown }).Game = previousGame;
+    } else {
+      delete (global as { Game?: unknown }).Game;
+    }
+    if (previousMemory) {
+      (global as { Memory: unknown }).Memory = previousMemory;
+    } else {
+      delete (global as { Memory?: unknown }).Memory;
+    }
+  });
+
+  it("draws in-room rank labels on visible top rooms while bootstrap is active", () => {
+    class FakePos {
+      public constructor(
+        public x: number,
+        public y: number,
+        public roomName: string
+      ) {}
+    }
+    const previousPos = (global as { RoomPosition?: unknown }).RoomPosition;
+    const previousGame = (global as { Game?: unknown }).Game;
+    (global as { RoomPosition: typeof FakePos }).RoomPosition = FakePos;
+
+    const roomTexts: string[] = [];
+    (global as { Game: unknown }).Game = {
+      rooms: {
+        W2N1: {
+          name: "W2N1",
+          controller: { pos: { x: 8, y: 9 } },
+          visual: {
+            rect() {
+              return undefined;
+            },
+            text(label: string) {
+              roomTexts.push(`W2N1:${label}`);
+            }
+          },
+          createFlag() {
+            return 0;
+          }
+        }
+      },
+      flags: {},
+      map: {
+        visual: {
+          rect() {
+            return undefined;
+          },
+          text() {
+            return undefined;
+          }
+        }
+      }
+    };
+
+    const memory: FirstRoomMemory = {
+      bestRoom: "W1N1",
+      ranked: [
+        {
+          roomName: "W1N1",
+          eligible: true,
+          score: 1.82,
+          energyPerTick: 20,
+          walkCost: 10,
+          sourceCount: 2,
+          usedChebyshev: false
+        },
+        {
+          roomName: "W2N1",
+          eligible: true,
+          score: 0.9,
+          energyPerTick: 20,
+          walkCost: 21,
+          sourceCount: 2,
+          usedChebyshev: false
+        }
+      ],
+      candidates: [],
+      pending: [],
+      intel: {},
+      region: { type: "allOpen" },
+      worldKey: "test",
+      computedAt: 1,
+      complete: true,
+      logged: true
+    };
+
+    paintFirstRoomRecommendation(memory);
+    assert.deepEqual(roomTexts, ["W2N1:#2 0.90"]);
+
+    roomTexts.length = 0;
+    paintFirstRoomRecommendation({ ...memory, settled: true });
+    assert.equal(roomTexts.length, 0);
 
     if (previousPos) {
       (global as { RoomPosition: unknown }).RoomPosition = previousPos;
