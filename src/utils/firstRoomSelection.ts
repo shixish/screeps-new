@@ -16,9 +16,10 @@
   in (or can act on) that room.
 
   Pass-1 scores every open candidate: E / (D + 1) from the sources+controller
-  midpoint (swampCost=5). Pass-2 is expensive (placeable spawn + harvest seats
-  + swamp-as-plain paths) and runs only on the top N pass-1 rooms (default 10,
-  override Memory.firstRoomPass2TopN). Published top 5 / map labels use score2.
+  midpoint (swampCost=5). Pass-2 (spiral to a placeable spawn, then local
+  hill-climb with cached tile scores; harvest seats; swamp-as-plain) runs only
+  on the top N pass-1 rooms (default 10, override Memory.firstRoomPass2TopN).
+  Published top 5 / map labels use score2.
 */
 
 import { FIRST_ROOM_MAP_TOP_N, paintTopFirstRoomsInVisibleRooms, paintTopFirstRoomsOnMap } from "./firstRoomMapVisual";
@@ -582,7 +583,8 @@ export function pass2ShortlistRooms(memory: FirstRoomMemory): string[] {
 
 /**
  * After pass-1 finishes, re-score only the top N pass-1 rooms from a placeable
- * spawn with swamp=plain. Final published top 5 use score2 order.
+ * spawn (spiral + local hill-climb) with swamp=plain. Final published top 5 use
+ * score2 order.
  */
 export function refreshPass2Ranking(memory: FirstRoomMemory): void {
   if (!memory.complete) {
