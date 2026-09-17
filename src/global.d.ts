@@ -57,6 +57,8 @@ declare global {
     anchors: {[name: string]: CreepAnchorMemory};
     cohorts: {[name: string]: CohortMemory};
     initialized: boolean;
+    firstRoom?: import('utils/firstRoomSelection').FirstRoomMemory;
+    firstRoomRegion?: import('utils/roomNames').RoomRegion;
   }
 
   type SpawnerCounts = {

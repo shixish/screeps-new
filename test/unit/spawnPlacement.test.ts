@@ -10,7 +10,7 @@ import {
   spawnStructureName,
   tileIndex,
   UNREACHABLE_COST
-} from "../../src/utils/spawnPlacement.js";
+} from "../../src/utils/spawnPlacement";
 
 const PLAIN = 0;
 const WALL = 1;
