@@ -29,6 +29,7 @@ export interface FirstRoomMapRank {
   energyPerTick?: number;
   walkCost?: number;
   midpoint?: { x: number; y: number };
+  spawnPos?: { x: number; y: number };
 }
 
 export interface FirstRoomMapMarker {
@@ -161,8 +162,9 @@ export function mapMarkerRectStyle(marker: FirstRoomMapMarker): MapVisualStyle {
 
 export function inRoomOverlayAnchor(
   room: VisibleRoomLike,
-  entry?: Pick<FirstRoomMapRank, "midpoint">
+  entry?: Pick<FirstRoomMapRank, "midpoint" | "spawnPos">
 ): { x: number; y: number } {
+  if (entry?.spawnPos) return { x: entry.spawnPos.x, y: entry.spawnPos.y };
   if (room.controller?.pos) return { x: room.controller.pos.x, y: room.controller.pos.y };
   if (entry?.midpoint) return { x: entry.midpoint.x, y: entry.midpoint.y };
   return { x: 25, y: 25 };

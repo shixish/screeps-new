@@ -151,7 +151,14 @@ describe("firstRoomMapVisual", () => {
     }
   });
 
-  it("anchors in-room labels on the controller, then midpoint, then room center", () => {
+  it("anchors in-room labels on the spawn, then controller, then midpoint, then room center", () => {
+    assert.deepEqual(
+      inRoomOverlayAnchor(
+        { name: "W1N1", controller: { pos: { x: 12, y: 8 } } },
+        { midpoint: { x: 20, y: 20 }, spawnPos: { x: 18, y: 22 } }
+      ),
+      { x: 18, y: 22 }
+    );
     assert.deepEqual(
       inRoomOverlayAnchor({ name: "W1N1", controller: { pos: { x: 12, y: 8 } } }, { midpoint: { x: 20, y: 20 } }),
       { x: 12, y: 8 }
