@@ -1,30 +1,34 @@
 /*
-  First-room score (v1, energy only).
+  First-room score.
 
-  Skip rooms with no controller or with a controller owned by someone else
-  (including NPC bots). Require ≥2 energy sources.
+  Pass-1 (coarse CPU filter): midpoint of sources+controller, swampCost=5,
+  E = sources * 10, score = E / (D + 1). May use a geometric midpoint that is
+  not a valid STRUCTURE_SPAWN tile.
 
-  Points = every energy source plus the controller (minerals are not included).
-  midpoint = rounded average (x, y) of those points, snapped to a walkable tile.
-  D = sum of PathFinder-style walk costs from the midpoint to each point
-      (plain=1, swamp=5, 8-directional via computeWalkCostMap).
-  E = numSources * (SOURCE_ENERGY_CAPACITY / ENERGY_REGEN_TIME)  // typically 10 each
-  score = E / (D + SCORE_EPSILON)
+  Pass-2 (published ranking): a precise placeable spawn, swamp treated as plain
+  (roads make swamp negligible soon after start), E2 = 10 * H where H is the
+  sum of open harvest seats. D2 is walk cost from that spawn to each source's
+  adjacent harvest tile plus the controller. score2 = E2 / (D2 + 1).
 
-  Higher score is better. More sources raise E; sprawl or swamps raise D.
-  3-source rooms generally beat 2-source rooms unless the extra source is far.
-  Chebyshev is used only when a walk is unreachable, and is penalized.
+  E2 = 10*H is a first-spawn / early-game multi-miner proxy. Add-on spawns later
+  should use a different weighting (out of scope).
+
+  Skip rooms with no controller, owned/NPC controllers, or reservations.
+  Require ≥2 energy sources. Minerals are not in E/E2; they only block spawn.
 */
 
 import {
-  chebyshevDistance,
-  computeWalkCostMap,
   PLAIN_WALK_COST,
   ROOM_SIZE,
   SWAMP_WALK_COST,
-  tileIndex,
   TilePos,
-  UNREACHABLE_COST
+  UNREACHABLE_COST,
+  chebyshevDistance,
+  computeWalkCostMap,
+  countWalkableNeighbors,
+  findOptimalSpawnTile,
+  isValidSpawnTile,
+  tileIndex
 } from "./spawnPlacement";
 
 export const MIN_SOURCES = 2;
@@ -32,6 +36,16 @@ export const SCORE_EPSILON = 1;
 export const CHEBYSHEV_PENALTY = 1000;
 export const DEFAULT_SOURCE_ENERGY_CAPACITY = 3000;
 export const DEFAULT_ENERGY_REGEN_TIME = 300;
+
+/** Roads make swamp cheap later; pass-2 therefore treats swamp as plain. */
+export const PASS2_SWAMP_COST = PLAIN_WALK_COST;
+
+/**
+ * First-spawn energy proxy: 10 e/tick per open harvest seat
+ * (SOURCE_ENERGY_CAPACITY / ENERGY_REGEN_TIME). Later add-on spawns use a
+ * different weighting (out of scope).
+ */
+export const FIRST_SPAWN_ENERGY_PER_SEAT = DEFAULT_SOURCE_ENERGY_CAPACITY / DEFAULT_ENERGY_REGEN_TIME;
 
 const TERRAIN_WALL = 1;
 
@@ -43,6 +57,7 @@ export interface FirstRoomScoreInput {
   swampCost?: number;
   owner?: string | null;
   my?: boolean;
+  reserved?: boolean;
   sourceEnergyCapacity?: number;
   energyRegenTime?: number;
 }
@@ -102,7 +117,11 @@ export function snapToWalkable(pos: TilePos, getTerrain: (x: number, y: number) 
   return pos;
 }
 
-function walkCostFromMap(
+/**
+ * Walk cost from a flood-fill origin to dest. Unwalkable dest (source/controller)
+ * uses the cheapest adjacent tile; fully unreachable dests get penalized Chebyshev.
+ */
+export function walkCostToPoint(
   map: number[],
   origin: TilePos,
   dest: TilePos
@@ -147,6 +166,7 @@ export function scoreFirstRoom(input: FirstRoomScoreInput): FirstRoomScore {
   const plainCost = input.plainCost ?? PLAIN_WALK_COST;
   const swampCost = input.swampCost ?? SWAMP_WALK_COST;
 
+  if (input.reserved) return ineligible(sourceCount, "reserved");
   if (isOwnedByOther(input.owner, input.my)) return ineligible(sourceCount, "owned");
   if (!controller) return ineligible(sourceCount, "no controller");
   if (sourceCount < MIN_SOURCES) return ineligible(sourceCount, `fewer than ${MIN_SOURCES} sources`);
@@ -158,7 +178,7 @@ export function scoreFirstRoom(input: FirstRoomScoreInput): FirstRoomScore {
   let walkCost = 0;
   let usedChebyshev = false;
   for (const point of points) {
-    const walked = walkCostFromMap(map, midpoint, point);
+    const walked = walkCostToPoint(map, midpoint, point);
     walkCost += walked.cost;
     usedChebyshev = usedChebyshev || walked.usedChebyshev;
   }
@@ -197,6 +217,219 @@ export function rankFirstRooms(rooms: NamedRoomScoreInput[]): RankedFirstRoom[] 
     .map(room => ({ roomName: room.roomName, ...scoreFirstRoom(room) }))
     .sort((a, b) => {
       const byScore = compareFirstRoomScores(a, b);
+      if (byScore !== 0) return byScore;
+      return a.roomName.localeCompare(b.roomName);
+    });
+}
+
+/*
+  Pass-2 (spawn-precise, published ranking).
+
+  Spawn = walk-cost optimum among valid STRUCTURE_SPAWN tiles (not walls,
+  sources, minerals, controller, or room edges). Geometric midpoint is used
+  only if that tile itself is a valid spawn; otherwise it is rejected.
+
+  Swamp cost = plain cost (roads cancel swamp shortly after start).
+  H = sum of open harvest seats (walkable 8-adjacent tiles per energy source).
+  E2 = H * (SOURCE_ENERGY_CAPACITY / ENERGY_REGEN_TIME)  // typically 10; first spawn only
+  D2 = sum of walk costs from that spawn to each source (adjacent tile) + controller
+  score2 = E2 / (D2 + SCORE_EPSILON)
+*/
+
+export interface HarvestSeatCount {
+  x: number;
+  y: number;
+  seats: number;
+}
+
+export interface FirstRoomPathLeg {
+  to: "source" | "controller";
+  x: number;
+  y: number;
+  cost: number;
+  seat?: TilePos;
+}
+
+export interface FirstRoomPass2Input {
+  sources: TilePos[];
+  controller?: TilePos | null;
+  getTerrain: (x: number, y: number) => number;
+  owner?: string | null;
+  my?: boolean;
+  reserved?: boolean;
+  /** Extra tiles that cannot hold a spawn / be walked (e.g. minerals). Not scored. */
+  blockedTiles?: TilePos[];
+  plainCost?: number;
+  swampCost?: number;
+  sourceEnergyCapacity?: number;
+  energyRegenTime?: number;
+}
+
+export interface FirstRoomPass2Score {
+  eligible: boolean;
+  spawnPos?: TilePos;
+  H: number;
+  E2: number;
+  D2: number;
+  score2: number;
+  harvestSeats: HarvestSeatCount[];
+  legs?: FirstRoomPathLeg[];
+  usedChebyshev: boolean;
+  reason?: string;
+}
+
+function blockedSet(tiles: TilePos[]): Set<number> {
+  const blocked = new Set<number>();
+  for (const tile of tiles) blocked.add(tileIndex(tile.x, tile.y));
+  return blocked;
+}
+
+export function countHarvestSeats(
+  source: TilePos,
+  getTerrain: (x: number, y: number) => number,
+  isWalkBlocked?: (x: number, y: number) => boolean
+): number {
+  return countWalkableNeighbors(source.x, source.y, getTerrain, isWalkBlocked);
+}
+
+function cheapestAdjacentSeat(
+  map: number[],
+  dest: TilePos,
+  getTerrain: (x: number, y: number) => number,
+  isWalkBlocked?: (x: number, y: number) => boolean
+): { cost: number; seat: TilePos } | null {
+  let bestCost = UNREACHABLE_COST;
+  let seat: TilePos | undefined;
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      const nx = dest.x + dx;
+      const ny = dest.y + dy;
+      if (nx < 0 || ny < 0 || nx >= ROOM_SIZE || ny >= ROOM_SIZE) continue;
+      if (getTerrain(nx, ny) === TERRAIN_WALL) continue;
+      if (isWalkBlocked?.(nx, ny)) continue;
+      const cost = map[tileIndex(nx, ny)];
+      if (cost < bestCost) {
+        bestCost = cost;
+        seat = { x: nx, y: ny };
+      }
+    }
+  }
+  if (bestCost === UNREACHABLE_COST || !seat) return null;
+  return { cost: bestCost, seat };
+}
+
+function ineligiblePass2(harvestSeats: HarvestSeatCount[], reason: string): FirstRoomPass2Score {
+  const H = harvestSeats.reduce((sum, entry) => sum + entry.seats, 0);
+  return {
+    eligible: false,
+    H,
+    E2: energyPerTick(H),
+    D2: Number.POSITIVE_INFINITY,
+    score2: 0,
+    harvestSeats,
+    usedChebyshev: false,
+    reason
+  };
+}
+
+export function scoreFirstRoomPass2(input: FirstRoomPass2Input): FirstRoomPass2Score {
+  const { sources, getTerrain } = input;
+  const controller = input.controller ?? null;
+  const plainCost = input.plainCost ?? PLAIN_WALK_COST;
+  const swampCost = input.swampCost ?? PASS2_SWAMP_COST;
+  const occupancy = blockedSet((input.blockedTiles ?? []).concat(sources, controller ? [controller] : []));
+  const isBlocked = (x: number, y: number) => occupancy.has(tileIndex(x, y));
+
+  const harvestSeats = sources.map(source => ({
+    x: source.x,
+    y: source.y,
+    seats: countHarvestSeats(source, getTerrain, isBlocked)
+  }));
+  const H = harvestSeats.reduce((sum, entry) => sum + entry.seats, 0);
+  const sourceCount = sources.length;
+
+  if (input.reserved) return ineligiblePass2(harvestSeats, "reserved");
+  if (isOwnedByOther(input.owner, input.my)) return ineligiblePass2(harvestSeats, "owned");
+  if (!controller) return ineligiblePass2(harvestSeats, "no controller");
+  if (sourceCount < MIN_SOURCES) {
+    return ineligiblePass2(harvestSeats, `fewer than ${MIN_SOURCES} sources`);
+  }
+
+  const goals: TilePos[] = sources.concat([controller]);
+  const spawn = findOptimalSpawnTile({
+    getTerrain,
+    goals,
+    isSpawnBlocked: isBlocked,
+    isWalkBlocked: isBlocked,
+    plainCost,
+    swampCost,
+    allowChebyshevFallback: false
+  });
+  if (!spawn) return ineligiblePass2(harvestSeats, "no placeable spawn");
+  if (!isValidSpawnTile(spawn.x, spawn.y, getTerrain, isBlocked, isBlocked)) {
+    return ineligiblePass2(harvestSeats, "no placeable spawn");
+  }
+
+  const spawnPos: TilePos = { x: spawn.x, y: spawn.y };
+  const map = computeWalkCostMap(spawnPos, getTerrain, isBlocked, plainCost, swampCost);
+  const legs: FirstRoomPathLeg[] = [];
+  let D2 = 0;
+
+  for (const source of sources) {
+    const walked = cheapestAdjacentSeat(map, source, getTerrain, isBlocked);
+    if (!walked) return ineligiblePass2(harvestSeats, "unreachable source");
+    D2 += walked.cost;
+    legs.push({ to: "source", x: source.x, y: source.y, cost: walked.cost, seat: walked.seat });
+  }
+
+  const toController = cheapestAdjacentSeat(map, controller, getTerrain, isBlocked);
+  if (!toController) return ineligiblePass2(harvestSeats, "unreachable controller");
+  D2 += toController.cost;
+  legs.push({
+    to: "controller",
+    x: controller.x,
+    y: controller.y,
+    cost: toController.cost,
+    seat: toController.seat
+  });
+
+  const E2 = energyPerTick(H, input.sourceEnergyCapacity, input.energyRegenTime);
+  const score2 = E2 / (D2 + SCORE_EPSILON);
+  return {
+    eligible: true,
+    spawnPos,
+    H,
+    E2,
+    D2,
+    score2,
+    harvestSeats,
+    legs,
+    usedChebyshev: false
+  };
+}
+
+export function compareFirstRoomPass2Scores(a: FirstRoomPass2Score, b: FirstRoomPass2Score): number {
+  if (a.eligible !== b.eligible) return a.eligible ? -1 : 1;
+  if (a.score2 !== b.score2) return b.score2 - a.score2;
+  if (a.H !== b.H) return b.H - a.H;
+  if (a.D2 !== b.D2) return a.D2 - b.D2;
+  return 0;
+}
+
+export interface NamedRoomPass2Input extends FirstRoomPass2Input {
+  roomName: string;
+}
+
+export interface RankedFirstRoomPass2 extends FirstRoomPass2Score {
+  roomName: string;
+}
+
+export function rankFirstRoomsPass2(rooms: NamedRoomPass2Input[]): RankedFirstRoomPass2[] {
+  return rooms
+    .map(room => ({ roomName: room.roomName, ...scoreFirstRoomPass2(room) }))
+    .sort((a, b) => {
+      const byScore = compareFirstRoomPass2Scores(a, b);
       if (byScore !== 0) return byScore;
       return a.roomName.localeCompare(b.roomName);
     });

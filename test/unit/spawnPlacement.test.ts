@@ -1,15 +1,16 @@
 import { assert } from "chai";
 import {
+  ROOM_SIZE,
+  UNREACHABLE_COST,
   chebyshevDistance,
   computeWalkCostMap,
+  countWalkableNeighbors,
   findOptimalSpawnTile,
   isEdgeTile,
   isValidSpawnTile,
-  ROOM_SIZE,
   spawnMarkerName,
   spawnStructureName,
-  tileIndex,
-  UNREACHABLE_COST
+  tileIndex
 } from "../../src/utils/spawnPlacement";
 
 const PLAIN = 0;
@@ -175,5 +176,55 @@ describe("spawnPlacement", () => {
     assert.notEqual(acrossSwamp, UNREACHABLE_COST);
     assert.notEqual(aroundNorth, UNREACHABLE_COST);
     assert.isAbove(acrossSwamp, aroundNorth);
+  });
+
+  it("treats swamp as plain when swampCost equals plainCost", () => {
+    const plains = makeTerrain(PLAIN);
+    const swampy = makeTerrain(PLAIN);
+    for (let x = 15; x <= 40; x++) {
+      for (let y = 8; y <= 42; y++) {
+        setTile(swampy, x, y, SWAMP);
+      }
+    }
+    const origin = { x: 10, y: 25 };
+    const dest = tileIndex(45, 25);
+    const plainMap = computeWalkCostMap(origin, getter(plains), undefined, 1, 1);
+    const swampMap = computeWalkCostMap(origin, getter(swampy), undefined, 1, 1);
+    assert.equal(swampMap[dest], plainMap[dest]);
+
+    const defaultSwamp = computeWalkCostMap(origin, getter(swampy));
+    assert.isAbove(defaultSwamp[dest], swampMap[dest]);
+  });
+
+  it("counts walkable adjacent tiles as harvest seats (swamp yes, wall/out-of-bounds no)", () => {
+    const terrain = makeTerrain(PLAIN);
+    assert.equal(countWalkableNeighbors(25, 25, getter(terrain)), 8);
+
+    setTile(terrain, 24, 25, WALL);
+    setTile(terrain, 26, 25, WALL);
+    setTile(terrain, 25, 24, SWAMP);
+    assert.equal(countWalkableNeighbors(25, 25, getter(terrain)), 6);
+
+    const corner = makeTerrain(PLAIN);
+    assert.equal(countWalkableNeighbors(0, 0, getter(corner)), 3);
+    setTile(corner, 1, 0, WALL);
+    assert.equal(countWalkableNeighbors(0, 0, getter(corner)), 2);
+  });
+
+  it("does not Chebyshev-fallback when allowChebyshevFallback is false", () => {
+    const isolated = makeTerrain(WALL);
+    setTile(isolated, 20, 20, PLAIN);
+    setTile(isolated, 21, 20, PLAIN);
+    setTile(isolated, 20, 21, PLAIN);
+    setTile(isolated, 21, 21, PLAIN);
+    const boxed = findOptimalSpawnTile({
+      getTerrain: getter(isolated),
+      goals: [
+        { x: 2, y: 2 },
+        { x: 47, y: 47 }
+      ],
+      allowChebyshevFallback: false
+    });
+    assert.isNull(boxed);
   });
 });

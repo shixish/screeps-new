@@ -59,6 +59,7 @@ declare global {
     initialized: boolean;
     firstRoom?: import('utils/firstRoomSelection').FirstRoomMemory;
     firstRoomRegion?: import('utils/roomNames').RoomRegion;
+    firstRoomPass2TopN?: number;
   }
 
   type SpawnerCounts = {
