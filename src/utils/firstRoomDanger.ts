@@ -22,7 +22,6 @@
     score2 = E2 / (D2 + 1 + DANGER_WEIGHT * sum(penalty_i))
 */
 
-import { adjacentRoomNames, isSourceKeeperRoom, parseRoomName, RoomXY } from "./roomNames";
 import {
   PLAIN_WALK_COST,
   ROOM_SIZE,
@@ -32,6 +31,7 @@ import {
   computeWalkCostMap,
   tileIndex
 } from "./spawnPlacement";
+import { RoomXY, adjacentRoomNames, isSourceKeeperRoom, parseRoomName } from "./roomNames";
 
 /** So RCL 1 is still a real long-term threat, not ~0. */
 export const DANGER_LEVEL_BIAS = 2;

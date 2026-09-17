@@ -468,14 +468,14 @@ export function formatFirstRoomLog(memory: FirstRoomMemory): string {
     `they cannot show on the official/sim room picker, and they stop once a spawn exists.`;
 
   if (pass2IsPublished(memory)) {
-    const top = publishedFirstRoomRanks(memory, FIRST_ROOM_MAP_TOP_N);
-    if (!top.length) {
+    const pass2Top = publishedFirstRoomRanks(memory, FIRST_ROOM_MAP_TOP_N);
+    if (!pass2Top.length) {
       return (
         `[first-room] No eligible rooms after pass-2 (need a placeable spawn, ≥2 sources, uncontrolled). ` +
         `score2 = E2 / (D2 + 1 + ${DANGER_WEIGHT} * danger); E2 = 10 * H for the first spawn only (add-on spawns later use a different weighting).`
       );
     }
-    const lines = top.map((entry, index) => {
+    const pass2Lines = pass2Top.map((entry, index) => {
       const spawn = entry.spawnPos ? ` spawn=(${entry.spawnPos.x},${entry.spawnPos.y})` : "";
       const seats = (entry.harvestSeats ?? []).map(seat => seat.seats).join("+");
       const seatLabel = seats ? ` seats=${seats}` : "";
@@ -496,7 +496,7 @@ export function formatFirstRoomLog(memory: FirstRoomMemory): string {
       `danger is the sum of occupied-neighbor penalties (player: (RCL + 2) / (dist + 10); ` +
       `Invader/SK/NPC: constant; empty: 0); breakdown in Memory.firstRoom.pass2. ` +
       `Map labels stay room + score only. See Memory.firstRoom. ${overlayNote}\n` +
-      lines.join("\n")
+      pass2Lines.join("\n")
     );
   }
 
