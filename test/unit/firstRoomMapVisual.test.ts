@@ -7,6 +7,9 @@ import {
   firstRoomMapMarkers,
   formatRankLabel,
   formatShortScore,
+  inRoomOverlayAnchor,
+  mapMarkerRectStyle,
+  paintTopFirstRoomsInVisibleRooms,
   paintTopFirstRoomsOnMap,
   rankColor,
   topFirstRoomRanks
@@ -87,6 +90,20 @@ describe("firstRoomMapVisual", () => {
     assert.isAbove(markers[0].strokeWidth, markers[1].strokeWidth);
   });
 
+  it("maps marker.fillOpacity onto MapVisual rect opacity (not fillsOpacity)", () => {
+    const markers = firstRoomMapMarkers([
+      entry({ roomName: "W1N1" }),
+      entry({ roomName: "W2N1" })
+    ]);
+    assert.property(markers[0], "fillOpacity");
+    assert.notProperty(markers[0], "fillsOpacity");
+    const style = mapMarkerRectStyle(markers[0]);
+    assert.equal(style.opacity, markers[0].fillOpacity);
+    assert.equal(style.opacity, 0.16);
+    assert.equal(mapMarkerRectStyle(markers[1]).opacity, markers[1].fillOpacity);
+    assert.equal(mapMarkerRectStyle(markers[1]).opacity, 0.08);
+  });
+
   it("paints only those top rooms through Game.map.visual and no-ops without it", () => {
     class FakePos {
       public x: number;
@@ -103,9 +120,11 @@ describe("firstRoomMapVisual", () => {
 
     const texts: string[] = [];
     const rects: string[] = [];
+    const opacities: number[] = [];
     const visual = {
-      rect: (pos: FakePos) => {
+      rect: (pos: FakePos, _w: number, _h: number, style?: { opacity?: number }) => {
         rects.push(pos.roomName);
+        if (typeof style?.opacity === "number") opacities.push(style.opacity);
       },
       text: (label: string, pos: FakePos) => {
         texts.push(`${pos.roomName}:${label}`);
@@ -120,6 +139,7 @@ describe("firstRoomMapVisual", () => {
     assert.equal(texts[0], "W1N1:#1 0.90");
     assert.equal(texts[4], "W5N1:#5 0.50");
     assert.isUndefined(texts.find(line => line.startsWith("W6N1")));
+    assert.deepEqual(opacities, firstRoomMapMarkers(ranked).map(marker => marker.fillOpacity));
 
     assert.equal(paintTopFirstRoomsOnMap(ranked, undefined), 0);
     assert.equal(paintTopFirstRoomsOnMap([], visual), 0);
@@ -129,5 +149,52 @@ describe("firstRoomMapVisual", () => {
     } else {
       delete (global as { RoomPosition?: unknown }).RoomPosition;
     }
+  });
+
+  it("anchors in-room labels on the controller, then midpoint, then room center", () => {
+    assert.deepEqual(
+      inRoomOverlayAnchor({ name: "W1N1", controller: { pos: { x: 12, y: 8 } } }, { midpoint: { x: 20, y: 20 } }),
+      { x: 12, y: 8 }
+    );
+    assert.deepEqual(inRoomOverlayAnchor({ name: "W1N1" }, { midpoint: { x: 20, y: 21 } }), { x: 20, y: 21 });
+    assert.deepEqual(inRoomOverlayAnchor({ name: "W1N1" }), { x: 25, y: 25 });
+  });
+
+  it("paints rank labels only in currently visible top rooms", () => {
+    const ranked = [
+      entry({ roomName: "W1N1", score: 1.82 }),
+      entry({ roomName: "W2N1", score: 0.9 }),
+      entry({ roomName: "W3N1", score: 0.4 })
+    ];
+    const texts: string[] = [];
+    const rooms = {
+      W1N1: {
+        name: "W1N1",
+        controller: { pos: { x: 10, y: 11 } },
+        visual: {
+          rect() {
+            return undefined;
+          },
+          text(label: string, x: number, y: number) {
+            texts.push(`W1N1:${label}@${x},${y}`);
+          }
+        }
+      },
+      W9N9: {
+        name: "W9N9",
+        visual: {
+          text(label: string) {
+            texts.push(`W9N9:${label}`);
+          }
+        }
+      }
+    };
+
+    const painted = paintTopFirstRoomsInVisibleRooms(ranked, rooms);
+    assert.equal(painted, 1);
+    assert.equal(texts.length, 1);
+    assert.equal(texts[0], "W1N1:#1 1.82@10,10.3");
+    assert.equal(paintTopFirstRoomsInVisibleRooms(ranked, {}), 0);
+    assert.equal(paintTopFirstRoomsInVisibleRooms([], rooms), 0);
   });
 });

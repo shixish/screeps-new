@@ -3,16 +3,23 @@
 
   Runs from initialize() when Game.spawns is empty. Results are cached in
   Memory.firstRoom until the visible/known world changes or the TTL expires.
-  Logs the recommendation once (no spam). While bootstrap is active, the world
-  map shows the top 5 ranks via Game.map.visual; the best visible room also
-  gets a flag + RoomVisual. Spawn placement still uses the existing in-room
-  bootstrap once the player is in (or can act on) that room.
+  Logs the recommendation once (no spam). While bootstrap is active (no owned
+  spawn) and the player script is actually running, the world map shows the
+  top 5 ranks via Game.map.visual; any of those rooms that are already visible
+  also get an in-room rank label. The best visible room still gets a cyan flag.
+
+  Official / sim empty worlds do not run player scripts before the first spawn,
+  so Game.map.visual cannot appear on the room-picker UI. After any owned spawn
+  exists, ranking settles and overlays stop (later ranking will change).
+
+  Spawn placement still uses the existing in-room bootstrap once the player is
+  in (or can act on) that room.
 
   Score (higher is better): E / (D + 1) where E is regen energy/tick and D is
   walk cost from the sources+controller midpoint. Owned/NPC rooms are skipped.
 */
 
-import { FIRST_ROOM_MAP_TOP_N, paintTopFirstRoomsOnMap } from "./firstRoomMapVisual";
+import { FIRST_ROOM_MAP_TOP_N, paintTopFirstRoomsInVisibleRooms, paintTopFirstRoomsOnMap } from "./firstRoomMapVisual";
 import { RankedFirstRoom, rankFirstRooms } from "./firstRoomScore";
 import { RoomIndex, RoomRegion, defaultFirstRoomRegion, listRoomsInRegion } from "./roomNames";
 import { TilePos } from "./spawnPlacement";
@@ -251,7 +258,9 @@ export function formatFirstRoomLog(memory: FirstRoomMemory): string {
   return (
     `[first-room] Best room ${memory.bestRoom} (higher score is better). ` +
     `Formula: score = E / (D + 1) with E = numSources * (SOURCE_ENERGY_CAPACITY / ENERGY_REGEN_TIME), ` +
-    `D = walk cost from midpoint(sources+controller). Minerals are not in D. See Memory.firstRoom.\n` +
+    `D = walk cost from midpoint(sources+controller). Minerals are not in D. See Memory.firstRoom. ` +
+    `Map overlays (Game.map.visual) only appear while this script is already running with no spawn; ` +
+    `they cannot show on the official/sim room picker, and they stop once a spawn exists.\n` +
     lines.join("\n")
   );
 }
@@ -278,21 +287,8 @@ function removeRecommendationFlag(): void {
   if (flag) flag.remove();
 }
 
-function paintRecommendation(room: Room, entry: FirstRoomRankEntry): void {
-  const pos = entry.midpoint ?? room.controller?.pos ?? { x: 25, y: 3 };
-  room.visual.rect(pos.x - 0.5, pos.y - 0.5, 1, 1, {
-    fill: "transparent",
-    stroke: "#33ffff",
-    strokeWidth: 0.12,
-    opacity: 0.9
-  });
-  room.visual.text(`BEST ${entry.score.toFixed(3)}`, pos.x, pos.y - 0.7, {
-    font: 0.45,
-    color: "#33ffff",
-    stroke: "#000000",
-    strokeWidth: 0.12
-  });
-  ensureRecommendationFlag(room, { x: pos.x, y: pos.y });
+function recommendationFlagPos(room: Room, entry: FirstRoomRankEntry): TilePos {
+  return entry.midpoint ?? { x: room.controller?.pos.x ?? 25, y: room.controller?.pos.y ?? 3 };
 }
 
 function logOnce(memory: FirstRoomMemory): void {
@@ -395,7 +391,10 @@ export function refreshFirstRoomRanking(time = Game.time): FirstRoomMemory {
 export function paintFirstRoomRecommendation(memory: FirstRoomMemory = firstRoomMemory()!): void {
   if (!memory || memory.settled) return;
   logOnce(memory);
-  if (memory.ranked.length) paintTopFirstRoomsOnMap(memory.ranked);
+  if (memory.ranked.length) {
+    paintTopFirstRoomsOnMap(memory.ranked);
+    paintTopFirstRoomsInVisibleRooms(memory.ranked);
+  }
   const best = memory.bestRoom;
   if (!best) {
     removeRecommendationFlag();
@@ -403,12 +402,15 @@ export function paintFirstRoomRecommendation(memory: FirstRoomMemory = firstRoom
   }
   const room = Game.rooms?.[best];
   const entry = memory.ranked.find(item => item.roomName === best);
-  if (room && entry) paintRecommendation(room, entry);
+  if (room && entry) ensureRecommendationFlag(room, recommendationFlagPos(room, entry));
 }
 
 /**
  * Rank rooms and surface the pick when the player has no spawn yet.
  * Returns the recommended room name (if any) so spawn bootstrap can prefer it.
+ *
+ * If any owned spawn exists, ranking is settled and overlays are not painted.
+ * Empty official/sim worlds never reach this loop before the first spawn.
  */
 export function bootstrapFirstRoomSelection(): string | undefined {
   if (Object.keys(Game.spawns || {}).length > 0) {
