@@ -101,14 +101,20 @@ export class UpgraderCreep extends BasicCreep {
     if (containers.length){
       const seatContainer = containers.find(container=>{
         return this.pos.isEqualTo(container.pos) || !container.pos.lookFor(LOOK_CREEPS).length;
-      }) || containers[0];
-      if (!this.pos.isEqualTo(seatContainer.pos)){
-        this.memory.seated = false; //Disable resource spreading while we shuffle onto the box
-        this.moveTo(seatContainer);
-        return true;
+      });
+      if (seatContainer){
+        if (!this.pos.isEqualTo(seatContainer.pos)){
+          this.memory.seated = false; //Disable resource spreading while we shuffle onto the box
+          this.moveTo(seatContainer);
+          return true;
+        }
+        this.memory.seated = true;
+        return false;
       }
-      this.memory.seated = true;
-      return false;
+      //Seat is occupied this tick (a courier passing through): keep upgrading from range instead of
+      //stalling, and take the seat as soon as it clears.
+      this.memory.seated = false;
+      return this.moveWithinRange(controller.pos, 3);
     }
 
     //No container yet: get within upgrade range and wait.

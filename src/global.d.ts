@@ -124,6 +124,7 @@ declare global {
     office?: Room['name'];
 
     counts: CreepPartsCounts
+    _move?: unknown; //Screeps' own moveTo path cache - cleared when a creep must repath from scratch
   }
 
   interface SpawnMemory {

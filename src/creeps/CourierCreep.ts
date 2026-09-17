@@ -1,5 +1,5 @@
 import { claimAmount, getResourceSpace } from "utils/tickCache";
-import { tugStaticCreepToSeat } from "utils/seatTug";
+import { blockSeatsInCostMatrix, stepOffSeat, tugStaticCreepToSeat } from "utils/seatTug";
 import { BasicCreep, CreepBody, CreepTiers } from "./BasicCreep";
 
 export class CourierCreep extends BasicCreep {
@@ -89,6 +89,41 @@ export class CourierCreep extends BasicCreep {
     ]
   }
 
+  //Standing on a source/controller container starves the static that owns it. Seats are only walkable
+  //while we're actively tugging a static onto one.
+  protected allowSeatTiles = false;
+
+  protected relaxMovementRestrictions(){
+    this.allowSeatTiles = true;
+  }
+
+  private avoidSeats(opts?:MoveToOpts):MoveToOpts{
+    if (this.allowSeatTiles || this.memory.tugTarget) return opts ?? {};
+    const callback = opts?.costCallback;
+    return {
+      ...opts,
+      costCallback: (roomName, costMatrix)=>blockSeatsInCostMatrix(roomName, callback?.(roomName, costMatrix) || costMatrix),
+    };
+  }
+
+  moveTo(x:number, y:number, opts?:MoveToOpts):CreepMoveReturnCode|ERR_NO_PATH|ERR_INVALID_TARGET;
+  moveTo(target:RoomPosition|{pos:RoomPosition}, opts?:MoveToOpts):CreepMoveReturnCode|ERR_NO_PATH|ERR_INVALID_TARGET|ERR_NOT_FOUND;
+  moveTo(first:number|RoomPosition|{pos:RoomPosition}, second?:number|MoveToOpts, third?:MoveToOpts){
+    if (typeof first === 'number') return super.moveTo(first, second as number, this.avoidSeats(third));
+    return super.moveTo(first, this.avoidSeats(second as MoveToOpts|undefined));
+  }
+
+  /* Nothing to haul: park near the base rather than loitering by the sources and their seats. */
+  idle(){
+    if (stepOffSeat(this)) return;
+    const base = this.getBaseAnchor();
+    if (base && this.pos.getRangeTo(base) > 3){
+      this.moveTo(base, { range: 3 });
+      return;
+    }
+    this.shuffleOffBadIdleTile();
+  }
+
   spreadEnergyNearby(){
     // const maxFillPercentage = 0.75; //75%;
     const resourceType = RESOURCE_ENERGY;
@@ -119,6 +154,12 @@ export class CourierCreep extends BasicCreep {
     //Couriers are the intended tug (Basics never pull). 1-MOVE statics can also self-walk.
     if (tugStaticCreepToSeat(this)){
       this.say('tug');
+      return;
+    }
+
+    //Never hold a miner/upgrader seat: hop off before doing anything else this tick.
+    if (stepOffSeat(this)){
+      this.say('seat');
       return;
     }
 
@@ -160,5 +201,6 @@ export class CourierCreep extends BasicCreep {
 
     // If nothing was successful reset action state. Necessary since rememberAction isn't always going to do the cleanup.
     this.currentAction = undefined;
+    this.idle();
   }
 }

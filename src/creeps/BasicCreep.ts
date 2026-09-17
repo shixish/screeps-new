@@ -1,6 +1,7 @@
 import { RemoteFlag } from "flags/_RemoteFlag";
 import { CreepRoleName, CreepRoleNames, DEBUG, FlagType, maxStorageFill, PARTS, PART_COST } from "utils/constants";
 import { areSourcesStaticallyMined, canFeedController } from "utils/earlyEconomy";
+import { isSeatPosition } from "utils/seatTug";
 import { claimAmount, getClaimedAmount, getFlagManager, getResourceAvailable, getResourceSpace, getRoomAudit } from "utils/tickCache";
 
 export function calculateBiteSize (creep:Creep){
@@ -750,6 +751,8 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
   }
 
   checkIfBadIdleLocation(x:number = this.pos.x, y:number = this.pos.y){
+    //Never idle on a miner/upgrader seat - that blocks the static that owns it.
+    if (isSeatPosition(new RoomPosition(x, y, this.room.name))) return true;
     const objects = this.room.lookAt(x, y);
     // console.log(`objects`, JSON.stringify(objects));
     for (let object of objects){
@@ -769,33 +772,68 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
   moveWithinRange(pos:RoomPosition, preferredRange:number=1, acceptableRange?:number){
     const range = this.pos.getRangeTo(pos);
     if (range <= preferredRange) return false;
-    const moving = this.moveTo(pos);
+    //Path to the requested range, not onto the target tile: interacting happens from an adjacent tile,
+    //and stepping onto a container evicts whoever is supposed to be sitting there.
+    const moving = this.moveTo(pos, { range: preferredRange });
     if (moving === OK || moving === ERR_TIRED){
       return true;
     }else if (moving === ERR_NO_PATH){
       if (acceptableRange && range <= acceptableRange) return false;
+      //Drop the cached path and retry ignoring creeps (traffic jams are the usual cause), then fall
+      //back to heading home so we don't strand in a corner replaying a dead path every tick.
+      delete this.memory._move;
+      this.relaxMovementRestrictions();
+      const retry = this.moveTo(pos, { range: preferredRange, ignoreCreeps: true, reusePath: 0 });
+      if (retry === OK || retry === ERR_TIRED) return true;
       this.say('stuck');
-      // console.log(`[${this.room.name}] Creep ${this.name} cannot find a path while doing ${this.currentAction}...`);
+      this.retreatToBase();
     }else{
       console.log(`[${this.room.name}] Creep moving error`, this.currentAction, moving, this.name);
     }
     return true;
   }
 
+  /* Hook for roles that restrict their own pathing (couriers block seat tiles) and need to relax it. */
+  protected relaxMovementRestrictions(){}
+
+  /* The spawn/storage area we fall back to when there's nothing to do or nowhere to path. */
+  getBaseAnchor():RoomObject|null{
+    return this.room.storage || this.pos.findClosestByRange(FIND_MY_SPAWNS);
+  }
+
+  /* Walk back toward the base. Returns true when a move was issued. */
+  retreatToBase(preferredRange = 3){
+    const base = this.getBaseAnchor();
+    if (!base || this.pos.getRangeTo(base) <= preferredRange) return false;
+    const moving = this.moveTo(base, { range: preferredRange, ignoreCreeps: true });
+    return moving === OK || moving === ERR_TIRED;
+  }
+
+  /* Nudge off a road/rough/seat tile so we're not blocking anyone while idle. */
+  shuffleOffBadIdleTile(){
+    if (!this.checkIfBadIdleLocation()) return false;
+    for (let coord of [[-1,-1], [0,-1], [1,-1], [-1,0], [1,0], [-1,1], [0,1], [1,1]]){
+      const newX = this.pos.x + coord[0], newY = this.pos.y + coord[1];
+      if (newX < 1 || newX > 48 || newY < 1 || newY > 48) continue;
+      if (this.room.lookForAt(LOOK_CREEPS, newX, newY).length) continue;
+      if (!this.checkIfBadIdleLocation(newX, newY)){
+        this.moveTo(newX, newY);
+        return true;
+      }
+    }
+    this.move(Math.floor(1+Math.random()*8) as DirectionConstant);
+    return true;
+  }
+
   idle(){
     const anchor = this.getAnchorObject();
     if (anchor){
-      this.moveTo(anchor);
-    } else if (this.checkIfBadIdleLocation()){
-      for (let coord of [[-1,-1], [0,-1], [1,-1], [-1,0], [1,0], [-1,1], [0,1], [1,1]]){
-        const newX = this.pos.x + coord[0], newY = this.pos.y + coord[1];
-        if (!this.checkIfBadIdleLocation(newX, newY)){
-          this.moveTo(newX, newY);
-          return;
-        };
-      }
-      this.move(Math.floor(1+Math.random()*8) as DirectionConstant);
+      this.moveTo(anchor, { range: 1 });
+      return;
     }
+    //Nothing to do: drift back toward the base instead of stranding in a far corner of the room.
+    if (this.retreatToBase()) return;
+    this.shuffleOffBadIdleTile();
     // const objects = this.room.lookAt(this.pos);
     // for (let object of objects){
     //   if (object.type === LOOK_STRUCTURES && object.structure!.structureType === 'road'){
