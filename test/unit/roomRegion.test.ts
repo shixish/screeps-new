@@ -1,5 +1,6 @@
 import { assert } from "chai";
 import {
+  adjacentRoomNames,
   defaultFirstRoomRegion,
   formatRoomName,
   isClaimableSectorRoom,
@@ -59,6 +60,15 @@ describe("roomNames / region filter", () => {
     assert.includeMembers(rooms, ["W1N1", "W2N1", "W0N1", "W1N2", "W1N0", "W2N2"]);
     assert.notInclude(rooms, "E1N1");
     assert.equal(Math.max(...rooms.map(name => roomLinearDistance("W1N1", name))), 1);
+  });
+
+  it("lists the 8 surrounding room names, falling back to cardinal exits", () => {
+    const ring = adjacentRoomNames("W1N1");
+    assert.equal(ring.length, 8);
+    assert.sameMembers(ring, ["W2N2", "W1N2", "W0N2", "W2N1", "W0N1", "W2N0", "W1N0", "W0N0"]);
+    assert.notInclude(ring, "W1N1");
+    assert.deepEqual(adjacentRoomNames("sim"), []);
+    assert.deepEqual(adjacentRoomNames("sim", ["W1N1", "E1N1"]), ["W1N1", "E1N1"]);
   });
 
   it("enumerates every open room on a small private-server world", () => {

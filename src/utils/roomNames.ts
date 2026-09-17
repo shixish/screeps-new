@@ -69,6 +69,26 @@ export function roomLinearDistance(a: string, b: string): number {
   return Math.max(Math.abs(pa.x - pb.x), Math.abs(pa.y - pb.y));
 }
 
+/**
+ * The 8 surrounding room names (Chebyshev ring of radius 1).
+ * Returns [] when `roomName` is not a standard WxNy/ExSy name (e.g. "sim");
+ * callers may fall back to Game.map.describeExits (4 cardinals) via `exits`.
+ */
+export function adjacentRoomNames(roomName: string, exits?: readonly string[] | null): string[] {
+  const parsed = parseRoomName(roomName);
+  if (!parsed) {
+    return Array.from(new Set((exits ?? []).filter(name => Boolean(name))));
+  }
+  const names: string[] = [];
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      names.push(formatRoomName(parsed.x + dx, parsed.y + dy));
+    }
+  }
+  return names;
+}
+
 function sectorCoord(world: number): number {
   return world < 0 ? -world - 1 : world;
 }

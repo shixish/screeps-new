@@ -11,7 +11,10 @@
   optimum; scores cached per tile). Swamp treated as plain (roads make swamp
   negligible soon after start). E2 = 10 * H where H is the sum of open harvest
   seats. D2 is walk cost from that spawn to each source's adjacent harvest tile
-  plus the controller. score2 = E2 / (D2 + 1).
+  plus the controller. Adjacent-room terms are applied after the spawn is chosen:
+  score2 = (E2 + OPPORTUNITY_WEIGHT * opportunity) / (D2 + 1 + DANGER_WEIGHT * danger).
+  Spiral + hill-climb still maximise E2 / (D2 + 1) and do not move to dodge or
+  chase neighbors.
 
   E2 = 10*H is a first-spawn / early-game multi-miner proxy. Add-on spawns later
   should use a different weighting (out of scope).
@@ -20,6 +23,12 @@
   Require ≥2 energy sources. Minerals are not in E/E2; they only block spawn.
 */
 
+import {
+  NeighborDangerEntry,
+  NeighborRoomIntel,
+  applyNeighborTermsToScore2,
+  scoreAdjacentNeighbors
+} from "./firstRoomDanger";
 import {
   PLAIN_WALK_COST,
   ROOM_SIZE,
@@ -34,6 +43,8 @@ import {
   spiralToPlaceableSpawn,
   tileIndex
 } from "./spawnPlacement";
+
+export type { NeighborDangerEntry, NeighborRoomIntel };
 
 export const MIN_SOURCES = 2;
 export const SCORE_EPSILON = 1;
@@ -200,6 +211,21 @@ export function scoreFirstRoom(input: FirstRoomScoreInput): FirstRoomScore {
   };
 }
 
+/**
+ * Pass-1 layout score with ownership/reservation ignored. Used for neighbor
+ * opportunity: a hostile room can still be a useful expansion if its sources
+ * and controller are compact. Unscorable layouts (no controller, <2 sources)
+ * return eligible=false / score 0.
+ */
+export function scoreRoomLayout(input: FirstRoomScoreInput): FirstRoomScore {
+  return scoreFirstRoom({
+    ...input,
+    owner: undefined,
+    my: undefined,
+    reserved: false
+  });
+}
+
 export function compareFirstRoomScores(a: FirstRoomScore, b: FirstRoomScore): number {
   if (a.eligible !== b.eligible) return a.eligible ? -1 : 1;
   if (a.score !== b.score) return b.score - a.score;
@@ -243,7 +269,11 @@ export function rankFirstRooms(rooms: NamedRoomScoreInput[]): RankedFirstRoom[] 
   H = sum of open harvest seats (walkable 8-adjacent tiles per energy source).
   E2 = H * (SOURCE_ENERGY_CAPACITY / ENERGY_REGEN_TIME)  // typically 10; first spawn only
   D2 = sum of walk costs from that spawn to each source (adjacent tile) + controller
-  score2 = E2 / (D2 + SCORE_EPSILON)
+  energyScore2 = E2 / (D2 + SCORE_EPSILON)
+  danger = sum of occupied-neighbor penalties (see firstRoomDanger.ts)
+  opportunity = sum of pass1(neighbor) / (walk(spawn → their controller) + eps)
+  score2 = (E2 + OPPORTUNITY_WEIGHT * opportunity)
+         / (D2 + SCORE_EPSILON + DANGER_WEIGHT * danger)
 */
 
 export interface HarvestSeatCount {
@@ -273,6 +303,12 @@ export interface FirstRoomPass2Input {
   swampCost?: number;
   sourceEnergyCapacity?: number;
   energyRegenTime?: number;
+  /** Candidate room name; used to name the 8 adjacent rooms for danger. */
+  roomName?: string;
+  /** Occupancy / spawn intel for adjacent rooms. Missing ⇒ empty (no penalty). */
+  neighbors?: NeighborRoomIntel[];
+  /** Cardinal exits when the room name cannot be parsed (e.g. sim). */
+  exits?: string[] | null;
 }
 
 export interface FirstRoomPass2Score {
@@ -281,6 +317,11 @@ export interface FirstRoomPass2Score {
   H: number;
   E2: number;
   D2: number;
+  /** E2 / (D2 + 1) before neighbor opportunity/danger. */
+  energyScore2?: number;
+  danger?: number;
+  opportunity?: number;
+  neighbors?: NeighborDangerEntry[];
   score2: number;
   harvestSeats: HarvestSeatCount[];
   legs?: FirstRoomPathLeg[];
@@ -336,6 +377,10 @@ function ineligiblePass2(harvestSeats: HarvestSeatCount[], reason: string): Firs
     H,
     E2: energyPerTick(H),
     D2: Number.POSITIVE_INFINITY,
+    energyScore2: 0,
+    danger: 0,
+    opportunity: 0,
+    neighbors: [],
     score2: 0,
     harvestSeats,
     usedChebyshev: false,
@@ -380,6 +425,22 @@ function evaluatePass2AtSpawn(
   });
 
   return { ok: true, D2, score2: E2 / (D2 + SCORE_EPSILON), legs };
+}
+
+function neighborsWithLayoutScores(neighbors: NeighborRoomIntel[] | undefined): NeighborRoomIntel[] | undefined {
+  if (!neighbors) return neighbors;
+  return neighbors.map(neighbor => {
+    if (typeof neighbor.pass1Score === "number") return neighbor;
+    if (!neighbor.getTerrain || !neighbor.controller || !neighbor.sources || neighbor.sources.length < MIN_SOURCES) {
+      return neighbor;
+    }
+    const layout = scoreRoomLayout({
+      sources: neighbor.sources,
+      controller: neighbor.controller,
+      getTerrain: neighbor.getTerrain
+    });
+    return { ...neighbor, pass1Score: layout.eligible ? layout.score : 0 };
+  });
 }
 
 export function scoreFirstRoomPass2(input: FirstRoomPass2Input): FirstRoomPass2Score {
@@ -452,13 +513,36 @@ export function scoreFirstRoomPass2(input: FirstRoomPass2Input): FirstRoomPass2S
     return ineligiblePass2(harvestSeats, reason);
   }
 
+  const energyScore2 = best.score2;
+  const neighborTerms =
+    input.roomName && climbed.pos
+      ? scoreAdjacentNeighbors({
+          roomName: input.roomName,
+          spawnPos: climbed.pos,
+          getTerrain,
+          neighbors: neighborsWithLayoutScores(input.neighbors),
+          exits: input.exits
+        })
+      : { danger: 0, opportunity: 0, neighbors: [] };
+  const score2 = applyNeighborTermsToScore2(
+    E2,
+    best.D2,
+    neighborTerms.danger,
+    neighborTerms.opportunity,
+    { epsilon: SCORE_EPSILON }
+  );
+
   return {
     eligible: true,
     spawnPos: climbed.pos,
     H,
     E2,
     D2: best.D2,
-    score2: best.score2,
+    energyScore2,
+    danger: neighborTerms.danger,
+    opportunity: neighborTerms.opportunity,
+    neighbors: neighborTerms.neighbors,
+    score2,
     harvestSeats,
     legs: best.legs,
     usedChebyshev: false

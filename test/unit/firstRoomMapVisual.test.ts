@@ -58,6 +58,8 @@ describe("firstRoomMapVisual", () => {
     assert.equal(markers[1].label, "#2 0.40");
     assert.equal(markers[2].label, "#3 1");
     assert.equal(formatRankLabel(4, entry({ roomName: "W4N1", score: 0.1234 })), "#4 0.12");
+    assert.notInclude(markers[0].label, "danger");
+    assert.notInclude(markers[0].label, "E2");
   });
 
   it("prefers pass-2 score2, then numeric spawn, then pass-1 score", () => {
