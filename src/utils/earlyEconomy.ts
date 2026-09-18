@@ -178,6 +178,249 @@ export function isPriorityRoadWorkComplete(room:Room):boolean{
   return complete;
 }
 
+
+/*
+  Exit roads.
+
+  A separate planned layer from the priority roads above: one route from the spawn out to every room
+  exit that actually exists. Routes are planned once and stored in room memory - nothing here places
+  construction sites, and nothing here feeds the road-before-upgrade gate (isPriorityRoadWorkComplete
+  only ever cares about the source and controller roads).
+
+  Planning order matters. The exit closest to the spawn (by path cost, not by range) is routed first,
+  then every later route is pathed over a cost matrix where the earlier routes are already as cheap as
+  roads, so the routes converge into a single trunk instead of drawing parallel lines across the room.
+
+  To see the plan in-game: the routes are drawn every tick by drawExitRoadPlan (called from
+  HomeFlag.work), so just open the room in the Screeps client. The raw plan is also readable from the
+  console with `JSON.stringify(Memory.rooms['W1N4'].exitRoads)`.
+*/
+
+export interface ExitRoadSegmentMemory{
+  id: string; //`${direction label}-${index}`, stable for the life of the plan.
+  tiles: number[]; //Packed tiles, a slice of the parent route's path.
+  promoted?: boolean; //Set once the segment has been handed to the build queue.
+}
+
+export interface ExitRoadRouteMemory{
+  exit: ExitConstant; //FIND_EXIT_TOP / RIGHT / BOTTOM / LEFT.
+  order: number; //0 is the exit closest to the spawn, routed first.
+  cost: number; //Path cost at plan time, what the ordering was sorted on.
+  path: number[]; //Packed buildable tiles out to the edge (the exit tile itself is skipped - nothing can be built on it).
+  segments: ExitRoadSegmentMemory[];
+}
+
+export interface ExitRoadPlanMemory{
+  routes: ExitRoadRouteMemory[];
+  plannedTiles: number[]; //Union of every route's tiles, so later cost matrices can reuse the plan without walking the routes.
+  planned: number; //Game.time the plan was built.
+}
+
+//Road-cheap tiles vs. everything else. Swamp isn't penalised: a road flattens it, and these all get paved eventually.
+export const EXIT_ROAD_ROAD_COST = 1;
+export const EXIT_ROAD_PLAIN_COST = 2;
+//The room rim can't hold structures, so pathing along it is a dead end for road planning - allowed, but discouraged.
+export const EXIT_ROAD_EDGE_COST = 10;
+
+//How many tiles go into one promotable segment.
+export const EXIT_ROAD_SEGMENT_SIZE = 5;
+
+export const EXIT_ROAD_DIRECTION_LABELS:Record<number, string> = { 1: 'TOP', 3: 'RIGHT', 5: 'BOTTOM', 7: 'LEFT' };
+
+export const getExitRoadDirectionLabel = (exit:ExitConstant)=>EXIT_ROAD_DIRECTION_LABELS[exit] ?? `EXIT${exit}`;
+
+/* The four exit directions. Built lazily so the module stays importable without the game globals. */
+export const getExitRoadDirections = ():ExitConstant[]=>[FIND_EXIT_TOP, FIND_EXIT_RIGHT, FIND_EXIT_BOTTOM, FIND_EXIT_LEFT];
+
+/*
+  Cost matrix for exit road pathing. Walls are unwalkable, anything we already have (or have already
+  planned) a road on is road-cheap, everything else is plain cost. `cheapTiles` is where the other road
+  layers come in: the early road plan first, then each exit route as it gets planned.
+*/
+export function buildExitRoadCostMatrix(room:Room, cheapTiles:number[] = []){
+  const terrain = room.getTerrain();
+  const matrix = new PathFinder.CostMatrix();
+
+  for (let y = 0; y < 50; y++){
+    for (let x = 0; x < 50; x++){
+      if (terrain.get(x, y) === TERRAIN_MASK_WALL){
+        matrix.set(x, y, 255);
+        continue;
+      }
+      matrix.set(x, y, isBuildableCoord(x, y) ? EXIT_ROAD_PLAIN_COST : EXIT_ROAD_EDGE_COST);
+    }
+  }
+
+  //Existing roads are the cheapest thing in the room, anything else solid can't be routed through.
+  room.find(FIND_STRUCTURES).forEach(structure=>{
+    if (structure.structureType === STRUCTURE_ROAD){
+      matrix.set(structure.pos.x, structure.pos.y, EXIT_ROAD_ROAD_COST);
+    }else if (structure.structureType !== STRUCTURE_RAMPART && structure.structureType !== STRUCTURE_CONTAINER){
+      matrix.set(structure.pos.x, structure.pos.y, 255);
+    }
+  });
+
+  //Road sites count as roads for planning - the builders will get to them.
+  room.find(FIND_CONSTRUCTION_SITES).forEach(site=>{
+    if (site.structureType === STRUCTURE_ROAD) matrix.set(site.pos.x, site.pos.y, EXIT_ROAD_ROAD_COST);
+  });
+
+  addCheapExitRoadTiles(matrix, terrain, cheapTiles);
+  return matrix;
+}
+
+/* Planned-but-unbuilt road tiles. Never cheapens a wall or an occupied tile - the plan can't put a road there. */
+export function addCheapExitRoadTiles(matrix:CostMatrix, terrain:RoomTerrain, tiles:number[]){
+  tiles.forEach(packed=>{
+    const x = unpackRoadPosX(packed), y = unpackRoadPosY(packed);
+    if (!isBuildableCoord(x, y)) return;
+    if (terrain.get(x, y) === TERRAIN_MASK_WALL) return;
+    if (matrix.get(x, y) === 255) return;
+    matrix.set(x, y, EXIT_ROAD_ROAD_COST);
+  });
+  return matrix;
+}
+
+/* Cuts a route into fixed size segments so individual stretches can be promoted to build targets later. */
+export function splitExitRoadSegments(path:number[], label:string, size = EXIT_ROAD_SEGMENT_SIZE):ExitRoadSegmentMemory[]{
+  const segments:ExitRoadSegmentMemory[] = [];
+  for (let index = 0; index*size < path.length; index++){
+    segments.push({ id: `${label}-${index}`, tiles: path.slice(index*size, (index+1)*size) });
+  }
+  return segments;
+}
+
+/* Closest exit first. Ties break on the exit constant so a replan of the same room lands the same way. */
+export function sortExitRoadMeasurements<T extends { exit:ExitConstant, cost:number }>(measurements:T[]){
+  return measurements.slice().sort((a, b)=>a.cost - b.cost || a.exit - b.exit);
+}
+
+const searchExitRoad = (from:RoomPosition, goals:RoomPosition[], matrix:CostMatrix)=>{
+  return PathFinder.search(from, goals.map(pos=>({ pos, range: 0 })), {
+    maxRooms: 1, //Everything, including the cost matrix, is scoped to this one room.
+    plainCost: EXIT_ROAD_PLAIN_COST,
+    swampCost: EXIT_ROAD_PLAIN_COST, //Swamp is going to be paved, so it isn't worth routing around.
+    roomCallback: ()=>matrix,
+  });
+};
+
+/* The path tiles a road can actually be built on - the exit tile the path ends on is dropped. */
+const toExitRoadTiles = (path:RoomPosition[])=>{
+  const tiles:number[] = [];
+  path.forEach(pos=>{
+    if (!isBuildableCoord(pos.x, pos.y)) return;
+    const packed = packRoadPos(pos.x, pos.y);
+    if (!tiles.includes(packed)) tiles.push(packed);
+  });
+  return tiles;
+};
+
+/*
+  Builds the whole exit road plan in one pass. Expensive (one PathFinder search per exit to order them,
+  then one more per exit to route it over the growing plan), so this only ever runs once per room.
+*/
+export function planExitRoads(room:Room, spawn:StructureSpawn, earlyPlan?:EarlyRoadPlanMemory):ExitRoadPlanMemory{
+  //The other planned road layers are already road-cheap before the first exit is routed.
+  const earlyTiles = earlyPlan ? earlyPlan.source.concat(earlyPlan.controller, earlyPlan.swamp ?? []) : [];
+  const terrain = room.getTerrain();
+  const matrix = buildExitRoadCostMatrix(room, earlyTiles);
+
+  //Step 1: how far is each exit this room actually has? Rooms with fewer than 4 exits just get fewer entries.
+  const measurements = getExitRoadDirections().reduce((out, exit)=>{
+    const exitTiles = room.find(exit);
+    if (!exitTiles.length) return out;
+    const search = searchExitRoad(spawn.pos, exitTiles, matrix);
+    if (search.incomplete) return out; //Walled off from the spawn - nothing to plan.
+    out.push({ exit, cost: search.cost, path: toExitRoadTiles(search.path) });
+    return out;
+  }, [] as { exit:ExitConstant, cost:number, path:number[] }[]);
+
+  //Step 2: closest first, and every later route re-paths over the routes planned before it.
+  const plannedTiles:number[] = [];
+  const routes = sortExitRoadMeasurements(measurements).map((measurement, order)=>{
+    //Route 0 already has its path: the matrix hasn't changed since it was measured.
+    const path = order === 0 ? measurement.path : (()=>{
+      const search = searchExitRoad(spawn.pos, room.find(measurement.exit), matrix);
+      return search.incomplete ? measurement.path : toExitRoadTiles(search.path);
+    })();
+
+    path.forEach(packed=>{
+      if (!plannedTiles.includes(packed)) plannedTiles.push(packed);
+    });
+    //Make this route cheap for everyone routed after it.
+    addCheapExitRoadTiles(matrix, terrain, path);
+
+    const label = getExitRoadDirectionLabel(measurement.exit);
+    return { exit: measurement.exit, order, cost: measurement.cost, path, segments: splitExitRoadSegments(path, label) };
+  });
+
+  return { routes, plannedTiles, planned: Game.time };
+}
+
+export function getExitRoadPlan(room:Room){
+  return room.memory.exitRoads;
+}
+
+/* Plan once per room. Called from the HomeFlag early construction staging. */
+export function ensureExitRoadPlan(room:Room, spawn:StructureSpawn, earlyPlan?:EarlyRoadPlanMemory){
+  return room.memory.exitRoads || (room.memory.exitRoads = planExitRoads(room, spawn, earlyPlan));
+}
+
+/*
+  Future build-queue hook: promoteExitRoadSegmentToBuildQueue when nearby infra.
+
+  Exit roads are deliberately not built with the rest of the early roads - a full road to every edge is
+  a lot of energy for a room that has nothing out there yet. Instead, once other infrastructure lands
+  near a stretch of a route (a remote mine, an outpost container, a rampart line), that stretch gets
+  promoted on its own: findExitRoadSegmentsNear picks the segments in range, promoteExitRoadSegment
+  marks one and hands back its tiles, and the caller runs those through placeEarlyRoadSites.
+*/
+export function findExitRoadSegmentsNear(plan:ExitRoadPlanMemory, x:number, y:number, range:number){
+  return plan.routes.reduce((out, route)=>{
+    route.segments.forEach(segment=>{
+      if (segment.promoted) return;
+      const inRange = segment.tiles.some(packed=>(
+        Math.abs(unpackRoadPosX(packed)-x) <= range && Math.abs(unpackRoadPosY(packed)-y) <= range
+      ));
+      if (inRange) out.push(segment);
+    });
+    return out;
+  }, [] as ExitRoadSegmentMemory[]);
+}
+
+/* Marks a segment as promoted and returns its tiles, ready for placeEarlyRoadSites. */
+export function promoteExitRoadSegment(plan:ExitRoadPlanMemory, segmentId:string):number[]{
+  for (const route of plan.routes){
+    for (const segment of route.segments){
+      if (segment.id !== segmentId) continue;
+      segment.promoted = true;
+      return segment.tiles;
+    }
+  }
+  return [];
+}
+
+const EXIT_ROAD_VISUAL_COLORS = ['#66ccff', '#66ff99', '#ffcc66', '#ff99cc'];
+
+/*
+  Draws the planned exit roads every tick so they're visible in the Screeps client without leaving
+  flags behind. Dashed line along each route, a dot on every planned tile, and the exit label plus its
+  planning order at the far end.
+*/
+export function drawExitRoadPlan(room:Room){
+  const plan = getExitRoadPlan(room);
+  if (!plan) return;
+  plan.routes.forEach(route=>{
+    if (!route.path.length) return;
+    const color = EXIT_ROAD_VISUAL_COLORS[route.order % EXIT_ROAD_VISUAL_COLORS.length];
+    const points = route.path.map(packed=>[unpackRoadPosX(packed), unpackRoadPosY(packed)] as [number, number]);
+    room.visual.poly(points, { stroke: color, strokeWidth: 0.12, opacity: 0.4, lineStyle: 'dashed' });
+    points.forEach(([x, y])=>room.visual.circle(x, y, { radius: 0.12, fill: color, opacity: 0.3 }));
+    const [endX, endY] = points[points.length-1];
+    room.visual.text(`${getExitRoadDirectionLabel(route.exit)} #${route.order}`, endX, endY, { font: 0.4, color, opacity: 0.8 });
+  });
+}
+
 export interface SourceSaturation{
   seats: number;
   seatsUsed: number;

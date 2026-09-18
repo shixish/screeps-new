@@ -1,6 +1,6 @@
 import { Cohort } from "utils/Cohort";
 import { CreepPriority, CreepRoleName } from "utils/constants";
-import { areSourcesStaticallyMined, ensureEarlyRoadPlan, getSourceSaturation, isPriorityRoadWorkComplete, placeEarlyRoadSites } from "utils/earlyEconomy";
+import { areSourcesStaticallyMined, drawExitRoadPlan, ensureEarlyRoadPlan, ensureExitRoadPlan, getSourceSaturation, isPriorityRoadWorkComplete, placeEarlyRoadSites } from "utils/earlyEconomy";
 import { diamondCoordinates, diamondRingCoordinates, findDiamondPlacement, getBestContainerLocation, getSpawnRoadPath, getStructureCostMatrix } from "utils/map";
 import { BasicFlag, BasicFlagMemory } from "./_BasicFlag";
 
@@ -96,6 +96,12 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     return ensureEarlyRoadPlan(this.home, spawn, this.homeAudit.sources);
   }
 
+  /* Exit roads are planned into memory only - no construction sites, and no part of the road gate. */
+  get exitRoadPlan(){
+    const [ spawn ] = this.home.find(FIND_MY_SPAWNS);
+    return ensureExitRoadPlan(this.home, spawn, this.earlyRoadPlan);
+  }
+
   /*
     Early construction runs strictly in priority order. Nothing is allowed to feed the controller until
     both road batches have their construction sites placed (see isPriorityRoadWorkComplete).
@@ -103,7 +109,8 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
       1: roads out to each source plus roads across that source's harvest seats
       2: a road from the spawn to the controller
       3: the near-spawn swamp tiles the road paths didn't already cover (swamp walks 5x slower)
-      4: source containers, deferred so they can't hold up the roads
+      4: plan the exit roads (memory only, nothing is built)
+      5: source containers, deferred so they can't hold up the roads
   */
   createConstructionSitesCL1():boolean{
     const [ spawn ] = this.home.find(FIND_MY_SPAWNS);
@@ -132,6 +139,13 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
       }
       break;
       case 4:{
+        //Exit roads: one route per real exit, closest first, planned into memory. Nothing is built here.
+        const exitPlan = this.exitRoadPlan;
+        console.log(`[${this.roomName}] planned ${exitPlan.routes.length} exit road routes (${exitPlan.plannedTiles.length} tiles)`);
+        this.buildSubStage++;
+      }
+      break;
+      case 5:{
         this.homeAudit.sources.forEach(source=>{
           const sourceContainerPos = getBestContainerLocation(source.pos, spawn.pos);
           this.home.createConstructionSite(sourceContainerPos, STRUCTURE_CONTAINER);
@@ -415,6 +429,9 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
       //Upgrading is gated until the priority roads are placed, so make that obvious in the room.
       this.home.visual.text(`roads first`, this.home.controller.pos.x, this.home.controller.pos.y-1.5, { font: 0.4, color: '#ff9999' });
     }
+    //Ensure exit roads are planned (including rooms that already passed CL1 stage 4) then draw them.
+    if (this.home.find(FIND_MY_SPAWNS).length) this.exitRoadPlan;
+    drawExitRoadPlan(this.home); //Planned exit roads, see earlyEconomy.
 
     try{
       //The building placement logic is heavy on CPU so only try to place one thing per tick.
