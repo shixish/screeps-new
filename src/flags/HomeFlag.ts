@@ -88,6 +88,10 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
         this.home.createConstructionSite(container.pos, STRUCTURE_RAMPART);
       });
     });
+    //Same treatment as harvest containers: protect the seated upgrader's box.
+    this.homeAudit.controller?.containers.forEach(container=>{
+      this.home.createConstructionSite(container.pos, STRUCTURE_RAMPART);
+    });
   }
 
   /* The early road plan is the source of truth for the road-before-upgrade gate. */

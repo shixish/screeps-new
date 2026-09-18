@@ -515,20 +515,42 @@ export function canStartStaticMinerPlan(roomAudit:RoomAudit){
   if (!roomAudit.sources.length) return false;
   //Every source needs its container seat before we commit to static miners.
   if (!roomAudit.sources.every(source=>source.containers.length > 0)) return false;
-  //Keep at least one Basic alive so the room isn't emptied into miners-only.
-  if ((roomAudit.creepCountsByRole[CreepRoleName.Basic] ?? 0) < 1) return false;
+  //Basics-first bootstrap: keep at least one Basic per source so specialists don't replace the
+  //entire harvest/haul plan the moment the first container finishes.
+  if ((roomAudit.creepCountsByRole[CreepRoleName.Basic] ?? 0) < roomAudit.sources.length) return false;
   return true;
+}
+
+/*
+  Couriers required before the *next* static harvester may spawn.
+  First miner: ≥1 courier (tug + haul). Second and later miners: ≥2 couriers so haul/tug capacity
+  keeps up when a second source comes online.
+*/
+export function couriersRequiredForNextStaticMiner(roomAudit:RoomAudit){
+  const existingMiners = roomAudit.creepCountsByRole[CreepRoleName.Harvester] ?? 0;
+  return existingMiners >= 1 ? 2 : 1;
 }
 
 /*
   Dedicated static miners also need an active courier (haul + courier-tug seating).
   HarvestFlag bootstraps one courier first when canStartStaticMinerPlan is true but no courier
-  exists yet; miners only spawn once this full gate passes.
+  exists yet; miners only spawn once this full gate passes. The first miner needs ≥1 courier;
+  use canSpawnNextStaticMiner / couriersRequiredForNextStaticMiner for the 2nd+.
 */
 export function canSpawnStaticMiners(roomAudit:RoomAudit){
   if (!canStartStaticMinerPlan(roomAudit)) return false;
   if ((roomAudit.creepCountsByRole[CreepRoleName.Courier] ?? 0) < 1) return false;
   return true;
+}
+
+/*
+  True when the room may spawn another static harvester right now.
+  First miner: canSpawnStaticMiners (≥1 courier). Second+: also needs ≥2 couriers.
+*/
+export function canSpawnNextStaticMiner(roomAudit:RoomAudit){
+  if (!canSpawnStaticMiners(roomAudit)) return false;
+  const couriers = roomAudit.creepCountsByRole[CreepRoleName.Courier] ?? 0;
+  return couriers >= couriersRequiredForNextStaticMiner(roomAudit);
 }
 
 /*

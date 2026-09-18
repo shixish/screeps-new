@@ -1,4 +1,5 @@
 import { claimAmount, getResourceSpace } from "utils/tickCache";
+import { CreepRoleName } from "utils/constants";
 import { blockSeatsInCostMatrix, stepOffSeat, tugStaticCreepToSeat } from "utils/seatTug";
 import { BasicCreep, CreepBody, CreepTiers } from "./BasicCreep";
 
@@ -124,27 +125,24 @@ export class CourierCreep extends BasicCreep {
     this.shuffleOffBadIdleTile();
   }
 
-  spreadEnergyNearby(){
-    // const maxFillPercentage = 0.75; //75%;
+  /*
+    Zero-detour top-off for the seated upgrader. This used to feed any WORK creep standing next to us,
+    which mostly meant spoon-feeding Basics that were perfectly capable of walking to a container -
+    the seated upgrader is the one creep that genuinely cannot go and get its own energy. We never
+    move for this, so haul priorities are untouched; it only fires when we happen to already be within
+    transfer range (stocking the controller container puts us right there).
+  */
+  feedSeatedUpgraderNearby(){
     const resourceType = RESOURCE_ENERGY;
-    if (this.canWork) return null; //If this is a worker don't bother giving away your resources
     if (this.store[resourceType] === 0) return null;
-    const { target } = this.pos.findInRange(FIND_MY_CREEPS, 1).reduce((out, creep)=>{
-      if (creep.id !== this.id && creep.memory.counts.work && creep.memory.seated !== false){
-        const amount = getResourceSpace(creep, resourceType);
-        if (amount > out.amount){
-          out.target = creep;
-          out.amount = amount;
-        }
-      }
-      return out;
-    }, { target: undefined as Creep|undefined, amount: 0 });
+    const target = this.pos.findInRange(FIND_MY_CREEPS, 1).find(creep=>{
+      //No 50 energy floor here - we're already standing next to it, so even a partial top-off is free.
+      return creep.memory.role === CreepRoleName.Upgrader && creep.memory.seated !== false && getResourceSpace(creep, resourceType) > 0;
+    });
     if (!target) return null;
-    if (this.moveWithinRange(target.pos, 1) || this.manageActionCode(this.transfer(target, resourceType))){
-      claimAmount(target.id, resourceType, -Math.min(target.store.getFreeCapacity(resourceType), this.store[resourceType]));
-      return target;
-    }
-    return null;
+    if (!this.manageActionCode(this.transfer(target, resourceType))) return null;
+    claimAmount(target.id, resourceType, -Math.min(target.store.getFreeCapacity(resourceType), this.store[resourceType]));
+    return target;
   }
 
   work(){
@@ -167,9 +165,6 @@ export class CourierCreep extends BasicCreep {
     const energyCapacity = this.store.getUsedCapacity(RESOURCE_ENERGY);
     // const roomAudit = getRoomAudit(this.room);
     let triedStoring = false;
-
-    //Opportunistic.
-    // if (this.spreadEnergyNearby()) return; //Sucks because they end up spoon feeding upgraders
 
     /* this stuff deals with minerals */
     if (this.rememberAction(this.startTransferringMinerals, 'transferring')) return;
@@ -194,6 +189,13 @@ export class CourierCreep extends BasicCreep {
       //   return;
       // }
       if (this.rememberAction(this.startEnergizing, 'energizing')) return;
+      //Opportunistic, never moves us: only fires if a seated upgrader is already in transfer range.
+      if (this.feedSeatedUpgraderNearby()){
+        this.say('feed');
+        return;
+      }
+      //startSpreading prefers the dedicated upgrader over Basics, and will walk to it - the upgrader
+      //sits on the controller container, so that's the same trip startStocking below would make.
       if (this.rememberAction(this.startSpreading, 'spreading')) return;
       if (this.rememberAction(this.startStocking, 'stocking')) return;
       if (!triedStoring && this.rememberAction(this.startStoring, 'storing')) return;

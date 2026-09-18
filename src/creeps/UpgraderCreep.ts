@@ -1,4 +1,4 @@
-import { getRoomAudit, claimAmount } from "utils/tickCache";
+import { getRoomAudit } from "utils/tickCache";
 import { followCourierTug } from "utils/seatTug";
 import { BasicCreep, CreepBody } from "./BasicCreep";
 
@@ -7,30 +7,35 @@ import { BasicCreep, CreepBody } from "./BasicCreep";
   container, and relentlessly upgrades. Same spirit as the static source miners - maximize WORK for the
   energy budget and let the courier tug do the walking - with one hard floor: upgradeController spends
   energy out of the creep's own store, so a 0 CARRY upgrader has 0 capacity and can never upgrade at
-  all. One CARRY is therefore the minimum, and the container underfoot keeps refilling it.
+  all. One CARRY used to be the floor; the first tier now buys two. 100 capacity is 50 ticks of
+  upgrading between withdraws instead of 25, and it leaves real free space for a passing courier to
+  hand energy straight to the seated creep (see CourierCreep/startSpreading) instead of relying on the
+  container underfoot being stocked.
 */
 export class UpgraderCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 1,
     tiers: [
       /*
-        Max WORK + minimum CARRY + 0 MOVE (courier tug seats it, see utils/seatTug). The small tiers
-        keep a 1 MOVE self-walk sibling for when no courier is free. At the CL1 cap of 300 the best
-        body is [WORK, WORK, CARRY] (250) - the spare 50 only buys a MOVE, never a third WORK.
+        Max WORK + enough CARRY + 0 MOVE (courier tug seats it, see utils/seatTug). The small tiers
+        keep a 1 MOVE self-walk sibling for when no courier is free. At the CL1 cap of 300 the spare
+        50 on top of [WORK, WORK, CARRY] can never buy a third WORK, so it goes to a second CARRY
+        rather than a MOVE - tug seating already handles the walking, and 100 capacity halves how
+        often the creep has to stop upgrading to refill.
       */
       {
         body: new CreepBody([
           WORK, WORK,
-          CARRY,
-        ], 250),
+          CARRY, CARRY,
+        ], 300),
       },
       {
-        //1 MOVE self-walk fallback if no courier is free to tug.
+        //1 MOVE self-walk fallback if no courier is free to tug. Over the CL1 cap, so CL2 and up only.
         body: new CreepBody([
           WORK, WORK,
-          CARRY,
+          CARRY, CARRY,
           MOVE,
-        ], 300),
+        ], 350),
       },
       {
         //CL2 cap (550).
@@ -83,8 +88,14 @@ export class UpgraderCreep extends BasicCreep {
     });
     if (container){
       if (this.moveWithinRange(container.pos, 1) || this.manageActionCode(this.withdraw(container, resourceType))){
-        //couriers try to fill up these creeps so tell the couriers to not bother if you're already going to grab energy from the container nearby
-        claimAmount(this.id, resourceType, Math.min(container.store.getUsedCapacity(resourceType), this.store.getCapacity()));
+        /*
+          Deliberately no claim against our own store. Couriers size us up with getResourceSpace(),
+          which is free capacity *plus* the claim, so the old positive self-claim advertised twice the
+          room we actually had rather than waving them off. Direct feeding a seated upgrader is wanted
+          now (see CourierCreep/startSpreading), so just let the real free space speak for itself -
+          worst case a withdraw and a hand-off land on the same tick and the transfer tops off
+          whatever the withdraw left room for.
+        */
         return container;
       }
     }
@@ -97,7 +108,7 @@ export class UpgraderCreep extends BasicCreep {
     const link = roomAudit.controller?.link;
     if (link && link.store.energy > 0){
       if (this.moveWithinRange(link.pos, 1) || this.manageActionCode(this.withdraw(link, resourceType))){
-        claimAmount(this.id, resourceType, Math.min(link.store.getUsedCapacity(resourceType), this.store.getCapacity()));
+        //No self-claim here either - see startTakingFromControllerContainer.
         return link;
       }
     }

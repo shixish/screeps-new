@@ -1,6 +1,6 @@
 import { Cohort } from "utils/Cohort";
 import { CreepPriority, CreepRoleName, FlagType, USERNAME } from "utils/constants";
-import { canSpawnStaticMiners, canStartStaticMinerPlan } from "utils/earlyEconomy";
+import { canSpawnStaticMiners, canSpawnNextStaticMiner, canStartStaticMinerPlan, couriersRequiredForNextStaticMiner } from "utils/earlyEconomy";
 import { getBestContainerLocation } from "utils/map";
 import { random } from "utils/random";
 import { RemoteFlag, RemoteFlagMemory } from "./_RemoteFlag";
@@ -117,8 +117,8 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
   /*
     Couriers haul what the static miner drops into the source container, and also tug 0-MOVE
     miners onto their seats. Bootstrap: when the static-miner plan is otherwise ready but the
-    room has no courier yet, request a small one even before the miner exists (chicken/egg for
-    the canSpawnStaticMiners courier gate).
+    room still needs a courier for the *next* miner (1 before the first, 2 before the second+),
+    request a small one even before that miner exists (chicken/egg for the courier gate).
   */
   getRequestedCourier(sourceAnchor:CreepSourceAnchor, bootstrap = false){
     const minerWorkParts = sourceAnchor.harvesters.counts[WORK] ?? 0;
@@ -164,16 +164,19 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
       const audit = this.officeAudit;
 
       /*
-        Domestic static-miner gates (see canStartStaticMinerPlan / canSpawnStaticMiners):
-          roads + all source containers + at least one Basic still around.
+        Domestic static-miner gates (see canStartStaticMinerPlan / canSpawnStaticMiners /
+        canSpawnNextStaticMiner):
+          roads + all source containers + ≥1 Basic per source.
         Until that passes, ask for nothing here — HomeFlag drones keep harvesting.
-        Then bootstrap one courier (tug + haul) before any miner, then miners, then more couriers.
+        Then bootstrap courier #1 before miner #1; before miner #2+ bootstrap courier #2
+        (couriersRequiredForNextStaticMiner) so haul/tug capacity keeps up.
       */
       if (this.domestic){
         if (!canStartStaticMinerPlan(audit)) return null;
 
-        //Bootstrap courier before miners so the courier-gate and tug seating can work.
-        if ((audit.creepCountsByRole[CreepRoleName.Courier] ?? 0) < 1){
+        //Bootstrap enough couriers for the *next* static miner (1 for the first, 2 for the second+).
+        const couriersNeeded = couriersRequiredForNextStaticMiner(audit);
+        if ((audit.creepCountsByRole[CreepRoleName.Courier] ?? 0) < couriersNeeded){
           for (const sourceAnchor of this.sources){
             if (!sourceAnchor.containers.length) continue;
             const bootstrapCourier = this.getRequestedCourier(sourceAnchor, true);
@@ -194,9 +197,12 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
         */
         if (!sourceAnchor.containers.length) continue;
 
-        //Miners outrank further courier growth for this source.
-        const miner = this.getRequestedMiner(sourceAnchor);
-        if (miner) return miner;
+        //Miners outrank further courier growth for this source — but only when courier count covers
+        //the next miner (1st needs ≥1 courier, 2nd+ needs ≥2). Domestic only; remotes keep old pace.
+        if (!this.domestic || canSpawnNextStaticMiner(audit)){
+          const miner = this.getRequestedMiner(sourceAnchor);
+          if (miner) return miner;
+        }
 
         const courier = this.getRequestedCourier(sourceAnchor);
         if (courier) return courier;

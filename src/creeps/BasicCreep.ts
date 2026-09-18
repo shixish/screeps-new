@@ -423,6 +423,14 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
     return null;
   }
 
+  /*
+    Hand energy directly to a WORK creep that can use it. Statics are the whole point: a seated
+    upgrader (or miner shuffling onto its box) can't come to us, and the dedicated upgrader is the
+    room's biggest energy sink, so it wins over an ordinary Basic that could walk to a container on
+    its own. The upgrader sits *on* the controller container, so detouring to it is the same trip we
+    were going to make for startStocking anyway - and this only runs after startEnergizing has
+    declined, so spawn/extensions still outrank everybody.
+  */
   startSpreading(storedTarget:TargetableTypes){
     // const maxFillPercentage = 0.75; //75%;
     const resourceType = RESOURCE_ENERGY;
@@ -430,10 +438,17 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
     if (this.store[resourceType] === 0) return null;
     const checkCreep = (creep:Creep)=>{
       // return creep.id !== this.id && creep.memory.counts.work && creep.memory.seated !== false && creep.store.getUsedCapacity(resourceType) + getClaimedAmount(creep.id, resourceType) < creep.store.getCapacity(resourceType)*maxFillPercentage;
-      return creep.id !== this.id && creep.memory.counts.work && creep.memory.seated !== false && getResourceSpace(creep, resourceType) >= 50; //Don't bother chasing down a creep that can't accept more than 50 energy
+      //Don't bother chasing down a creep that can't accept more than 50 energy. The 2 CARRY upgrader
+      //body clears this for half of its refill cycle, unlike the old 1 CARRY body which only ever
+      //qualified while completely empty.
+      return creep.id !== this.id && creep.memory.counts.work && creep.memory.seated !== false && getResourceSpace(creep, resourceType) >= 50;
     };
+    const checkUpgrader = (creep:Creep)=>creep.memory.role === CreepRoleName.Upgrader && checkCreep(creep);
     const target =
       storedTarget instanceof Creep && checkCreep(storedTarget) && storedTarget ||
+      this.pos.findClosestByRange(FIND_MY_CREEPS, {
+        filter: checkUpgrader
+      }) ||
       this.pos.findClosestByRange(FIND_MY_CREEPS, {
         filter: checkCreep
       });
