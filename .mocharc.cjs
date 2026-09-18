@@ -11,7 +11,7 @@ require("ts-node").register({
 });
 
 module.exports = {
-  require: ["test/setup-mocha.js", "tsconfig-paths/register"],
+  require: ["test/setup-mocha.cjs", "tsconfig-paths/register"],
   extension: ["ts"],
   spec: "test/unit/**/*.ts",
   ignore: ["test/unit/main.test.ts"],
