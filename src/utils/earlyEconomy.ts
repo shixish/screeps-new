@@ -1,5 +1,6 @@
 import { CreepRoleName } from "./constants";
 import { getSpawnRoadPath } from "./map";
+import { findSwampTilesNear } from "./spawnPlacement";
 
 /*
   Early game economy helpers.
@@ -13,6 +14,7 @@ import { getSpawnRoadPath } from "./map";
 export interface EarlyRoadPlanMemory{
   source: number[]; //Walk paths from the spawn out to each source, plus the walkable harvest seats around them.
   controller: number[]; //Walk path from the spawn to the controller.
+  swamp?: number[]; //Swamp tiles near the spawn - optional so rooms planned before this still load.
   complete?: boolean; //Sticky flag set once every priority tile has a road or a road construction site on it.
 }
 
@@ -21,6 +23,14 @@ export const CONTROLLER_DOWNGRADE_GRACE = 3000;
 
 //Cap how many road sites we drop in a single pass so early builders aren't spread over the whole room.
 export const MAX_EARLY_ROAD_SITES = 20;
+
+/*
+  Near-spawn swamp paving. Swamp costs 5x plain to walk, so the tiles right around the spawn are where
+  early traffic gets punished most. Kept deliberately small: a road on swamp also costs 5x a plain road
+  (1500 energy), so we pave a handful of the closest tiles rather than a whole radius.
+*/
+export const SPAWN_SWAMP_ROAD_RANGE = 4;
+export const MAX_SPAWN_SWAMP_ROAD_TILES = 8;
 
 const NEIGHBOR_COORDS = [[-1,-1], [0,-1], [1,-1], [-1,0], [1,0], [-1,1], [0,1], [1,1]] as const;
 
@@ -73,7 +83,21 @@ export function planEarlyRoads(room:Room, spawn:StructureSpawn, sources:CreepSou
     getSpawnRoadPath(spawn, room.controller.pos).forEach(step=>addPos(controller, step.x, step.y));
   }
 
-  return { source, controller };
+  //Priority 3: the swamp right around the spawn that the paths above don't already cover.
+  const swamp = planSpawnSwampRoads(room, spawn, source.concat(controller));
+
+  return { source, controller, swamp };
+}
+
+/*
+  Swamp tiles near the spawn, nearest first. `exclude` drops tiles another road batch already covers,
+  which also keeps the total swamp spend at or under MAX_SPAWN_SWAMP_ROAD_TILES roads.
+*/
+export function planSpawnSwampRoads(room:Room, spawn:StructureSpawn, exclude:number[] = [], range = SPAWN_SWAMP_ROAD_RANGE, limit = MAX_SPAWN_SWAMP_ROAD_TILES){
+  const terrain = room.getTerrain();
+  return findSwampTilesNear(spawn.pos.x, spawn.pos.y, (x, y)=>terrain.get(x, y), range, limit)
+    .map(tile=>packRoadPos(tile.x, tile.y))
+    .filter(packed=>!exclude.includes(packed));
 }
 
 export function getEarlyRoadPlan(room:Room){
@@ -81,7 +105,10 @@ export function getEarlyRoadPlan(room:Room){
 }
 
 export function ensureEarlyRoadPlan(room:Room, spawn:StructureSpawn, sources:CreepSourceAnchor[]){
-  return room.memory.earlyRoads || (room.memory.earlyRoads = planEarlyRoads(room, spawn, sources));
+  const plan = room.memory.earlyRoads || (room.memory.earlyRoads = planEarlyRoads(room, spawn, sources));
+  //Rooms planned before near-spawn swamp paving existed don't have the list yet.
+  if (!plan.swamp) plan.swamp = planSpawnSwampRoads(room, spawn, plan.source.concat(plan.controller));
+  return plan;
 }
 
 export function getRoadTileState(room:Room, packed:number):RoadTileState{

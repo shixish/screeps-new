@@ -102,7 +102,8 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
       0: roads right around the spawn so the drones don't trip over each other on the way out
       1: roads out to each source plus roads across that source's harvest seats
       2: a road from the spawn to the controller
-      3: source containers, deferred so they can't hold up the roads
+      3: the near-spawn swamp tiles the road paths didn't already cover (swamp walks 5x slower)
+      4: source containers, deferred so they can't hold up the roads
   */
   createConstructionSitesCL1():boolean{
     const [ spawn ] = this.home.find(FIND_MY_SPAWNS);
@@ -126,6 +127,11 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
       }
       break;
       case 3:{
+        //Near-spawn swamp. Sized/capped in earlyEconomy - swamp roads cost 5x a plain road to build.
+        if (placeEarlyRoadSites(this.home, this.earlyRoadPlan.swamp ?? []) === 0) this.buildSubStage++;
+      }
+      break;
+      case 4:{
         this.homeAudit.sources.forEach(source=>{
           const sourceContainerPos = getBestContainerLocation(source.pos, spawn.pos);
           this.home.createConstructionSite(sourceContainerPos, STRUCTURE_CONTAINER);

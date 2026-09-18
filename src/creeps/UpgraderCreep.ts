@@ -4,16 +4,21 @@ import { BasicCreep, CreepBody } from "./BasicCreep";
 
 /*
   Dedicated static upgrader: sits on the container next to the controller, pulls energy from that
-  container, and relentlessly upgrades. Small CARRY (right next to the box) and 1 MOVE to walk onto
-  the seat - same spirit as the static source miners. Couriers (see startStocking / UpgradeFlag) keep
-  the controller container supplied once source miners are producing.
+  container, and relentlessly upgrades. Same spirit as the static source miners - maximize WORK for the
+  energy budget and let the courier tug do the walking - with one hard floor: upgradeController spends
+  energy out of the creep's own store, so a 0 CARRY upgrader has 0 capacity and can never upgrade at
+  all. One CARRY is therefore the minimum, and the container underfoot keeps refilling it.
 */
 export class UpgraderCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 1,
     tiers: [
+      /*
+        Max WORK + minimum CARRY + 0 MOVE (courier tug seats it, see utils/seatTug). The small tiers
+        keep a 1 MOVE self-walk sibling for when no courier is free. At the CL1 cap of 300 the best
+        body is [WORK, WORK, CARRY] (250) - the spare 50 only buys a MOVE, never a third WORK.
+      */
       {
-        //0 MOVE: courier tugs onto the controller container. Tiny CARRY since the box is underfoot.
         body: new CreepBody([
           WORK, WORK,
           CARRY,
@@ -28,34 +33,42 @@ export class UpgraderCreep extends BasicCreep {
         ], 300),
       },
       {
+        //CL2 cap (550).
         body: new CreepBody([
-          WORK, WORK, WORK, WORK,
+          WORK, WORK, WORK, WORK, WORK,
+          CARRY,
+        ], 550),
+      },
+      {
+        body: new CreepBody([
+          WORK, WORK, WORK, WORK, WORK,
           CARRY,
           MOVE,
-        ], 500),
+        ], 600),
       },
       {
+        //CL3 cap (800). Second CARRY so a bigger body isn't withdrawing every other tick.
         body: new CreepBody([
-          WORK, WORK, WORK, WORK, WORK, WORK,
+          WORK, WORK, WORK, WORK, WORK, WORK, WORK,
           CARRY, CARRY,
-          MOVE,
-        ], 750),
+        ], 800),
       },
       {
+        //CL4 cap (1300).
         body: new CreepBody([
           WORK, WORK, WORK, WORK, WORK,
           WORK, WORK, WORK, WORK, WORK,
+          WORK, WORK,
           CARRY, CARRY,
-          MOVE,
-        ], 1150),
+        ], 1300),
       },
       {
+        //15 WORK is the RCL8 controller cap of 15 energy/tick.
         body: new CreepBody([
           WORK, WORK, WORK, WORK, WORK,
           WORK, WORK, WORK, WORK, WORK,
           WORK, WORK, WORK, WORK, WORK,
           CARRY, CARRY, CARRY,
-          MOVE, MOVE,
         ], 1750),
       }
     ],

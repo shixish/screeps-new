@@ -772,6 +772,15 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
   moveWithinRange(pos:RoomPosition, preferredRange:number=1, acceptableRange?:number){
     const range = this.pos.getRangeTo(pos);
     if (range <= preferredRange) return false;
+    /*
+      Zero MOVE statics (the max-WORK miners/upgraders) can't walk anywhere - the courier tug seats
+      them (utils/seatTug). Don't burn CPU pathing or log ERR_NO_BODYPART every tick; just report that
+      we aren't in position yet, unless we're already close enough to do the job from here.
+    */
+    if (!(this.memory.counts[MOVE] || 0)){
+      if (acceptableRange && range <= acceptableRange) return false;
+      return true;
+    }
     //Path to the requested range, not onto the target tile: interacting happens from an adjacent tile,
     //and stepping onto a container evicts whoever is supposed to be sitting there.
     const moving = this.moveTo(pos, { range: preferredRange });
