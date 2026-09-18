@@ -7,6 +7,7 @@ import {
   computeWalkCostMap,
   countWalkableNeighbors,
   findOptimalSpawnTile,
+  findSwampTilesNear,
   hillClimbBestTile,
   isEdgeTile,
   isValidSpawnTile,
@@ -53,6 +54,30 @@ describe("spawnPlacement", () => {
     const island = makeTerrain(WALL);
     setTile(island, 20, 20, PLAIN);
     assert.isFalse(isValidSpawnTile(20, 20, getter(island)));
+  });
+
+  it("finds near-spawn swamp tiles nearest first, capped, and off the room edge", () => {
+    const terrain = makeTerrain(PLAIN);
+    setTile(terrain, 25, 24, SWAMP); //range 1
+    setTile(terrain, 27, 25, SWAMP); //range 2
+    setTile(terrain, 29, 25, SWAMP); //range 4
+    setTile(terrain, 31, 25, SWAMP); //range 6, outside the radius
+    setTile(terrain, 25, 20, WALL);
+
+    assert.deepEqual(findSwampTilesNear(25, 25, getter(terrain), 4, 8), [
+      { x: 25, y: 24 },
+      { x: 27, y: 25 },
+      { x: 29, y: 25 }
+    ]);
+    assert.deepEqual(findSwampTilesNear(25, 25, getter(terrain), 4, 2), [
+      { x: 25, y: 24 },
+      { x: 27, y: 25 }
+    ]);
+
+    const edge = makeTerrain(PLAIN);
+    setTile(edge, 0, 1, SWAMP);
+    setTile(edge, 2, 1, SWAMP);
+    assert.deepEqual(findSwampTilesNear(1, 1, getter(edge), 1, 8), [{ x: 2, y: 1 }]);
   });
 
   it("computes walk costs around walls rather than chebyshev shortcuts", () => {

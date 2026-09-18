@@ -6,7 +6,13 @@ export class HarvesterCreep extends BasicCreep {
   static config:CreepRole = {
     authority: 2,
     tiers: [
-      //Domestic static miners: 0 MOVE prefers courier tug onto the container; 1 MOVE is the self-walk fallback.
+      /*
+        Domestic static miners: zero CARRY (everything drops into the container underfoot) and as much
+        WORK as the room's energy capacity buys. 0 MOVE is the preferred shape - the courier tug
+        (utils/seatTug) drags the miner onto its container seat - so every point of energy goes into
+        WORK. Each tier has a 1 MOVE self-walk sibling 50 energy up for when no courier is free to tug.
+        At the CL1 cap of 300 the max-WORK body is [WORK, WORK, WORK].
+      */
       {
         body: new CreepBody([WORK, WORK], 200),
       },
@@ -14,10 +20,29 @@ export class HarvesterCreep extends BasicCreep {
         body: new CreepBody([WORK, WORK, MOVE], 250),
       },
       {
+        body: new CreepBody([WORK, WORK, WORK], 300),
+      },
+      {
+        body: new CreepBody([WORK, WORK, WORK, MOVE], 350),
+      },
+      {
+        body: new CreepBody([WORK, WORK, WORK, WORK], 400),
+      },
+      {
+        body: new CreepBody([WORK, WORK, WORK, WORK, MOVE], 450),
+      },
+      {
         body: new CreepBody([WORK, WORK, WORK, WORK, WORK], 500),
       },
       {
         body: new CreepBody([WORK, WORK, WORK, WORK, WORK, MOVE], 550),
+      },
+      //4000 energy sources (getOptimalWorkParts() === 7) are worth a bigger miner.
+      {
+        body: new CreepBody([WORK, WORK, WORK, WORK, WORK, WORK, WORK], 700),
+      },
+      {
+        body: new CreepBody([WORK, WORK, WORK, WORK, WORK, WORK, WORK, MOVE], 750),
       },
 
       //Remote Harvesters:

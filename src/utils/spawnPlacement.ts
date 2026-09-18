@@ -147,6 +147,33 @@ export function chebyshevRing(cx: number, cy: number, radius: number): TilePos[]
 }
 
 /**
+ * Swamp tiles around (cx, cy) within a Chebyshev radius, nearest first, buildable tiles only.
+ * Swamp movement costs 5x plain, so near-spawn swamp is where early traffic gets punished most.
+ * `limit` keeps the list short on purpose - a road on swamp costs 5x a plain road to build.
+ */
+export function findSwampTilesNear(
+  cx: number,
+  cy: number,
+  getTerrain: (x: number, y: number) => number,
+  range: number,
+  limit: number
+): TilePos[] {
+  const found: { x: number; y: number; range: number }[] = [];
+  for (let dy = -range; dy <= range; dy++) {
+    for (let dx = -range; dx <= range; dx++) {
+      const x = cx + dx;
+      const y = cy + dy;
+      if (isEdgeTile(x, y)) continue; //Nothing can be built on the exit tiles.
+      if (getTerrain(x, y) !== TERRAIN_SWAMP) continue;
+      found.push({ x, y, range: chebyshevDistance(cx, cy, x, y) });
+    }
+  }
+  //Nearest first: the tiles right outside the spawn carry the most traffic.
+  found.sort((a, b) => a.range - b.range || a.y - b.y || a.x - b.x);
+  return found.slice(0, limit).map(tile => ({ x: tile.x, y: tile.y }));
+}
+
+/**
  * Spiral outward from origin (Chebyshev rings) until the first valid
  * STRUCTURE_SPAWN tile. Origin itself is tried first even if it is a wall.
  */
