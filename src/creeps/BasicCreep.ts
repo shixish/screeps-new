@@ -1,7 +1,7 @@
 import { RemoteFlag } from "flags/_RemoteFlag";
-import { CreepRoleName, CreepRoleNames, DEBUG, FlagType, maxStorageFill, PARTS, PART_COST } from "utils/constants";
+import { CreepRoleName, CreepRoleNames, DEBUG, FlagType, maxStorageFill, PARTS, PART_COST, UPGRADE_CONTAINER_RESERVE } from "utils/constants";
 import { areSourcesStaticallyMined, canFeedController } from "utils/earlyEconomy";
-import { isSeatPosition } from "utils/seatTug";
+import { isSeatPosition, stepOffSeat } from "utils/seatTug";
 import { claimAmount, getClaimedAmount, getFlagManager, getResourceAvailable, getResourceSpace, getRoomAudit } from "utils/tickCache";
 
 export function calculateBiteSize (creep:Creep){
@@ -713,6 +713,47 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
     return null;
   }
 
+
+  /*
+    Last-resort energy sink: an idle Basic (nothing to fill, build, repair, stock or store) tops up from
+    the controller container's *surplus* and dumps it into the controller. Everything above this in
+    work() already declined, and we never take the last UPGRADE_CONTAINER_RESERVE - that reserve belongs
+    to the dedicated static upgrader sitting on the box.
+  */
+  startIdleUpgradeFromContainer(storedTarget?:TargetableTypes){
+    if (!this.canWork || !this.canCarry) return null;
+    const controller = this.room.controller;
+    if (!controller || !controller.my) return null;
+    const roomAudit = getRoomAudit(this.room);
+    const homeDrones = roomAudit.flags[FlagType.Home]?.[0]?.cohorts?.drones;
+    //Harvest coverage / priority roads / downgrade grace still gate any upgrading.
+    if (!canFeedController(this.room, roomAudit, homeDrones)) return null;
+
+    //Standing on the box locks the static upgrader out of its seat: withdraw and upgrade from beside it.
+    stepOffSeat(this);
+
+    const resourceType = RESOURCE_ENERGY;
+    //Already carrying something? Spend it on the controller rather than idling with it.
+    if (this.store.getUsedCapacity(resourceType) > 0) return this.startUpgrading(storedTarget);
+
+    const freeCapacity = this.store.getFreeCapacity(resourceType);
+    if (freeCapacity === 0) return null;
+    const checkSurplus = (container:StructureContainer)=>{
+      return getResourceAvailable(container, resourceType) - UPGRADE_CONTAINER_RESERVE;
+    };
+    const container =
+      storedTarget instanceof StructureContainer && checkSurplus(storedTarget) > 0 && storedTarget ||
+      roomAudit.controller?.containers.find(container=>checkSurplus(container) > 0);
+    if (!container) return null;
+    const amount = Math.min(freeCapacity, checkSurplus(container));
+    //Claim the surplus so a second Basic heading for the same box can't race the reserve below the floor.
+    if (this.moveWithinRange(container.pos, 1) || this.manageActionCode(this.withdraw(container, resourceType, amount))){
+      claimAmount(container.id, resourceType, amount);
+      return container;
+    }
+    return null;
+  }
+
   /**
    * Utils
    */
@@ -886,9 +927,10 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
 
     if (energy > 0){ //Do something with the energy
       // if (this.commute()) return;
-      if (this.rememberAction(this.startEnergizing, 'energizing', ['upgrading', 'building', 'repairing'])) return;
-      if (this.rememberAction(this.startBuilding, 'building', ['upgrading'])) return;
-      if (this.rememberAction(this.startRepairing, 'repairing', ['upgrading'])) return;
+      if (this.rememberAction(this.startEnergizing, 'energizing', ['upgrading', 'building', 'repairing', 'idleUpgrading'])) return;
+      if (this.rememberAction(this.startBuilding, 'building', ['upgrading', 'idleUpgrading'])) return;
+      if (this.rememberAction(this.startRepairing, 'repairing', ['upgrading', 'idleUpgrading'])) return;
+      //Stocking deliberately can't override idleUpgrading - it would pump energy straight back into the same box.
       if (this.rememberAction(this.startStocking, 'stocking', ['upgrading'])) return;
       // if (this.rememberAction(this.startSpreading, 'spreading')) return; //basic workers don't need to spread their energy around
       /*
@@ -912,6 +954,16 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
     if (!areSourcesStaticallyMined(roomAudit) && !roomAudit.creepCountsByRole[CreepRoleName.RemoteWorker]){
       if (this.rememberAction(this.startHarvesting, 'mining')) return;
     }
+
+    /*
+      Nothing better to do: drain the controller container's surplus into the controller. Last in the
+      priority list so it never outranks real work, and floored at UPGRADE_CONTAINER_RESERVE so the
+      dedicated static upgrader always has energy under it. rememberAction keeps the withdraw->upgrade
+      round trip together; only the energize/build/repair overrides above can preempt it.
+      Stocking deliberately can't override idleUpgrading - it would pump the energy straight back into
+      the same box.
+    */
+    if (this.rememberAction(this.startIdleUpgradeFromContainer, 'idleUpgrading')) return;
 
     this.idle();
 
