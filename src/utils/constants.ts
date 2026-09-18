@@ -79,3 +79,9 @@ export const maxStorageFill = (resourceType:ResourceConstant)=>{
 //Towers will continue to repair as long as storage is above this percentage of the max fill.
 export const TOWER_REPAIR_STORAGE_MIN = SOURCE_STORAGE_FILL*0.75;
 export const UPGRADER_STORAGE_MIN = SOURCE_STORAGE_FILL*0.5;
+
+/*
+  Energy left in the controller container for the dedicated static upgrader. Idle Basics may only
+  drain the surplus above this line, so the static never finds its box empty underfoot.
+*/
+export const UPGRADE_CONTAINER_RESERVE = 200;
