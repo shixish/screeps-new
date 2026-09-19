@@ -24,6 +24,11 @@ import { diamondRingCoordinates } from "./map";
   Once every phase 2 tile is a *built* road (not merely a construction site), exactly four extensions go
   into the pockets those rings enclose: the four edge-neighbour centres themselves. No fifth extension
   on the spawn tile - the spawn already owns that pod centre.
+
+  Those pockets are a preference, not a requirement. A spawn can be boxed in hard enough that every
+  lattice slot is a wall, a source or somebody else's structure, and a room that refuses to place its
+  first four extensions anywhere else never leaves the 300 energy cap - so the slot list degrades
+  through the pod arms to any free tile near the spawn (see spawnCirculationExtensionSlots).
 */
 
 export interface SpawnCirculationMemory{
@@ -32,6 +37,7 @@ export interface SpawnCirculationMemory{
   extensions: { x:number, y:number }[]; //Pocket extensions that have actually been placed.
   roadsComplete?: boolean; //Sticky: every circulation road tile is built (or can never be built).
   extensionsPlaced?: boolean; //Sticky: all SPAWN_CIRCULATION_EXTENSIONS pockets have sites/structures.
+  fallbackLogged?: boolean; //Sticky: we already reported that the lattice pockets were unusable.
   planned: number; //Game.time the plan was built.
 }
 
@@ -43,6 +49,9 @@ export const SPAWN_CIRCULATION_EXTENSIONS = 4;
 
 //Road sites placed per pass, same budget the early road batches use.
 export const MAX_SPAWN_CIRCULATION_SITES = 12;
+
+//How far from the spawn the last-resort search looks when the whole lattice around it is blocked.
+export const SPAWN_CIRCULATION_FALLBACK_RANGE = 6;
 
 type Coord = [number, number];
 
@@ -101,12 +110,61 @@ export function spawnCirculationPocketArms(cx:number, cy:number):Coord[]{
   return [[cx-1, cy], [cx+1, cy], [cx, cy-1], [cx, cy+1]];
 }
 
-/* Pocket slots in preference order: every centre first, then the arms of each centre. */
+/*
+  Lattice parity of a tile relative to the spawn, used to rank the last-resort slots:
+    0 - a pod centre (both offsets even), the tile the lattice actually wants an extension on.
+    1 - a pod arm (odd Manhattan offset), still on the grid.
+    2 - a pod ring tile (both offsets odd), off the grid and in the way of future traffic.
+*/
+const latticeRank = (dx:number, dy:number)=>{
+  if (dx%2 === 0 && dy%2 === 0) return 0;
+  if ((dx+dy)%2 !== 0) return 1;
+  return 2;
+};
+
+/*
+  Last resort for a spawn whose whole lattice is boxed in (sources, walls, a tower and its rampart all
+  sitting in the pockets - see W1N4). Every tile within SPAWN_CIRCULATION_FALLBACK_RANGE of the spawn
+  that isn't a planned circulation road, nearest first, on-lattice tiles before off-lattice ones at the
+  same distance. Purely geometric; terrain and structures are filtered in placeSpawnCirculationExtensions.
+*/
+export function spawnCirculationNearbySlots(sx:number, sy:number):Coord[]{
+  const roads = spawnCirculationDiagonals(sx, sy).concat(spawnCirculationOuterRing(sx, sy))
+    .map(([x, y])=>packRoadPos(x, y));
+  const slots:{ coord:Coord, distance:number, rank:number }[] = [];
+  for (let dx = -SPAWN_CIRCULATION_FALLBACK_RANGE; dx <= SPAWN_CIRCULATION_FALLBACK_RANGE; dx++){
+    for (let dy = -SPAWN_CIRCULATION_FALLBACK_RANGE; dy <= SPAWN_CIRCULATION_FALLBACK_RANGE; dy++){
+      const distance = Math.abs(dx) + Math.abs(dy);
+      if (distance === 0 || distance > SPAWN_CIRCULATION_FALLBACK_RANGE) continue;
+      const x = sx+dx, y = sy+dy;
+      if (!isBuildableCoord(x, y)) continue;
+      if (roads.includes(packRoadPos(x, y))) continue;
+      slots.push({ coord: [x, y], distance, rank: latticeRank(dx, dy) });
+    }
+  }
+  slots.sort((a, b)=>(
+    a.distance - b.distance ||
+    a.rank - b.rank ||
+    a.coord[0] - b.coord[0] ||
+    a.coord[1] - b.coord[1]
+  ));
+  return slots.map(({ coord })=>coord);
+}
+
+/*
+  Extension slots in preference order: every pocket centre, then the arms of each pocket, then the
+  spawn pod's own arms, then anything free near the spawn. The lattice slots come first so a room with
+  room to breathe stays on the grid; the nearby sweep only ever matters when they're all blocked.
+*/
 export function spawnCirculationExtensionSlots(sx:number, sy:number):Coord[]{
   const pockets = spawnCirculationPockets(sx, sy);
-  return dedupe(pockets.concat(pockets.reduce((out, [cx, cy])=>{
+  const pocketArms = pockets.reduce((out, [cx, cy])=>{
     return out.concat(spawnCirculationPocketArms(cx, cy));
-  }, [] as Coord[])));
+  }, [] as Coord[]);
+  return dedupe(pockets
+    .concat(pocketArms)
+    .concat(spawnCirculationPocketArms(sx, sy))
+    .concat(spawnCirculationNearbySlots(sx, sy)));
 }
 
 const canHoldRoad = (room:Room, x:number, y:number)=>{
@@ -168,24 +226,37 @@ const isFreeExtensionSlot = (room:Room, x:number, y:number, roadTiles:number[])=
   return true;
 };
 
+const hasExtension = (room:Room, x:number, y:number)=>(
+  room.lookForAt(LOOK_STRUCTURES, x, y).some(structure=>structure.structureType === STRUCTURE_EXTENSION) ||
+  room.lookForAt(LOOK_CONSTRUCTION_SITES, x, y).some(site=>site.structureType === STRUCTURE_EXTENSION)
+);
+
 /*
   Places the four pocket extensions directly (no buildQueue / diamond placement - the pockets are
-  already chosen by the lattice). Pockets that can't take one fall back to that pod's arm slots.
+  already chosen by the lattice). A pocket that can't take one falls back to that pod's arm slots, then
+  to the spawn pod's arms, then to whatever is free near the spawn - a boxed-in lattice must not leave
+  the room stuck at the 300 energy cap forever. Called every tick until all four are placed.
   Returns how many are still outstanding, so 0 means the circulation extensions are fully placed.
 */
 export function placeSpawnCirculationExtensions(room:Room, spawn:StructureSpawn, plan:SpawnCirculationMemory){
   const roadTiles = plan.phase1.concat(plan.phase2);
   const placed = plan.extensions || (plan.extensions = []);
   //Drop remembered slots that lost their extension (destroyed site, decayed structure) so they refill.
-  plan.extensions = placed.filter(({ x, y })=>(
-    room.lookForAt(LOOK_STRUCTURES, x, y).some(structure=>structure.structureType === STRUCTURE_EXTENSION) ||
-    room.lookForAt(LOOK_CONSTRUCTION_SITES, x, y).some(site=>site.structureType === STRUCTURE_EXTENSION)
-  ));
+  plan.extensions = placed.filter(({ x, y })=>hasExtension(room, x, y));
 
+  const pockets = spawnCirculationPockets(spawn.pos.x, spawn.pos.y).map(([x, y])=>packRoadPos(x, y));
   for (const [x, y] of spawnCirculationExtensionSlots(spawn.pos.x, spawn.pos.y)){
     if (plan.extensions.length >= SPAWN_CIRCULATION_EXTENSIONS) break;
-    if (!isFreeExtensionSlot(room, x, y, roadTiles)) continue;
+    if (!isFreeExtensionSlot(room, x, y, roadTiles)){
+      //An extension already standing on a slot counts as ours, however it got there.
+      if (hasExtension(room, x, y) && !plan.extensions.some(slot=>slot.x === x && slot.y === y)) plan.extensions.push({ x, y });
+      continue;
+    }
     if (room.createConstructionSite(x, y, STRUCTURE_EXTENSION) !== OK) continue;
+    if (!pockets.includes(packRoadPos(x, y)) && !plan.fallbackLogged){
+      plan.fallbackLogged = true;
+      console.log(`[${room.name}] spawn circulation pockets are blocked, falling back to (${x},${y}) for extensions`);
+    }
     plan.extensions.push({ x, y });
   }
 

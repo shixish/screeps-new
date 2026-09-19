@@ -2,8 +2,10 @@ import { assert } from "chai";
 import { packRoadPos } from "../../src/utils/earlyEconomy";
 import {
   SPAWN_CIRCULATION_EXTENSIONS,
+  SPAWN_CIRCULATION_FALLBACK_RANGE,
   spawnCirculationDiagonals,
   spawnCirculationEdgeCentres,
+  spawnCirculationNearbySlots,
   spawnCirculationOuterRing,
   spawnCirculationPocketArms,
   spawnCirculationPockets,
@@ -87,5 +89,68 @@ describe("spawn circulation geometry", () => {
     const slots = spawnCirculationExtensionSlots(25, 25);
     assert.deepEqual(pack(slots.slice(0, 4)), pack(spawnCirculationPockets(25, 25)));
     assert.lengthOf(new Set(pack(slots)), slots.length);
+  });
+
+  it("nearby fallback slots stay off the circulation roads and come nearest first", () => {
+    const slots = spawnCirculationNearbySlots(25, 25);
+    const roads = pack(spawnCirculationDiagonals(25, 25)).concat(pack(spawnCirculationOuterRing(25, 25)));
+    assert.isNotEmpty(slots);
+    assert.lengthOf(new Set(pack(slots)), slots.length);
+    slots.forEach(([x, y]) => {
+      const distance = Math.abs(x - 25) + Math.abs(y - 25);
+      assert.isAbove(distance, 0);
+      assert.isAtMost(distance, SPAWN_CIRCULATION_FALLBACK_RANGE);
+      assert.notInclude(roads, packRoadPos(x, y));
+    });
+    const distances = slots.map(([x, y]) => Math.abs(x - 25) + Math.abs(y - 25));
+    distances.forEach((distance, index) => index && assert.isAtLeast(distance, distances[index - 1]));
+    //The spawn pod's own arms are the closest thing to the spawn that isn't a road.
+    assert.deepEqual(pack(slots.slice(0, 4)), pack(spawnCirculationPocketArms(25, 25)));
+  });
+
+  it("nearby fallback slots prefer lattice tiles at the same distance", () => {
+    const slots = spawnCirculationNearbySlots(25, 25);
+    //Manhattan 3 is all arm parity, so the neighbouring pods' arms are in there.
+    const distance3 = slots.filter(([x, y]) => Math.abs(x - 25) + Math.abs(y - 25) === 3);
+    assert.includeDeepMembers(distance3, [[26, 27], [24, 23]]);
+    //0 = pod centre, 1 = pod arm, 2 = off the lattice. Rank never drops inside a distance band.
+    const rank = ([x, y]: [number, number]) => {
+      const dx = x - 25, dy = y - 25;
+      if (dx % 2 === 0 && dy % 2 === 0) return 0;
+      return (dx + dy) % 2 !== 0 ? 1 : 2;
+    };
+    for (let distance = 1; distance <= SPAWN_CIRCULATION_FALLBACK_RANGE; distance++) {
+      const band = slots.filter(([x, y]) => Math.abs(x - 25) + Math.abs(y - 25) === distance).map(rank);
+      band.forEach((value, index) => index && assert.isAtLeast(value, band[index - 1]));
+    }
+    //The pod centres one step past the pockets beat the off-lattice tiles the same distance out.
+    const distance6 = slots.filter(([x, y]) => Math.abs(x - 25) + Math.abs(y - 25) === 6);
+    assert.equal(rank(distance6[0]), 0);
+    assert.isTrue(distance6.some(coord => rank(coord) === 2));
+  });
+
+  it("the fallback keeps enough free tiles to finish the extensions off-lattice", () => {
+    //W1N4: every pocket and nearly every arm is blocked, so the sweep has to supply the slots.
+    const slots = spawnCirculationExtensionSlots(27, 10);
+    const beyondLattice = slots.filter(([x, y]) => (
+      !spawnCirculationPockets(27, 10).some(([px, py]) => px === x && py === y) &&
+      !spawnCirculationEdgeCentres(27, 10).some(([cx, cy]) => (
+        spawnCirculationPocketArms(cx, cy).some(([ax, ay]) => ax === x && ay === y)
+      ))
+    ));
+    assert.isAtLeast(beyondLattice.length, SPAWN_CIRCULATION_EXTENSIONS);
+    //Free plain tiles the live room actually had, which the old pocket-only list never reached.
+    [[30, 10], [24, 10], [27, 7]].forEach(([x, y]) => {
+      assert.include(pack(slots), packRoadPos(x, y));
+    });
+  });
+
+  it("slots near the room edge stay inside the buildable area", () => {
+    spawnCirculationNearbySlots(3, 46).forEach(([x, y]) => {
+      assert.isAtLeast(x, 1);
+      assert.isAtLeast(y, 1);
+      assert.isAtMost(x, 48);
+      assert.isAtMost(y, 48);
+    });
   });
 });

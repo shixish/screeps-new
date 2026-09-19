@@ -38,6 +38,14 @@ export class UpgraderCreep extends BasicCreep {
         ], 350),
       },
       {
+        //The room's first four extensions (spawn circulation pockets) buy this: max WORK for 500 that
+        //still keeps the two CARRY the courier feed wants.
+        body: new CreepBody([
+          WORK, WORK, WORK, WORK,
+          CARRY, CARRY,
+        ], 500),
+      },
+      {
         //CL2 cap (550).
         body: new CreepBody([
           WORK, WORK, WORK, WORK, WORK,
@@ -74,7 +82,7 @@ export class UpgraderCreep extends BasicCreep {
           WORK, WORK, WORK, WORK, WORK,
           WORK, WORK, WORK, WORK, WORK,
           CARRY, CARRY, CARRY,
-        ], 1750),
+        ], 1650),
       }
     ],
   }

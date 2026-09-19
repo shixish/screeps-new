@@ -46,6 +46,10 @@ export class CourierCreep extends BasicCreep {
     //   return Math.min(roomAudit.creepCountsByRole.harvester*2, roomAudit.sources.length*2);
     // },
     tiers: [
+      /*
+        One MOVE per CARRY, always. A courier walks loaded, so an extra CARRY without its MOVE just
+        halves the creep's speed on plain terrain - which is why every tier here is a round hundred.
+      */
       {
         body: new CreepBody([
           CARRY, MOVE,
@@ -62,14 +66,24 @@ export class CourierCreep extends BasicCreep {
         ], 400),
       },
       {
+        //The first four extensions (spawn circulation pockets) buy this.
         body: new CreepBody([
           CARRY, MOVE,
           CARRY, MOVE,
           CARRY, MOVE,
           CARRY, MOVE,
           CARRY, MOVE,
-          CARRY,
-        ], 550),
+        ], 500),
+      },
+      {
+        body: new CreepBody([
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+          CARRY, MOVE,
+        ], 600),
       },
       {
         body: new CreepBody([

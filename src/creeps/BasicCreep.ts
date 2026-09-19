@@ -98,6 +98,14 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
         ], 400),
       },
       {
+        //The first four extensions (spawn circulation pockets) buy this: +2 WORK over the 300 body.
+        body: new CreepBody([
+          WORK,
+          WORK, MOVE, CARRY,
+          WORK, MOVE, CARRY,
+        ], 500),
+      },
+      {
         body: new CreepBody([
           WORK, MOVE,
           WORK, MOVE, CARRY,
@@ -691,7 +699,12 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
   startBuilding(storedTarget:TargetableTypes){
     if (!this.canWork) return null;
     if (this.store.getUsedCapacity(RESOURCE_ENERGY) === 0) return null;
+    //Extensions first: until the room's first four are standing it's stuck at the 300 energy cap, so
+    //every body the spawn can build stays small. Everything else can wait a few hundred ticks.
     const construction =
+      this.pos.findClosestByRange(FIND_MY_CONSTRUCTION_SITES, {
+        filter: site=>site.structureType === STRUCTURE_EXTENSION && site.room?.name === this.room.name
+      }) ||
       this.flag?.flag.room && this.flag.pos.findClosestByRange(FIND_MY_CONSTRUCTION_SITES) ||
       this.pos.findClosestByRange(FIND_MY_CONSTRUCTION_SITES, {
         filter: site=>{
