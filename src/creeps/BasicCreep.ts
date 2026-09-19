@@ -1,6 +1,7 @@
 import { RemoteFlag } from "flags/_RemoteFlag";
 import { CreepRoleName, CreepRoleNames, DEBUG, FlagType, maxStorageFill, PARTS, PART_COST, UPGRADE_CONTAINER_RESERVE } from "utils/constants";
 import { areSourcesStaticallyMined, canFeedController } from "utils/earlyEconomy";
+import { isLowPriorityBuild } from "utils/nearSpawnStorage";
 import { isSeatPosition, stepOffSeat } from "utils/seatTug";
 import { claimAmount, getClaimedAmount, getFlagManager, getResourceAvailable, getResourceSpace, getRoomAudit } from "utils/tickCache";
 
@@ -699,11 +700,24 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
   startBuilding(storedTarget:TargetableTypes){
     if (!this.canWork) return null;
     if (this.store.getUsedCapacity(RESOURCE_ENERGY) === 0) return null;
-    //Extensions first: until the room's first four are standing it's stuck at the 300 energy cap, so
-    //every body the spawn can build stays small. Everything else can wait a few hundred ticks.
+    /*
+      Three tiers, in this order:
+        1. Extensions. Until the room's first four are standing it's stuck at the 300 energy cap, so
+           every body the spawn can build stays small. Everything else can wait a few hundred ticks.
+        2. Everything else that isn't low priority - roads, containers, towers, spawns, ramparts.
+        3. The low priority sites, storage today (isLowPriorityBuild). Storage is queued the moment RCL4
+           unlocks it so the site is there early, but it's 30,000 energy of buffer that raises nothing:
+           a room that pours its builders into it before the structures around it just delays them all.
+           It still gets built - this tier is reached whenever nothing above it is outstanding.
+    */
+    const worthwhile = (site:ConstructionSite)=>!isLowPriorityBuild(site.structureType);
     const construction =
       this.pos.findClosestByRange(FIND_MY_CONSTRUCTION_SITES, {
         filter: site=>site.structureType === STRUCTURE_EXTENSION && site.room?.name === this.room.name
+      }) ||
+      this.flag?.flag.room && this.flag.pos.findClosestByRange(FIND_MY_CONSTRUCTION_SITES, { filter: worthwhile }) ||
+      this.pos.findClosestByRange(FIND_MY_CONSTRUCTION_SITES, {
+        filter: site=>site.room?.name === this.room.name && worthwhile(site)
       }) ||
       this.flag?.flag.room && this.flag.pos.findClosestByRange(FIND_MY_CONSTRUCTION_SITES) ||
       this.pos.findClosestByRange(FIND_MY_CONSTRUCTION_SITES, {
