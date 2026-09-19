@@ -166,6 +166,7 @@ declare global {
     earlyRoads?: import('utils/earlyEconomy').EarlyRoadPlanMemory;
     exitRoads?: import('utils/earlyEconomy').ExitRoadPlanMemory;
     spawnCirculation?: import('utils/spawnCirculation').SpawnCirculationMemory;
+    extensionPods?: import('utils/extensionPods').ExtensionPodPlanMemory;
 
     // sources: {
     //   [id:string]:any
