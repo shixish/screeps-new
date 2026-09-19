@@ -1,6 +1,7 @@
 import { Cohort } from "utils/Cohort";
 import { CreepPriority, CreepRoleName } from "utils/constants";
 import { areSourcesStaticallyMined, drawExitRoadPlan, ensureEarlyRoadPlan, ensureExitRoadPlan, getSourceSaturation, isPriorityRoadWorkComplete, placeEarlyRoadSites } from "utils/earlyEconomy";
+import { syncExitRoadFlags } from "utils/exitRoadFlags";
 import { advanceSpawnCirculation, drawSpawnCirculationPlan, ensureSpawnCirculationPlan, isCirculationPhasePlaced } from "utils/spawnCirculation";
 import { diamondCoordinates, diamondRingCoordinates, findDiamondPlacement, getBestContainerLocation, getSpawnRoadPath, getStructureCostMatrix } from "utils/map";
 import { BasicFlag, BasicFlagMemory } from "./_BasicFlag";
@@ -442,6 +443,7 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     const [ spawn ] = this.home.find(FIND_MY_SPAWNS);
     if (spawn) this.exitRoadPlan;
     drawExitRoadPlan(this.home); //Planned exit roads, see earlyEconomy.
+    syncExitRoadFlags(this.home); //Durable map markers for the same plan, see exitRoadFlags. Self throttled.
 
     if (spawn){
       /*
