@@ -16,6 +16,7 @@ export interface EarlyRoadPlanMemory{
   controller: number[]; //Walk path from the spawn to the controller.
   swamp?: number[]; //Swamp tiles near the spawn - optional so rooms planned before this still load.
   complete?: boolean; //Sticky flag set once every priority tile has a road or a road construction site on it.
+  blocked?: number[]; //Tiles the server refuses a road on. Treated as Satisfied so they can't stall a gate.
 }
 
 //Don't stall the controller forever if the roads somehow can't be finished.
@@ -45,7 +46,7 @@ export enum RoadTileState{
 }
 
 //Structures can't be built on the exit tiles, and the terrain walls aren't walkable to begin with.
-const isBuildableCoord = (x:number, y:number)=>x >= 1 && y >= 1 && x <= 48 && y <= 48;
+export const isBuildableCoord = (x:number, y:number)=>x >= 1 && y >= 1 && x <= 48 && y <= 48;
 
 /* The walkable tiles around a source. These are the seats harvesters sit on, so they get roads too. */
 export function getHarvestSeatPositions(room:Room, pos:RoomPosition){
@@ -113,6 +114,8 @@ export function ensureEarlyRoadPlan(room:Room, spawn:StructureSpawn, sources:Cre
 
 export function getRoadTileState(room:Room, packed:number):RoadTileState{
   const x = unpackRoadPosX(packed), y = unpackRoadPosY(packed);
+  //A tile the server has already refused a road on is never outstanding work - see placeEarlyRoadSites.
+  if (room.memory.earlyRoads?.blocked?.includes(packed)) return RoadTileState.Satisfied;
   for (const structure of room.lookForAt(LOOK_STRUCTURES, x, y)){
     if (structure.structureType === STRUCTURE_ROAD) return RoadTileState.Satisfied;
     //Something else (a container for instance) already owns this tile so a road can never go here.
@@ -125,9 +128,21 @@ export function getRoadTileState(room:Room, packed:number):RoadTileState{
   return RoadTileState.Missing;
 }
 
+export function markRoadTileBlocked(room:Room, packed:number){
+  const plan = room.memory.earlyRoads;
+  if (!plan) return;
+  const blocked = plan.blocked || (plan.blocked = []);
+  if (!blocked.includes(packed)) blocked.push(packed);
+}
+
 /*
   Places road construction sites for every planned tile that doesn't have one yet.
   Returns how many tiles still need a site, so 0 means this batch of road work is fully placed.
+  A limit of 0 places nothing and just counts the outstanding tiles.
+
+  Tiles the server refuses for any reason other than "not right now" (ERR_FULL / ERR_RCL_NOT_ENOUGH) are
+  remembered in plan.blocked. Without that they stay Missing on every later pass, which silently pins
+  isPriorityRoadWorkComplete to false forever and soft-locks every gate hanging off it.
 */
 export function placeEarlyRoadSites(room:Room, positions:number[], limit = MAX_EARLY_ROAD_SITES){
   let remaining = 0, placed = 0;
@@ -142,8 +157,9 @@ export function placeEarlyRoadSites(room:Room, positions:number[], limit = MAX_E
       placed++;
     }else if (result === ERR_FULL || result === ERR_RCL_NOT_ENOUGH){
       remaining++; //Out of construction site slots for now, try again on a later pass.
+    }else{
+      markRoadTileBlocked(room, packed); //A road can never be placed there, so it isn't outstanding work.
     }
-    //Any other error means a road can never be placed there, so it isn't outstanding work.
   }
   return remaining;
 }
@@ -506,19 +522,35 @@ export function canFeedController(room:Room, roomAudit:RoomAudit, droneCohort?:C
 }
 
 /*
+  The courier bootstrap gate: the infrastructure a first Courier needs to be useful.
+
+    - every source has its container (a courier with nothing to haul out of is dead weight), and
+    - at least one Basic per source, so specialists never replace the whole harvest plan the moment
+      the first container finishes.
+
+  Deliberately NOT gated on isPriorityRoadWorkComplete. Roads are a throughput optimisation; couriers
+  are the economy. Hanging the first courier off the road gate means any road tile that can't be
+  finished stops couriers, which stops static miners, which stops harvest coverage, which stops
+  canFeedController - the room then sits on a full spawn with idle Basics and never recovers.
+*/
+export function canBootstrapCourier(roomAudit:RoomAudit){
+  if (!roomAudit.sources.length) return false;
+  if (!roomAudit.sources.every(source=>source.containers.length > 0)) return false;
+  if ((roomAudit.creepCountsByRole[CreepRoleName.Basic] ?? 0) < roomAudit.sources.length) return false;
+  return true;
+}
+
+/*
   Infrastructure needed before the static-miner plan (and its bootstrap courier) can start.
   Until this passes, HomeFlag Basic drones remain the harvest plan — never starve sources to
   rush miners or the upgrader.
+
+  Same gate as canBootstrapCourier, and for the same reason: miners are what produce harvest coverage,
+  so gating them on roads reintroduces the soft-lock one step later. Roads still gate *upgrading* via
+  canFeedController, which has the controller-downgrade escape hatch.
 */
 export function canStartStaticMinerPlan(roomAudit:RoomAudit){
-  if (!isPriorityRoadWorkComplete(roomAudit.room)) return false;
-  if (!roomAudit.sources.length) return false;
-  //Every source needs its container seat before we commit to static miners.
-  if (!roomAudit.sources.every(source=>source.containers.length > 0)) return false;
-  //Basics-first bootstrap: keep at least one Basic per source so specialists don't replace the
-  //entire harvest/haul plan the moment the first container finishes.
-  if ((roomAudit.creepCountsByRole[CreepRoleName.Basic] ?? 0) < roomAudit.sources.length) return false;
-  return true;
+  return canBootstrapCourier(roomAudit);
 }
 
 /*

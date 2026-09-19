@@ -163,6 +163,7 @@ declare global {
     spawnBootstrap?: import('utils/spawnPlacement').SpawnBootstrapMemory;
     earlyRoads?: import('utils/earlyEconomy').EarlyRoadPlanMemory;
     exitRoads?: import('utils/earlyEconomy').ExitRoadPlanMemory;
+    spawnCirculation?: import('utils/spawnCirculation').SpawnCirculationMemory;
 
     // sources: {
     //   [id:string]:any
