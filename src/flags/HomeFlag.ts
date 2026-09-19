@@ -4,6 +4,7 @@ import { areSourcesStaticallyMined, drawExitRoadPlan, ensureEarlyRoadPlan, ensur
 import { syncExitRoadFlags } from "utils/exitRoadFlags";
 import { syncExtensionPodFlags } from "utils/extensionPodFlags";
 import { drawExtensionPodPlan, ensureExtensionPodPlan, getNextExtensionPod, placeExtensionPodSites, refreshExtensionPodPlan } from "utils/extensionPods";
+import { placeNearSpawnStorage } from "utils/nearSpawnStorage";
 import { advanceSpawnCirculation, drawSpawnCirculationPlan, ensureSpawnCirculationPlan, isCirculationPhasePlaced } from "utils/spawnCirculation";
 import { diamondCoordinates, diamondRingCoordinates, findDiamondPlacement, getBestContainerLocation, getSpawnRoadPath, getStructureCostMatrix } from "utils/map";
 import { BasicFlag, BasicFlagMemory } from "./_BasicFlag";
@@ -160,6 +161,18 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
   }
 
   /*
+    Storage goes in the core carve-out next to the spawn rather than wherever the structure matrix
+    happens to point (see utils/nearSpawnStorage). Returns false when every near-spawn tile is taken,
+    which is the caller's signal to fall back to findDiamondPlacement - a storage somewhere is still
+    worth far more than no storage at all.
+  */
+  placeStorageNearSpawn():boolean{
+    const [ spawn ] = this.home.find(FIND_MY_SPAWNS);
+    if (!spawn) return false;
+    return placeNearSpawnStorage(this.home, spawn);
+  }
+
+  /*
     Early construction runs strictly in priority order. Nothing is allowed to feed the controller until
     both road batches have their construction sites placed (see isPriorityRoadWorkComplete).
       0: the spawn circulation X - the four diagonals touching the spawn (see utils/spawnCirculation)
@@ -287,6 +300,11 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
   createConstructionSitesCL4():boolean{
     switch(this.buildSubStage){
       case 0:{
+        /*
+          Storage first in the queue so the site exists a tick or two after RCL4 and couriers can start
+          filling it the moment it's finished. Queue order is not build order: Basics rank storage below
+          every other site (see BasicCreep.startBuilding), so the extensions below still go up first.
+        */
         this.buildQueue.push(STRUCTURE_STORAGE);
 
         //Build 10 extensions:
@@ -523,12 +541,15 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
       try{
         /*
           Extensions come out of the tessellated pod plan, in plan order, so consecutive pods share road
-          edges instead of landing wherever the current structure matrix happens to point. Everything
-          else (towers, storage, spawns) still gets a single structure with its own road cross.
+          edges instead of landing wherever the current structure matrix happens to point, and storage
+          goes into the near-spawn core. Everything else (towers, spawns) still gets a single structure
+          with its own road cross, and both planners fall through to that when they run out of room.
         */
-        if (structureType !== STRUCTURE_EXTENSION || !this.placeNextExtensionPod()){
-          this.createDiamondConstructionSites(structureType);
-        }
+        const planned =
+          structureType === STRUCTURE_EXTENSION ? this.placeNextExtensionPod() :
+          structureType === STRUCTURE_STORAGE ? this.placeStorageNearSpawn() :
+          false;
+        if (!planned) this.createDiamondConstructionSites(structureType);
         this.memory.buildQueueRetries = 0;
       }catch(e:any){
         /*
