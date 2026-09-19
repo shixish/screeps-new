@@ -1,6 +1,7 @@
 import { Cohort } from "utils/Cohort";
 import { CreepPriority, CreepRoleName } from "utils/constants";
 import { areSourcesStaticallyMined, drawExitRoadPlan, ensureEarlyRoadPlan, ensureExitRoadPlan, getSourceSaturation, isPriorityRoadWorkComplete, placeEarlyRoadSites } from "utils/earlyEconomy";
+import { advanceSpawnCirculation, drawSpawnCirculationPlan, ensureSpawnCirculationPlan, isCirculationPhasePlaced } from "utils/spawnCirculation";
 import { diamondCoordinates, diamondRingCoordinates, findDiamondPlacement, getBestContainerLocation, getSpawnRoadPath, getStructureCostMatrix } from "utils/map";
 import { BasicFlag, BasicFlagMemory } from "./_BasicFlag";
 
@@ -13,7 +14,11 @@ export interface HomeFlagMemory extends BasicFlagMemory{
   buildStage?: number;
   buildSubStage?: number;
   buildQueue?: BuildableStructureConstant[];
+  buildQueueRetries?: number; //Failed placements for the entry at the head of the queue.
 }
+
+//How many ticks a queued structure is retried before it's dropped and the stages are allowed to move on.
+const MAX_BUILD_QUEUE_RETRIES = 3;
 
 export class HomeFlag extends BasicFlag<HomeFlagMemory> {
   cohorts = {
@@ -109,7 +114,7 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
   /*
     Early construction runs strictly in priority order. Nothing is allowed to feed the controller until
     both road batches have their construction sites placed (see isPriorityRoadWorkComplete).
-      0: roads right around the spawn so the drones don't trip over each other on the way out
+      0: the spawn circulation X - the four diagonals touching the spawn (see utils/spawnCirculation)
       1: roads out to each source plus roads across that source's harvest seats
       2: a road from the spawn to the controller
       3: the near-spawn swamp tiles the road paths didn't already cover (swamp walks 5x slower)
@@ -121,12 +126,13 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     if (!spawn) return false; //Everything here is laid out relative to the spawn.
     switch(this.buildSubStage){
       case 0:{
-        this.home.createConstructionSite(spawn.pos.x-1, spawn.pos.y, STRUCTURE_ROAD);
-        this.home.createConstructionSite(spawn.pos.x+1, spawn.pos.y, STRUCTURE_ROAD);
-        this.home.createConstructionSite(spawn.pos.x, spawn.pos.y-1, STRUCTURE_ROAD);
-        this.home.createConstructionSite(spawn.pos.x, spawn.pos.y+1, STRUCTURE_ROAD);
-
-        this.buildSubStage++;
+        /*
+          The X, not an orthogonal cross. (spawn.x±1, spawn.y) and (spawn.x, spawn.y±1) are the arm
+          slots of the spawn's own extension pod, so paving them fights the diamond lattice every
+          later pod is placed on. advanceSpawnCirculation (HomeFlag.work) does the placing; this only
+          waits for it.
+        */
+        if (isCirculationPhasePlaced(this.home, ensureSpawnCirculationPlan(this.home, spawn).phase1)) this.buildSubStage++;
       }
       break;
       case 1:{
@@ -165,17 +171,13 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     const [ spawn ] = this.home.find(FIND_MY_SPAWNS);
     switch(this.buildSubStage){
       case 0:{
-        //Make an outer ring around the first spawn. This will help place towers and storage later.
-        this.home.createConstructionSite(spawn.pos.x-2, spawn.pos.y-1, STRUCTURE_ROAD);
-        this.home.createConstructionSite(spawn.pos.x-1, spawn.pos.y-2, STRUCTURE_ROAD);
-        this.home.createConstructionSite(spawn.pos.x+2, spawn.pos.y-1, STRUCTURE_ROAD);
-        this.home.createConstructionSite(spawn.pos.x+1, spawn.pos.y-2, STRUCTURE_ROAD);
-        this.home.createConstructionSite(spawn.pos.x-2, spawn.pos.y+1, STRUCTURE_ROAD);
-        this.home.createConstructionSite(spawn.pos.x-1, spawn.pos.y+2, STRUCTURE_ROAD);
-        this.home.createConstructionSite(spawn.pos.x+2, spawn.pos.y+1, STRUCTURE_ROAD);
-        this.home.createConstructionSite(spawn.pos.x+1, spawn.pos.y+2, STRUCTURE_ROAD);
-
-        this.buildSubStage++;
+        /*
+          Circulation phase 2: the spawn's own Manhattan-2 road ring plus the rings of the four
+          edge-neighbour lattice centres, so traffic can go around the base rather than down one lane.
+          The old (±2,±1)/(±1,±2) ring this replaces sat off-lattice and boxed the pods out.
+          advanceSpawnCirculation places these; wait until every tile has a site or a road.
+        */
+        if (isCirculationPhasePlaced(this.home, ensureSpawnCirculationPlan(this.home, spawn).phase2)) this.buildSubStage++;
       }
       break;
       case 1:{
@@ -203,8 +205,11 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
           this.home.createConstructionSite(controllerContainerPos, STRUCTURE_CONTAINER);
         }
 
-        //Build 5 extensions:
-        this.buildQueue.push(STRUCTURE_EXTENSION);
+        /*
+          No extension diamond queued here: the first four extensions are the spawn circulation
+          pockets, placed straight onto the lattice by advanceSpawnCirculation once the phase 2 roads
+          are actually built. CL3's queued diamond still adds 5 more, for 9 of the 10 RCL3 allows.
+        */
 
         return true;
       }
@@ -434,19 +439,54 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
       this.home.visual.text(`roads first`, this.home.controller.pos.x, this.home.controller.pos.y-1.5, { font: 0.4, color: '#ff9999' });
     }
     //Ensure exit roads are planned (including rooms that already passed CL1 stage 4) then draw them.
-    if (this.home.find(FIND_MY_SPAWNS).length) this.exitRoadPlan;
+    const [ spawn ] = this.home.find(FIND_MY_SPAWNS);
+    if (spawn) this.exitRoadPlan;
     drawExitRoadPlan(this.home); //Planned exit roads, see earlyEconomy.
 
-    try{
-      //The building placement logic is heavy on CPU so only try to place one thing per tick.
-      //Do the build queue before createConstructionSites so that things queued will be constructed on the following tick.
-      const structureType = this.buildQueue.shift();
-      if (structureType){
-        this.createDiamondConstructionSites(structureType);
+    if (spawn){
+      /*
+        Spawn circulation staging runs every tick, outside the build stages. Rooms that were planned
+        before it existed are already past CL1/CL2 and would otherwise never get the lattice roads or
+        their four pocket extensions.
+      */
+      advanceSpawnCirculation(this.home, spawn);
+      drawSpawnCirculationPlan(this.home);
+
+      /*
+        Repair pass for the priority roads. The CL1 substages only place these once; if a planned tile
+        ever goes back to Missing (a site removed, a road destroyed) nothing would re-place it and the
+        road gate would stay false forever. Only runs while the gate is actually failing.
+      */
+      if (!isPriorityRoadWorkComplete(this.home)){
+        const plan = this.earlyRoadPlan;
+        if (placeEarlyRoadSites(this.home, plan.source) === 0) placeEarlyRoadSites(this.home, plan.controller);
       }
-    }catch(e:any){
-      //TODO: What happens if createDiamondConstructionSites fails? We'll have to fix it manually :shrug:
-      console.log(`[${this.roomName}] createDiamondConstructionSites error:`, e, e.stack);
+    }
+
+    //The building placement logic is heavy on CPU so only try to place one thing per tick.
+    //Do the build queue before createConstructionSites so that things queued will be constructed on the following tick.
+    const structureType = this.buildQueue.shift();
+    if (structureType){
+      try{
+        this.createDiamondConstructionSites(structureType);
+        this.memory.buildQueueRetries = 0;
+      }catch(e:any){
+        /*
+          findDiamondPlacement throws when it can't fit the diamond right now, which is often temporary
+          (the room is full of other sites, or a pod is half built). Dropping the queue entry on the
+          first throw is how a room ends up at RCL3 with zero extensions and a 300 energy cap, so put it
+          back and retry - but bounded, otherwise buildQueue never empties and the stages never advance.
+        */
+        const retries = (this.memory.buildQueueRetries ?? 0) + 1;
+        if (retries <= MAX_BUILD_QUEUE_RETRIES){
+          this.memory.buildQueueRetries = retries;
+          this.buildQueue.push(structureType);
+        }else{
+          this.memory.buildQueueRetries = 0;
+          console.log(`[${this.roomName}] dropping queued ${structureType} after ${MAX_BUILD_QUEUE_RETRIES} failed placements`);
+        }
+        console.log(`[${this.roomName}] createDiamondConstructionSites error:`, e, e.stack);
+      }
     }
 
     try{

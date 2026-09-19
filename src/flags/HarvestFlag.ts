@@ -1,6 +1,6 @@
 import { Cohort } from "utils/Cohort";
 import { CreepPriority, CreepRoleName, FlagType, USERNAME } from "utils/constants";
-import { canSpawnStaticMiners, canSpawnNextStaticMiner, canStartStaticMinerPlan, couriersRequiredForNextStaticMiner } from "utils/earlyEconomy";
+import { canBootstrapCourier, canSpawnStaticMiners, canSpawnNextStaticMiner, couriersRequiredForNextStaticMiner } from "utils/earlyEconomy";
 import { getBestContainerLocation } from "utils/map";
 import { random } from "utils/random";
 import { RemoteFlag, RemoteFlagMemory } from "./_RemoteFlag";
@@ -115,21 +115,41 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
   }
 
   /*
-    Couriers haul what the static miner drops into the source container, and also tug 0-MOVE
-    miners onto their seats. Bootstrap: when the static-miner plan is otherwise ready but the
-    room still needs a courier for the *next* miner (1 before the first, 2 before the second+),
-    request a small one even before that miner exists (chicken/egg for the courier gate).
+    The bootstrap courier. Deliberately unsized: the point isn't haul throughput, it's that the room
+    has *a* courier at all - that's what unlocks the static miner gate and provides the seat tug.
+
+    Sizing it was the idle-room bug. getRequestedCourier rounds the haul down to
+    ceil(pathCost*2*energyPerTick/50) CARRY parts, and a source sat next to the spawn has a path cost
+    of 0-1, so that lands on 0 or 1 parts. The tier filter then asks for a body with at most that many
+    CARRY parts, the smallest Courier tier has 3, every tier is rejected and no courier is ever
+    requested - so no miner, no harvest coverage, no upgrader, and a spawn that sits full forever.
+
+    So: skip the sizing entirely and ask for the cheapest real courier body. Once a miner is actually
+    filling the container, getRequestedCourier's normal sizing grows the fleet from there.
   */
-  getRequestedCourier(sourceAnchor:CreepSourceAnchor, bootstrap = false){
+  getBootstrapCourier(sourceAnchor:CreepSourceAnchor, onlyIfUncovered = true){
+    //Spread the bootstrap couriers over the sources first; the room-wide count is the real cap.
+    if (onlyIfUncovered && (sourceAnchor.couriers.counts[CARRY] ?? 0) > 0) return null;
+    const courierType = this.domestic ? CreepRoleName.Courier : CreepRoleName.RemoteCourier;
+    return this.findSpawnableCreep(courierType, body=>(
+      body.counts[CARRY] > 0 &&
+      body.counts[MOVE] > 0 && //It has to be able to walk to the container on its own.
+      body.counts[CARRY] //Smallest body wins - this is a bootstrap, not a haul plan.
+    ), { anchor: sourceAnchor, cohort: sourceAnchor.couriers, priority: CreepPriority.High });
+  }
+
+  /*
+    Couriers haul what the static miner drops into the source container, and also tug 0-MOVE
+    miners onto their seats. Sized off the round trip and the miner's actual output; see
+    getBootstrapCourier for the first one.
+  */
+  getRequestedCourier(sourceAnchor:CreepSourceAnchor){
     const minerWorkParts = sourceAnchor.harvesters.counts[WORK] ?? 0;
-    if (minerWorkParts === 0 && !bootstrap) return null; //Nothing is filling the container yet.
+    if (minerWorkParts === 0) return null; //Nothing is filling the container yet.
 
     // 3000 energy nodes can optimially mine at 10 energy per tick, so 1500 nodes are 5 per tick.
     // A part-grown miner produces less than that (2 energy per WORK part), so size the haul to it.
-    // Bootstrap uses a trickle so we only need one small courier to unlock miner spawning + tug.
-    const energyPerTick = minerWorkParts > 0
-      ? Math.min(sourceAnchor.getOptimalEnergyPerTick(), minerWorkParts*2)
-      : 2;
+    const energyPerTick = Math.min(sourceAnchor.getOptimalEnergyPerTick(), minerWorkParts*2);
     if (energyPerTick <= 0) return null;
     const moveCost = this.getSourcePathCost(sourceAnchor)*2; //ticks (both directions)
     // const moveCost = this.memory.totalMoveCost; //This is the sum of both sources. This makes the math a little simpler which may help keep creep sizes whole/large
@@ -141,7 +161,7 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     return this.findSpawnableCreep(courierType, body=>(
       neededCourierParts >= body.counts[CARRY] &&
       neededCourierParts % body.counts[CARRY]
-    ), { anchor: sourceAnchor, cohort: sourceAnchor.couriers, priority: bootstrap ? CreepPriority.High : CreepPriority.Normal });
+    ), { anchor: sourceAnchor, cohort: sourceAnchor.couriers, priority: CreepPriority.Normal });
   }
 
   getRequestedCreep(currentPriorityLevel:CreepPriority){
@@ -164,23 +184,26 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
       const audit = this.officeAudit;
 
       /*
-        Domestic static-miner gates (see canStartStaticMinerPlan / canSpawnStaticMiners /
+        Domestic static-miner gates (see canBootstrapCourier / canSpawnStaticMiners /
         canSpawnNextStaticMiner):
-          roads + all source containers + ≥1 Basic per source.
+          all source containers + ≥1 Basic per source. Roads are NOT part of this - see
+          canBootstrapCourier for why they used to be and why that soft-locked the room.
         Until that passes, ask for nothing here — HomeFlag drones keep harvesting.
         Then bootstrap courier #1 before miner #1; before miner #2+ bootstrap courier #2
         (couriersRequiredForNextStaticMiner) so haul/tug capacity keeps up.
       */
       if (this.domestic){
-        if (!canStartStaticMinerPlan(audit)) return null;
+        if (!canBootstrapCourier(audit)) return null;
 
         //Bootstrap enough couriers for the *next* static miner (1 for the first, 2 for the second+).
         const couriersNeeded = couriersRequiredForNextStaticMiner(audit);
         if ((audit.creepCountsByRole[CreepRoleName.Courier] ?? 0) < couriersNeeded){
-          for (const sourceAnchor of this.sources){
-            if (!sourceAnchor.containers.length) continue;
-            const bootstrapCourier = this.getRequestedCourier(sourceAnchor, true);
-            if (bootstrapCourier) return bootstrapCourier;
+          for (const onlyIfUncovered of [true, false]){
+            for (const sourceAnchor of this.sources){
+              if (!sourceAnchor.containers.length) continue;
+              const bootstrapCourier = this.getBootstrapCourier(sourceAnchor, onlyIfUncovered);
+              if (bootstrapCourier) return bootstrapCourier;
+            }
           }
           return null;
         }
