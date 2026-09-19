@@ -48,7 +48,13 @@ export class UpgradeFlag extends BasicFlag<UpgradeFlagMemory> {
     */
     const currentUpgraderWork = controllerAnchor.upgraders.counts[WORK] || 0;
     const optimalUpgraderWorkParts = Math.max(2, Math.ceil(upgraderEnergyPerTick)); //upgrade burns 1 energy/WORK/tick
-    if (currentUpgraderWork < optimalUpgraderWorkParts){
+    /*
+      Growing the upgrader waits on the courier fleet: a fatter upgrader only burns energy the couriers
+      actually deliver, and those same couriers are what tug the statics onto their seats. The *first*
+      upgrader still spawns - it's the tier upgrade that queues behind a courier tier upgrade.
+    */
+    const courierTierPending = currentUpgraderWork > 0 && this.courierFleetNeedsUpgrade();
+    if (!courierTierPending && currentUpgraderWork < optimalUpgraderWorkParts){
       const upgrader = this.findSpawnableCreep(CreepRoleName.Upgrader, body=>(
         body.counts[WORK] > 0 &&
         body.counts[CARRY] > 0 &&

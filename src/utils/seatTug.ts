@@ -13,6 +13,23 @@ const STATIC_ROLES = new Set<CreepRoleName>([CreepRoleName.Harvester, CreepRoleN
 const ADJACENT_COORDS = [[-1,-1], [0,-1], [1,-1], [-1,0], [1,0], [-1,1], [0,1], [1,1]] as const;
 
 /*
+  How long a courier may hold a claim without ever getting closer to it before the claim is dropped.
+  The live failure in W1N4: a courier sat on `tugTarget` for hundreds of ticks from four tiles away
+  while the 0-MOVE miner it had claimed never reached its seat and no other courier was allowed to
+  take over - a held claim is also what lets a courier walk over seat tiles, so it made things worse.
+*/
+export const TUG_PROGRESS_TIMEOUT = 8;
+
+/*
+  Tug order between the statics. Mining outranks upgrade seating: an unseated miner is income the room
+  never earns, while an unseated upgrader only delays progress that the miner has to fund anyway.
+*/
+const TUG_ROLE_PRIORITY:Partial<Record<CreepRoleName, number>> = {
+  [CreepRoleName.Harvester]: 0,
+  [CreepRoleName.Upgrader]: 1,
+};
+
+/*
   Seat tiles are the containers a static lives on: source containers (miners) and the controller
   container (upgrader). Anybody else standing there locks the static out of its seat, so the container
   never gets filled. Cached per tick since every courier move asks for them.
@@ -111,6 +128,83 @@ export function needsSeatTug(creep:Creep){
   return true;
 }
 
+export function getTugRolePriority(role:CreepRoleName){
+  return TUG_ROLE_PRIORITY[role] ?? TUG_ROLE_PRIORITY[CreepRoleName.Upgrader]! + 1;
+}
+
+/* Sort helper: role first (miners before upgraders), then whoever we can reach soonest. */
+export function compareTugCandidates(a:{role:CreepRoleName, range:number}, b:{role:CreepRoleName, range:number}){
+  return (getTugRolePriority(a.role) - getTugRolePriority(b.role)) || (a.range - b.range);
+}
+
+export function pickTugTarget(courier:Creep, candidates:Creep[]){
+  return candidates.reduce((best, candidate)=>{
+    if (!best) return candidate;
+    const rank = compareTugCandidates(
+      { role: candidate.memory.role, range: courier.pos.getRangeTo(candidate) },
+      { role: best.memory.role, range: courier.pos.getRangeTo(best) },
+    );
+    return rank < 0 ? candidate : best;
+  }, null as Creep|null);
+}
+
+/* Claim bookkeeping. tugRange is the closest we have ever been on this claim, tugProgressTick is when. */
+export function claimTugTarget(memory:CreepMemory, targetName:Creep['name'], range:number, tick = Game.time){
+  memory.tugTarget = targetName;
+  memory.tugRange = range;
+  memory.tugProgressTick = tick;
+}
+
+export function clearTugClaim(memory:CreepMemory){
+  delete memory.tugTarget;
+  delete memory.tugRange;
+  delete memory.tugProgressTick;
+}
+
+/* Actively working the claim (closing in, or already pulling) - keeps it from going stale. */
+export function markTugProgress(memory:CreepMemory, range:number, tick = Game.time){
+  memory.tugRange = range;
+  memory.tugProgressTick = tick;
+}
+
+export function recordTugProgress(memory:CreepMemory, range:number, tick = Game.time){
+  if (memory.tugRange !== undefined && range >= memory.tugRange) return false;
+  markTugProgress(memory, range, tick);
+  return true;
+}
+
+/* A claim nobody is closing on is up for grabs. Claims written before progress tracking count as stale. */
+export function isTugClaimStale(memory:CreepMemory, tick = Game.time){
+  if (!memory.tugTarget) return false;
+  if (memory.tugProgressTick === undefined) return true;
+  return tick - memory.tugProgressTick > TUG_PROGRESS_TIMEOUT;
+}
+
+/* The targets other couriers still hold. Stale claims are omitted so a fresh courier can take over. */
+export function getActiveTugClaims(couriers:Creep[]){
+  const claimed = new Set<Creep['name']>();
+  for (const courier of couriers){
+    const claim = courier.memory.tugTarget;
+    if (claim && !isTugClaimStale(courier.memory)) claimed.add(claim);
+  }
+  return claimed;
+}
+
+/*
+  Hand the claim to a courier that is already standing next to the static: it can start pulling this
+  tick while we are still walking. Only couriers that are free to take it count - yielding to one that
+  is busy with a claim of its own would just leave the static unseated.
+*/
+export function shouldYieldTugClaim(courier:Creep, target:Creep, otherCouriers:Creep[]){
+  if (courier.pos.isNearTo(target)) return false;
+  return otherCouriers.some(other=>{
+    if (!other.pos.isNearTo(target)) return false;
+    if (!other.memory.tugTarget) return true; //Free hands.
+    if (other.memory.tugTarget === target.name) return true; //Already on it.
+    return isTugClaimStale(other.memory); //Its own claim is dead anyway.
+  });
+}
+
 /* Called by the static creep each tick: cooperate with an adjacent courier tug. */
 export function followCourierTug(creep:Creep){
   const tug = creep.pos.findInRange(FIND_MY_CREEPS, 1).find(c=>{
@@ -126,37 +220,52 @@ export function followCourierTug(creep:Creep){
   its container. Returns true when this courier is busy tugging (skip normal haul this tick).
 */
 export function tugStaticCreepToSeat(courier:Creep){
-  //Prefer an existing tug target if still valid, otherwise pick the nearest unseated static.
-  let target = courier.memory.tugTarget && Game.creeps[courier.memory.tugTarget];
-  if (!target || !needsSeatTug(target) || target.room.name !== courier.room.name){
+  const otherCouriers = courier.room.find(FIND_MY_CREEPS, {
+    filter: creep=>creep.name !== courier.name && creep.memory.role === CreepRoleName.Courier,
+  });
+
+  //Prefer an existing tug target, but only while the claim is actually going somewhere.
+  let target = courier.memory.tugTarget ? Game.creeps[courier.memory.tugTarget] : undefined;
+  let yielded:Creep['name']|undefined;
+  if (target && (!needsSeatTug(target) || target.room.name !== courier.room.name)) target = undefined;
+  if (target && (isTugClaimStale(courier.memory) || shouldYieldTugClaim(courier, target, otherCouriers))){
+    yielded = target.name; //Don't re-claim it below - we just handed it to somebody nearer.
+    target = undefined;
+  }
+  if (!target) clearTugClaim(courier.memory);
+
+  if (!target){
     //One tug per static: a second courier converging on the same seat just blocks it.
-    const claimed = new Set<Creep['name']>();
-    for (const other of courier.room.find(FIND_MY_CREEPS)){
-      if (other.name === courier.name) continue;
-      if (other.memory.role === CreepRoleName.Courier && other.memory.tugTarget) claimed.add(other.memory.tugTarget);
-    }
+    const claimed = getActiveTugClaims(otherCouriers);
+    if (yielded) claimed.add(yielded);
     const candidates = courier.room.find(FIND_MY_CREEPS, {
       filter: creep=>!claimed.has(creep.name) && needsSeatTug(creep),
     });
-    if (!candidates.length){
-      delete courier.memory.tugTarget;
-      return false;
-    }
-    target = courier.pos.findClosestByPath(candidates) || candidates[0];
-    courier.memory.tugTarget = target.name;
+    //Unseated miners outrank unseated upgraders, then nearest wins (compareTugCandidates).
+    target = pickTugTarget(courier, candidates) ?? undefined;
+    if (!target) return false;
+    claimTugTarget(courier.memory, target.name, courier.pos.getRangeTo(target));
+  }else{
+    recordTugProgress(courier.memory, courier.pos.getRangeTo(target));
   }
 
   const seat = getStaticSeatPosition(target)!;
   if (target.pos.isEqualTo(seat)){
-    delete courier.memory.tugTarget;
+    clearTugClaim(courier.memory);
     //If we somehow finished the tug while still sitting on the seat, vacate immediately.
     if (courier.pos.isEqualTo(seat)) stepOffTile(courier);
     return false;
   }
 
-  //Get adjacent to the static creep first.
+  //Get adjacent to the static creep first. A 0-MOVE static cannot meet us halfway, so this leg has to
+  //be repathed every tick: replaying a cached path that no longer reaches the miner is exactly how a
+  //courier ends up orbiting an unseated miner with the claim still held.
   if (!courier.pos.isNearTo(target)){
-    courier.moveTo(target, { range: 1, reusePath: 5 });
+    if (!approachTugTarget(courier, target)){
+      //No path from here - drop the claim so a courier that can reach it takes over.
+      clearTugClaim(courier.memory);
+      return false;
+    }
     return true;
   }
 
@@ -164,9 +273,11 @@ export function tugStaticCreepToSeat(courier:Creep){
   const pullResult = courier.pull(target);
   if (pullResult !== OK){
     //Can't pull (fatigue/etc.) - clear and let the static self-walk with its MOVE if any.
-    delete courier.memory.tugTarget;
+    clearTugClaim(courier.memory);
     return false;
   }
+  //Pulling is progress even though the range to the static stays at 1 the whole way to the seat.
+  markTugProgress(courier.memory, courier.pos.getRangeTo(target));
 
   if (courier.pos.isEqualTo(seat)){
     /*
@@ -178,6 +289,15 @@ export function tugStaticCreepToSeat(courier:Creep){
     return true;
   }
 
-  courier.moveTo(seat, { reusePath: 5 });
+  courier.moveTo(seat, { reusePath: 0 });
   return true;
+}
+
+/* Walk up to an unseated static, repathing (and then shoving through traffic) rather than giving up. */
+function approachTugTarget(courier:Creep, target:Creep){
+  const moving = courier.moveTo(target, { range: 1, reusePath: 0 });
+  if (moving === OK || moving === ERR_TIRED) return true;
+  delete courier.memory._move;
+  const retry = courier.moveTo(target, { range: 1, reusePath: 0, ignoreCreeps: true });
+  return retry === OK || retry === ERR_TIRED;
 }

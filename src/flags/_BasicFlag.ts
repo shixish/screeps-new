@@ -1,5 +1,6 @@
 import { CreepRoles } from "managers/creeps";
 import { CreepPriority, CreepRoleName, FlagType } from "utils/constants";
+import { couriersRequiredForNextStaticMiner, getMaxAffordableTierCost, getRoomCreepMemories, isBalancedHaulBody, needsCourierTierUpgrade } from "utils/earlyEconomy";
 import { getRoomAudit } from "utils/tickCache";
 
 if (!Memory.flags) Memory.flags = {} as Memory['flags']; //Flags object isn't initialized by default
@@ -114,6 +115,23 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
       flag: this,
       ...attributes
     } as SpawnableCreep : null;
+  }
+
+  /* The most expensive body of a role this room's energy capacity can buy - the tier-upgrade yardstick. */
+  getMaxAffordableBodyCost(roleName:CreepRoleName, filter?:(body:CreepBody)=>boolean){
+    return getMaxAffordableTierCost(CreepRoles[roleName].config.tiers, this.homeAudit.room.energyCapacityAvailable, filter);
+  }
+
+  /*
+    True while the room can afford a bigger balanced courier than the ones it's flying. Haul and tug
+    capacity scales before the specialists do - see needsCourierTierUpgrade in utils/earlyEconomy.
+  */
+  courierFleetNeedsUpgrade(){
+    return needsCourierTierUpgrade(
+      getRoomCreepMemories(this.homeAudit, CreepRoleName.Courier),
+      this.getMaxAffordableBodyCost(CreepRoleName.Courier, isBalancedHaulBody),
+      couriersRequiredForNextStaticMiner(this.homeAudit),
+    );
   }
 
   getOptimalBuilderParts(room:Room, totalEnergyPerTick:number = this.homeAudit.totalEnergyIncomePerTick){

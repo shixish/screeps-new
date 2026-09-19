@@ -116,6 +116,8 @@ declare global {
     anchor?: Id<RoomObject>;
     seated?: boolean;
     tugTarget?: Creep['name']; //Courier is pulling this static miner/upgrader onto its container seat
+    tugRange?: number; //Closest this courier has been to its tugTarget - progress tracking for stale claims
+    tugProgressTick?: number; //Game.time of that closest approach (see utils/seatTug TUG_PROGRESS_TIMEOUT)
     flag?: BasicFlag['name'];
     target?: Target;
     action?: string;

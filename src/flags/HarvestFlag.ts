@@ -1,6 +1,6 @@
 import { Cohort } from "utils/Cohort";
 import { CreepPriority, CreepRoleName, FlagType, USERNAME } from "utils/constants";
-import { canBootstrapCourier, canSpawnStaticMiners, canSpawnNextStaticMiner, couriersRequiredForNextStaticMiner } from "utils/earlyEconomy";
+import { canBootstrapCourier, canSpawnStaticMiners, canSpawnNextStaticMiner, couriersRequiredForNextStaticMiner, isBalancedHaulBody } from "utils/earlyEconomy";
 import { getBestContainerLocation } from "utils/map";
 import { random } from "utils/random";
 import { RemoteFlag, RemoteFlagMemory } from "./_RemoteFlag";
@@ -164,6 +164,29 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     ), { anchor: sourceAnchor, cohort: sourceAnchor.couriers, priority: CreepPriority.Normal });
   }
 
+  /*
+    Courier tier upgrade. Extensions raise energyCapacityAvailable long before the couriers spawned at
+    300 expire, and everything that comes next leans on the haul fleet: a 0-MOVE 5 WORK miner is dead
+    weight until a courier can tug it onto its seat, and a fat upgrader just starves behind an
+    undersized fleet. So once a bigger balanced courier body is affordable, that replacement outranks
+    the miner/upgrader upgrades below it (see needsCourierTierUpgrade).
+  */
+  getUpgradedCourier(){
+    if (!this.courierFleetNeedsUpgrade()) return null;
+    const tierCost = this.getMaxAffordableBodyCost(CreepRoleName.Courier, isBalancedHaulBody);
+    //Put the replacement on the source whose haul cover is thinnest.
+    const sourceAnchor = this.sources.filter(source=>source.containers.length).reduce((thinnest, source)=>{
+      if (!thinnest) return source;
+      return (source.couriers.counts[CARRY] ?? 0) < (thinnest.couriers.counts[CARRY] ?? 0) ? source : thinnest;
+    }, undefined as CreepSourceAnchor|undefined);
+    if (!sourceAnchor) return null;
+    return this.findSpawnableCreep(CreepRoleName.Courier, body=>(
+      body.cost === tierCost &&
+      isBalancedHaulBody(body) &&
+      0 //Exactly the tier we measured - nothing to rank.
+    ), { anchor: sourceAnchor, cohort: sourceAnchor.couriers, priority: CreepPriority.High });
+  }
+
   getRequestedCreep(currentPriorityLevel:CreepPriority){
     if (currentPriorityLevel < CreepPriority.Normal) return null;
 
@@ -209,6 +232,10 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
         }
 
         if (!canSpawnStaticMiners(audit)) return null;
+
+        //Tug + haul capacity scales before the specialists get heavier - see getUpgradedCourier.
+        const upgradedCourier = this.getUpgradedCourier();
+        if (upgradedCourier) return upgradedCourier;
       }
 
       //Take care of one source at a time. This way we can get it into production asap, funding other things.
