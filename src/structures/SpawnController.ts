@@ -1,4 +1,5 @@
-import { CreepRoles, getCreepName } from "managers/creeps";
+import { CreepRoles } from "managers/creeps";
+import { getCreepName } from "utils/creepNames";
 import { getRoomAudit } from "utils/tickCache";
 
 export class SpawnController extends StructureSpawn{
@@ -48,7 +49,8 @@ export class SpawnController extends StructureSpawn{
         //   cohort: spawnableCreep.cohort?.id,
         // }, null, 2));
 
-        const creepName = getCreepName(role);
+        //Name the creep after the body it is actually getting, not the role alone: 'HarvesterT2#c9d0'.
+        const creepName = getCreepName(role, CreepRoles[role].config.tiers.indexOf(tier));
         const options:MandateProps<SpawnOptions, 'memory'> = {
           memory: {
             role,
