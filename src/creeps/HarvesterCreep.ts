@@ -110,10 +110,19 @@ export class HarvesterCreep extends BasicCreep {
         //Another creep might be temporarily sitting on the desired container, or there might be multiple miners but only one box.
         if (seatContainer && !this.pos.isEqualTo(seatContainer.pos)){
           this.memory.seated = false;
-          this.moveTo(seatContainer);
-          return;
+          /*
+            0 MOVE miners can't walk onto the seat - the courier tug (utils/seatTug) drags them on.
+            Spending the tick on a move that can only come back ERR_NO_BODYPART also costs us the
+            harvest, so keep mining from where we stand (the couriers pick the drops up) until a
+            courier gets here.
+          */
+          if (this.memory.counts[MOVE]){
+            this.moveTo(seatContainer);
+            return;
+          }
+        }else{
+          this.memory.seated = Boolean(seatContainer);
         }
-        this.memory.seated = Boolean(seatContainer);
       }
     }
     this.startHarvesting(anchor);

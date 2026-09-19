@@ -1,4 +1,4 @@
-import { CreepRoleName } from "./constants";
+import { CreepRoleName, PARTS, PART_COST } from "./constants";
 import { getSpawnRoadPath } from "./map";
 import { findSwampTilesNear } from "./spawnPlacement";
 
@@ -594,4 +594,64 @@ export function areDedicatedMinersInPlace(roomAudit:RoomAudit){
   return roomAudit.sources.every(source=>{
     return source.containers.length > 0 && (source.harvesters.counts[WORK] ?? 0) > 0;
   });
+}
+
+/*
+  Courier tier gate: the haul/tug fleet grows before the specialists do.
+
+  A courier both hauls what the miner drops and is the only thing that can drag a 0-MOVE static onto
+  its seat. Spending newly unlocked capacity on a 5 WORK miner (or a fatter upgrader) while the
+  couriers are still flying 300-energy bodies buys production nothing can move and statics nothing can
+  seat - which is how W1N4 ended up with two unseated miners and two overworked couriers. So while the
+  room can afford a bigger courier than the ones it has, that replacement outranks any WORK upgrade.
+*/
+
+//One replacement in flight at a time: the undersized bodies retire on their own, and spawning a whole
+//second fleet at once starves everything else in the room while it happens.
+export const COURIER_TIER_UPGRADE_HEADROOM = 1;
+
+/* Couriers walk loaded, so every CARRY needs its MOVE - see the tier list in CourierCreep. */
+export const isBalancedHaulBody = (body:CreepBody)=>body.counts[CARRY] > 0 && body.counts[CARRY] === body.counts[MOVE];
+
+/* The most expensive body of a role the room's energy capacity can buy. 0 when nothing qualifies. */
+export function getMaxAffordableTierCost(tiers:CreepTier[], energyCapacityAvailable:number, filter?:(body:CreepBody)=>boolean){
+  return tiers.reduce((best, tier)=>{
+    if (tier.body.cost > energyCapacityAvailable) return best;
+    if (filter && !filter(tier.body)) return best;
+    return Math.max(best, tier.body.cost);
+  }, 0);
+}
+
+/* Body cost rebuilt from the part counts stored on a creep's memory (Memory.creeps[name].counts). */
+export function getBodyCostFromCounts(counts:Partial<CreepPartsCounts>){
+  return PARTS.reduce((cost, part)=>cost + (counts[part] ?? 0)*PART_COST[part], 0);
+}
+
+/*
+  Every creep memory of a role the room owns, including the one currently in a spawn - the same
+  bookkeeping creepCountsByRole does, so a pending replacement isn't requested again every tick.
+*/
+export function getRoomCreepMemories(roomAudit:RoomAudit, role:CreepRoleName){
+  const memories = roomAudit.creeps.filter(creep=>creep.memory.role === role).map(creep=>creep.memory);
+  roomAudit.room.find(FIND_MY_SPAWNS).forEach(spawn=>{
+    const spawning = spawn.spawning && Memory.creeps[spawn.spawning.name];
+    if (spawning && spawning.role === role) memories.push(spawning);
+  });
+  return memories;
+}
+
+export function countBodiesAtCost(memories:{counts:Partial<CreepPartsCounts>}[], bodyCost:number){
+  return memories.filter(memory=>getBodyCostFromCounts(memory.counts) >= bodyCost).length;
+}
+
+/*
+  True while the room owes itself a courier at the biggest body it can now afford. `required` is the
+  size of the fleet we actually want at that tier (couriersRequiredForNextStaticMiner); the very first
+  couriers are the count gates' business, not this one's.
+*/
+export function needsCourierTierUpgrade(courierMemories:{counts:Partial<CreepPartsCounts>}[], maxCourierTierCost:number, required:number){
+  if (maxCourierTierCost <= 0 || required <= 0) return false;
+  if (!courierMemories.length) return false;
+  if (countBodiesAtCost(courierMemories, maxCourierTierCost) >= required) return false;
+  return courierMemories.length < required + COURIER_TIER_UPGRADE_HEADROOM;
 }
