@@ -2,6 +2,8 @@ import { Cohort } from "utils/Cohort";
 import { CreepPriority, CreepRoleName } from "utils/constants";
 import { areSourcesStaticallyMined, drawExitRoadPlan, ensureEarlyRoadPlan, ensureExitRoadPlan, getSourceSaturation, isPriorityRoadWorkComplete, placeEarlyRoadSites } from "utils/earlyEconomy";
 import { syncExitRoadFlags } from "utils/exitRoadFlags";
+import { syncExtensionPodFlags } from "utils/extensionPodFlags";
+import { drawExtensionPodPlan, ensureExtensionPodPlan, getNextExtensionPod, placeExtensionPodSites, refreshExtensionPodPlan } from "utils/extensionPods";
 import { advanceSpawnCirculation, drawSpawnCirculationPlan, ensureSpawnCirculationPlan, isCirculationPhasePlaced } from "utils/spawnCirculation";
 import { diamondCoordinates, diamondRingCoordinates, findDiamondPlacement, getBestContainerLocation, getSpawnRoadPath, getStructureCostMatrix } from "utils/map";
 import { BasicFlag, BasicFlagMemory } from "./_BasicFlag";
@@ -16,6 +18,7 @@ export interface HomeFlagMemory extends BasicFlagMemory{
   buildSubStage?: number;
   buildQueue?: BuildableStructureConstant[];
   buildQueueRetries?: number; //Failed placements for the entry at the head of the queue.
+  podFallbackLogged?: boolean; //Sticky: we already reported that the pod plan ran out and we're back on findDiamondPlacement.
 }
 
 //How many ticks a queued structure is retried before it's dropped and the stages are allowed to move on.
@@ -110,6 +113,50 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
   get exitRoadPlan(){
     const [ spawn ] = this.home.find(FIND_MY_SPAWNS);
     return ensureExitRoadPlan(this.home, spawn, this.earlyRoadPlan);
+  }
+
+  /*
+    The tessellated extension pods. Sticky like the exit roads: planned once, then only read. The plan
+    is what STRUCTURE_EXTENSION queue entries are built from (see placeNextExtensionPod), so it has to
+    exist before the first CL3 diamond is popped.
+  */
+  get extensionPodPlan(){
+    const [ spawn ] = this.home.find(FIND_MY_SPAWNS);
+    //Order matters, and the plan is sticky, so it only gets one shot at this: the circulation lanes are
+    //the pod lattice's seed *and* the tiles pods must keep their extensions off. Ensure them first or a
+    //room planned on its very first tick lays pods that don't know the lanes exist.
+    ensureSpawnCirculationPlan(this.home, spawn);
+    this.exitRoadPlan;
+    return ensureExtensionPodPlan(this.home, spawn);
+  }
+
+  /*
+    Builds the next unbuilt pod of the plan instead of re-deriving a placement from the current
+    structures. Returns false when there is no plan or every pod is already built, which is the caller's
+    signal to fall back to findDiamondPlacement.
+
+    Throws when the pod couldn't be fully placed. That is deliberate: the caller's retry/backoff already
+    knows how to put the queue entry back, and the pod stays unbuilt so the retry targets the same pod.
+    A tile that is blocked for good reads as Satisfied rather than Missing (see getPodExtensionState), so
+    a permanently blocked tile can't spin here forever - the pod goes built with fewer than 5 extensions
+    and the plan moves on.
+  */
+  placeNextExtensionPod():boolean{
+    const [ spawn ] = this.home.find(FIND_MY_SPAWNS);
+    if (!spawn) return false;
+    const plan = refreshExtensionPodPlan(this.home, this.extensionPodPlan);
+    const pod = getNextExtensionPod(plan);
+    if (!pod){
+      if (!this.memory.podFallbackLogged){
+        this.memory.podFallbackLogged = true;
+        console.log(`[${this.roomName}] extension pod plan exhausted (${plan?.pods.length ?? 0} pods), falling back to findDiamondPlacement`);
+      }
+      return false;
+    }
+    const remaining = placeExtensionPodSites(this.home, pod);
+    if (remaining > 0) throw `extension pod ${pod.id} at (${pod.x},${pod.y}) still needs ${remaining} extension sites`;
+    pod.built = true;
+    return true;
   }
 
   /*
@@ -444,6 +491,10 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     if (spawn) this.exitRoadPlan;
     drawExitRoadPlan(this.home); //Planned exit roads, see earlyEconomy.
     syncExitRoadFlags(this.home); //Durable map markers for the same plan, see exitRoadFlags. Self throttled.
+    //Same shape for the extension pods: plan once, draw every tick, durable flags on a throttle.
+    if (spawn) this.extensionPodPlan;
+    drawExtensionPodPlan(this.home);
+    syncExtensionPodFlags(this.home);
 
     if (spawn){
       /*
@@ -470,7 +521,14 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     const structureType = this.buildQueue.shift();
     if (structureType){
       try{
-        this.createDiamondConstructionSites(structureType);
+        /*
+          Extensions come out of the tessellated pod plan, in plan order, so consecutive pods share road
+          edges instead of landing wherever the current structure matrix happens to point. Everything
+          else (towers, storage, spawns) still gets a single structure with its own road cross.
+        */
+        if (structureType !== STRUCTURE_EXTENSION || !this.placeNextExtensionPod()){
+          this.createDiamondConstructionSites(structureType);
+        }
         this.memory.buildQueueRetries = 0;
       }catch(e:any){
         /*
