@@ -127,6 +127,11 @@ declare global {
 
     counts: CreepPartsCounts
     _move?: unknown; //Screeps' own moveTo path cache - cleared when a creep must repath from scratch
+    //Sticky path stall tracking (see utils/stickyPath): keeps a course alive through a briefly blocked choke point.
+    _moveDest?: string; //Destination tile + range the current course was plotted for
+    _movePos?: string; //Tile we were standing on the last time progress was sampled
+    _moveTick?: number; //Game.time of that sample - only consecutive ticks count as a stall
+    _moveStall?: number; //Consecutive ticks without reaching a new tile
   }
 
   interface SpawnMemory {
