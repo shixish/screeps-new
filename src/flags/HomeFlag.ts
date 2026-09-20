@@ -1,6 +1,6 @@
 import { Cohort } from "utils/Cohort";
 import { CreepPriority, CreepRoleName } from "utils/constants";
-import { areSourcesStaticallyMined, drawExitRoadPlan, ensureEarlyRoadPlan, ensureExitRoadPlan, getSourceSaturation, isPriorityRoadWorkComplete, placeEarlyRoadSites } from "utils/earlyEconomy";
+import { areSourcesStaticallyMined, drawExitRoadPlan, ensureEarlyRoadPlan, ensureExitRoadPlan, getSourceSaturation, isPriorityRoadWorkComplete, placeEarlyRoadSites, promoteNearbyExitRoadSites } from "utils/earlyEconomy";
 import { syncExitRoadFlags } from "utils/exitRoadFlags";
 import { syncExtensionPodFlags } from "utils/extensionPodFlags";
 import { drawExtensionPodPlan, ensureExtensionPodPlan, getNextExtensionPod, placeExtensionPodSites, refreshExtensionPodPlan } from "utils/extensionPods";
@@ -534,6 +534,17 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
       if (!isPriorityRoadWorkComplete(this.home)){
         const plan = this.earlyRoadPlan;
         if (placeEarlyRoadSites(this.home, plan.source) === 0) placeEarlyRoadSites(this.home, plan.controller);
+      }
+
+      /*
+        Promote exit road segments near the spawn and existing roads so the exit routes are gradually
+        paved outward. Also place outstanding pod ring roads so the lattice roads go down even before
+        the extensions are queued. Both are throttled through the same MAX_EARLY_ROAD_SITES cap.
+      */
+      promoteNearbyExitRoadSites(this.home, spawn);
+      const podPlan = this.home.memory.extensionPods;
+      if (podPlan && podPlan.roadTiles.length > 0){
+        placeEarlyRoadSites(this.home, podPlan.roadTiles);
       }
     }
 

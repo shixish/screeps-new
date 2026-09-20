@@ -416,12 +416,58 @@ export function promoteExitRoadSegment(plan:ExitRoadPlanMemory, segmentId:string
   return [];
 }
 
+//How far from a seed tile (spawn, existing road, road site) to search for promotable exit road segments.
+export const EXIT_ROAD_PROMOTION_RANGE = 6;
+
+/*
+  Promotes exit road segments that are near the spawn or existing roads/sites, so paving grows outward
+  along the planned routes. Returns the number of tiles placed (for throttling).
+
+  Called every tick (or throttled) from HomeFlag.work to gradually promote the exit road plan into actual
+  construction sites. Segments are promoted when they touch existing infrastructure, so roads grow
+  organically rather than all at once.
+*/
+export function promoteNearbyExitRoadSites(room:Room, spawn:StructureSpawn, range = EXIT_ROAD_PROMOTION_RANGE):number{
+  const plan = getExitRoadPlan(room);
+  if (!plan) return 0;
+
+  //Find all seed positions: spawn, existing roads, and road construction sites.
+  const seeds:{ x:number, y:number }[] = [{ x: spawn.pos.x, y: spawn.pos.y }];
+  room.find(FIND_STRUCTURES).forEach(structure=>{
+    if (structure.structureType === STRUCTURE_ROAD) seeds.push({ x: structure.pos.x, y: structure.pos.y });
+  });
+  room.find(FIND_MY_CONSTRUCTION_SITES).forEach(site=>{
+    if (site.structureType === STRUCTURE_ROAD) seeds.push({ x: site.pos.x, y: site.pos.y });
+  });
+
+  //Find unpromoted segments near any seed.
+  const nearbySegments = seeds.reduce((out, seed)=>{
+    const segments = findExitRoadSegmentsNear(plan, seed.x, seed.y, range);
+    segments.forEach(segment=>{
+      if (!out.some(existing=>existing.id === segment.id)) out.push(segment);
+    });
+    return out;
+  }, [] as typeof plan.routes[0]['segments']);
+
+  //Promote up to one segment per tick to avoid spamming the room with sites all at once.
+  let placed = 0;
+  for (const segment of nearbySegments){
+    const tiles = promoteExitRoadSegment(plan, segment.id);
+    if (tiles.length > 0){
+      placed += placeEarlyRoadSites(room, tiles);
+      break; //One segment per call to keep construction spreading gradually.
+    }
+  }
+
+  return placed;
+}
+
 const EXIT_ROAD_VISUAL_COLORS = ['#66ccff', '#66ff99', '#ffcc66', '#ff99cc'];
 
 /*
   Draws the planned exit roads every tick so they're visible in the Screeps client without leaving
   flags behind. Dashed line along each route, a dot on every planned tile, and the exit label plus its
-  planning order at the far end.
+  planning order at the far end. Brighter and thicker than before for better visibility.
 */
 export function drawExitRoadPlan(room:Room){
   const plan = getExitRoadPlan(room);
@@ -430,10 +476,11 @@ export function drawExitRoadPlan(room:Room){
     if (!route.path.length) return;
     const color = EXIT_ROAD_VISUAL_COLORS[route.order % EXIT_ROAD_VISUAL_COLORS.length];
     const points = route.path.map(packed=>[unpackRoadPosX(packed), unpackRoadPosY(packed)] as [number, number]);
-    room.visual.poly(points, { stroke: color, strokeWidth: 0.12, opacity: 0.4, lineStyle: 'dashed' });
-    points.forEach(([x, y])=>room.visual.circle(x, y, { radius: 0.12, fill: color, opacity: 0.3 }));
+    room.visual.poly(points, { stroke: color, strokeWidth: 0.18, opacity: 0.6, lineStyle: 'dashed' });
+    points.forEach(([x, y])=>room.visual.circle(x, y, { radius: 0.16, fill: color, opacity: 0.5 }));
     const [endX, endY] = points[points.length-1];
-    room.visual.text(`${getExitRoadDirectionLabel(route.exit)} #${route.order}`, endX, endY, { font: 0.4, color, opacity: 0.8 });
+    const label = `${getExitRoadDirectionLabel(route.exit)} #${route.order} (${route.path.length} tiles)`;
+    room.visual.text(label, endX, endY-0.3, { font: 0.45, color, opacity: 0.9, backgroundColor: '#000000', backgroundPadding: 0.1 });
   });
 }
 

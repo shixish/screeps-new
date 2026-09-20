@@ -94,6 +94,7 @@ export interface ExtensionPodPlanMemory{
   pods: ExtensionPodMemory[]; //Ordered, at most EXTENSION_POD_MAX.
   roadTiles: number[]; //Union of every pod ring, packRoadPos, for road cost matrices.
   planned: number; //Game.time the plan was built (cf. ExitRoadPlanMemory.planned).
+  version?: number; //Plan version stamp - when this mismatches EXTENSION_POD_PLAN_VERSION, replan.
 }
 
 const mod = (value:number, divisor:number)=>((value%divisor)+divisor)%divisor;
@@ -241,13 +242,19 @@ export interface ExtensionPodScoreWeights{
   costs 5x to build *and* 5x to repair. So a phase that lands its 3/8 road tiles on plain and its 5/8
   extension tiles on swamp is strictly cheaper, and only the ring tiles are penalised here.
 */
+/*
+  Plan version stamp. Increment to force all existing pod plans to replan on deploy - used when the scoring
+  weights or placement rules change enough that old plans are wrong.
+*/
+export const EXTENSION_POD_PLAN_VERSION = 2;
+
 export const EXTENSION_POD_SCORE_WEIGHTS:ExtensionPodScoreWeights = {
   adjacent: 6,
   roadReuse: 3,
   plannedRoad: 2,
   swampRoad: 2,
-  spawnDistance: 1,
-  sourceDistance: 0.5,
+  spawnDistance: 1.5,
+  sourceDistance: 2.5,
 };
 
 export interface ExtensionPodScoreInput{
@@ -468,15 +475,30 @@ export function planExtensionPods(room:Room, spawn:StructureSpawn, opts:Extensio
   }));
 
   const roadTiles = dedupePacked(pods.reduce((out, pod)=>out.concat(getPodRoadTiles(pod.x, pod.y)), [] as number[]));
-  return { anchorX, anchorY, phase, pods, roadTiles, planned: Game.time };
+  return { anchorX, anchorY, phase, pods, roadTiles, planned: Game.time, version: EXTENSION_POD_PLAN_VERSION };
 }
 
 export function getExtensionPodPlan(room:Room){
   return room.memory.extensionPods;
 }
 
+/*
+  Invalidates an existing pod plan by deleting it from memory. Orphan flags are cleaned by the next sync.
+  Called when the plan is stale or bad - scoring weights changed, lattice rules changed, or pods are
+  stranded far from sources with terrible scores.
+*/
+export function invalidateExtensionPodPlan(room:Room){
+  delete room.memory.extensionPods;
+}
+
 /* Plan once per room, same sticky-memory shape as the early/exit road plans. */
 export function ensureExtensionPodPlan(room:Room, spawn:StructureSpawn){
+  const existing = room.memory.extensionPods;
+  //Replan if the version stamp is missing or mismatched - scoring weights or rules changed.
+  if (existing && existing.version !== EXTENSION_POD_PLAN_VERSION){
+    console.log(`[${room.name}] extension pod plan version mismatch (${existing.version ?? 'none'} != ${EXTENSION_POD_PLAN_VERSION}), replanning`);
+    invalidateExtensionPodPlan(room);
+  }
   return room.memory.extensionPods || (room.memory.extensionPods = planExtensionPods(room, spawn));
 }
 
@@ -556,21 +578,26 @@ const POD_PLANNED_COLOR = '#88aaff';
 const POD_NEXT_COLOR = '#ffaa44';
 const POD_BUILT_COLOR = '#66dd88';
 
-/* Mirrors drawExitRoadPlan: the plan painted every tick, no flags involved (those live in extensionPodFlags). */
+/*
+  Mirrors drawExitRoadPlan: the plan painted every tick, no flags involved (those live in extensionPodFlags).
+  Brighter and thicker than before for better visibility.
+*/
 export function drawExtensionPodPlan(room:Room){
   const plan = getExtensionPodPlan(room);
   if (!plan) return;
   const next = getNextExtensionPod(plan);
   plan.pods.forEach(pod=>{
     const color = pod.built ? POD_BUILT_COLOR : (pod === next ? POD_NEXT_COLOR : POD_PLANNED_COLOR);
-    const opacity = pod.built ? 0.2 : 0.5;
+    const opacity = pod.built ? 0.3 : 0.7;
+    const strokeWidth = pod === next ? 0.08 : 0.05;
     getPodExtensionTiles(pod.x, pod.y).forEach(packed=>{
       const x = unpackRoadPosX(packed), y = unpackRoadPosY(packed);
-      room.visual.rect(x-0.4, y-0.4, 0.8, 0.8, { fill: 'transparent', stroke: color, opacity });
+      room.visual.rect(x-0.4, y-0.4, 0.8, 0.8, { fill: 'transparent', stroke: color, strokeWidth, opacity });
     });
     getPodRoadTiles(pod.x, pod.y).forEach(packed=>{
-      room.visual.circle(unpackRoadPosX(packed), unpackRoadPosY(packed), { radius: 0.12, fill: color, opacity: opacity*0.6 });
+      room.visual.circle(unpackRoadPosX(packed), unpackRoadPosY(packed), { radius: 0.15, fill: color, opacity: opacity*0.7 });
     });
-    room.visual.text(`${pod.order}`, pod.x, pod.y+0.15, { font: 0.4, color, opacity: 0.9 });
+    const label = `#${pod.order} (${pod.x},${pod.y})${pod.score >= 0 ? '+' : ''}${pod.score}`;
+    room.visual.text(label, pod.x, pod.y+0.15, { font: 0.45, color, opacity: 0.95, backgroundColor: '#000000', backgroundPadding: 0.05 });
   });
 }

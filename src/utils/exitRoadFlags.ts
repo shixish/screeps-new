@@ -142,13 +142,15 @@ export function syncExitRoadFlags(room:Room, force = false){
   }, {} as Record<string, Flag>);
 
   const desired = getDesiredExitFlags(room.name, plan.routes);
+  let created = 0;
   desired.forEach(flag=>{
     const existing = standing[flag.name];
     if (!existing){
       //createFlag hands back the name on success, or an error code (ERR_NAME_EXISTS from a flag placed
       //this same tick, ERR_FULL at the 10k cap, ERR_INVALID_ARGS for a bad position). Markers aren't
       //worth failing a tick over, so a failure just means the flag gets another try next sync.
-      room.createFlag(flag.x, flag.y, flag.name, flag.color, flag.secondaryColor);
+      const result = room.createFlag(flag.x, flag.y, flag.name, flag.color, flag.secondaryColor);
+      if (typeof result === 'string') created++;
     }else if (existing.pos.x !== flag.x || existing.pos.y !== flag.y){
       existing.setPosition(flag.x, flag.y); //Same waypoint, new route - move it rather than churn the flag.
     }
@@ -157,4 +159,11 @@ export function syncExitRoadFlags(room:Room, force = false){
   findOrphanExitFlags(room.name, desired.map(flag=>flag.name), Object.keys(standing)).forEach(name=>{
     standing[name].remove();
   });
+
+  //Log the naming pattern once on first successful sync so the user knows what to look for.
+  if (created > 0 && !room.memory.exitRoadFlagsLogged){
+    room.memory.exitRoadFlagsLogged = true;
+    const directions = plan.routes.map(r=>getExitFlagDirectionLabel(r.exit)).join(', ');
+    console.log(`[${room.name}] exit road flags synced: ${desired.length} flags across ${plan.routes.length} routes (${directions}). Pattern: exit:${room.name}:{N|E|S|W}:{index}`);
+  }
 }
