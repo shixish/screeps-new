@@ -120,13 +120,15 @@ export function syncExtensionPodFlags(room:Room, force = false){
   }, {} as Record<string, Flag>);
 
   const desired = getDesiredExtensionPodFlags(room.name, plan);
+  let created = 0;
   desired.forEach(flag=>{
     const existing = standing[flag.name];
     if (!existing){
       //createFlag hands back the name on success, or an error code (ERR_NAME_EXISTS from a flag placed
       //this same tick, ERR_FULL at the 10k cap, ERR_INVALID_ARGS for a bad position). Markers aren't
       //worth failing a tick over, so a failure just means the flag gets another try next sync.
-      room.createFlag(flag.x, flag.y, flag.name, flag.color, flag.secondaryColor);
+      const result = room.createFlag(flag.x, flag.y, flag.name, flag.color, flag.secondaryColor);
+      if (typeof result === 'string') created++;
       return;
     }
     if (existing.pos.x !== flag.x || existing.pos.y !== flag.y) existing.setPosition(flag.x, flag.y);
@@ -138,4 +140,10 @@ export function syncExtensionPodFlags(room:Room, force = false){
   findOrphanExtensionPodFlags(room.name, desired.map(flag=>flag.name), Object.keys(standing)).forEach(name=>{
     standing[name].remove();
   });
+
+  //Log the naming pattern once on first successful sync so the user knows what to look for.
+  if (created > 0 && !room.memory.extensionPodFlagsLogged){
+    room.memory.extensionPodFlagsLogged = true;
+    console.log(`[${room.name}] extension pod flags synced: ${desired.length} pod flags. Pattern: build:extension:${room.name}-pod{order}`);
+  }
 }
