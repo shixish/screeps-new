@@ -3,6 +3,7 @@ import { CreepRoleName, CreepRoleNames, DEBUG, FlagType, maxStorageFill, PARTS, 
 import { areSourcesStaticallyMined, canFeedController } from "utils/earlyEconomy";
 import { isHighPriorityBuild, isLowPriorityBuild } from "utils/nearSpawnStorage";
 import { isSeatPosition, stepOffSeat } from "utils/seatTug";
+import { clearMoveStall, MOVE_STALL_LIMIT, moveDestKey, movePosKey, STICKY_REUSE_PATH, trackMoveProgress } from "utils/stickyPath";
 import { claimAmount, getClaimedAmount, getFlagManager, getResourceAvailable, getResourceSpace, getRoomAudit } from "utils/tickCache";
 
 export function calculateBiteSize (creep:Creep){
@@ -867,18 +868,33 @@ export class BasicCreep<FlagManagerType extends FlagManagerTypes = FlagManagerTy
       if (acceptableRange && range <= acceptableRange) return false;
       return true;
     }
+    /*
+      Plot a course and stay on it. A repath counts other creeps as walls, so repathing while someone
+      stands in a choke point sends us the long way around, and the tick after the gap clears we swap
+      back - ping-pong that never covers ground. Only MOVE_STALL_LIMIT ticks of standing on the same
+      tile buys a fresh path (fatigue doesn't count: we're paying movement cost, not being blocked).
+    */
+    const stalled = trackMoveProgress(this.memory, moveDestKey(pos, preferredRange), movePosKey(this.pos), Game.time, this.fatigue > 0);
+    const repath = stalled >= MOVE_STALL_LIMIT;
+    if (repath){
+      //The course really is dead, not just brushed: throw it away and let moveTo plot a new one,
+      //then restart the counter so we don't repath again until we've stalled out all over again.
+      delete this.memory._move;
+      this.relaxMovementRestrictions();
+      clearMoveStall(this.memory);
+    }
     //Path to the requested range, not onto the target tile: interacting happens from an adjacent tile,
     //and stepping onto a container evicts whoever is supposed to be sitting there.
-    const moving = this.moveTo(pos, { range: preferredRange });
+    const moving = this.moveTo(pos, { range: preferredRange, reusePath: STICKY_REUSE_PATH });
     if (moving === OK || moving === ERR_TIRED){
       return true;
     }else if (moving === ERR_NO_PATH){
       if (acceptableRange && range <= acceptableRange) return false;
-      //Drop the cached path and retry ignoring creeps (traffic jams are the usual cause), then fall
-      //back to heading home so we don't strand in a corner replaying a dead path every tick.
-      delete this.memory._move;
-      this.relaxMovementRestrictions();
-      const retry = this.moveTo(pos, { range: preferredRange, ignoreCreeps: true, reusePath: 0 });
+      //No route at all. Usually a traffic jam that clears itself, so wait it out on the stall counter;
+      //only once that has fired do we retry ignoring creeps and then fall back to heading home, so we
+      //don't strand in a corner replaying a dead path every tick.
+      if (!repath) return true;
+      const retry = this.moveTo(pos, { range: preferredRange, ignoreCreeps: true, reusePath: STICKY_REUSE_PATH });
       if (retry === OK || retry === ERR_TIRED) return true;
       this.say('stuck');
       this.retreatToBase();
