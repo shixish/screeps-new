@@ -1,4 +1,4 @@
-import { getRoadTileState, isBuildableCoord, packRoadPos, RoadTileState, unpackRoadPosX, unpackRoadPosY } from "./earlyEconomy";
+import { getRoadTileState, hasBuiltRoad, isBuildableCoord, packRoadPos, RoadTileState, unpackRoadPosX, unpackRoadPosY } from "./earlyEconomy";
 import { diamondCoordinates, diamondRingCoordinates } from "./map";
 import { computeWalkCostMap, tileIndex, UNREACHABLE_COST } from "./spawnPlacement";
 
@@ -557,6 +557,8 @@ export function placeExtensionPodSites(room:Room, pod:{ x:number, y:number }){
   //Ring roads first. Shared with neighbouring pods, so most are already placed by the time a pod in
   //the middle of the cluster comes up - but the first pods of a ring must pave before their crosses.
   getPodRoadTiles(pod.x, pod.y).forEach(packed=>{
+    //Satisfied covers a tile that's already paved, Pending a tile that already has a road site: either
+    //way there's nothing to place, and a second site on a built road would never be buildable anyway.
     if (getRoadTileState(room, packed) !== RoadTileState.Missing) return;
     room.createConstructionSite(unpackRoadPosX(packed), unpackRoadPosY(packed), STRUCTURE_ROAD);
   });
@@ -595,7 +597,11 @@ export function drawExtensionPodPlan(room:Room){
       room.visual.rect(x-0.4, y-0.4, 0.8, 0.8, { fill: 'transparent', stroke: color, strokeWidth, opacity });
     });
     getPodRoadTiles(pod.x, pod.y).forEach(packed=>{
-      room.visual.circle(unpackRoadPosX(packed), unpackRoadPosY(packed), { radius: 0.15, fill: color, opacity: opacity*0.7 });
+      const x = unpackRoadPosX(packed), y = unpackRoadPosY(packed);
+      //Ring tiles are shared between neighbouring pods, so most of them are paved long before the pod
+      //itself is built. Draw those as completed instead of as another planned dot on top of a road.
+      const built = hasBuiltRoad(room, x, y);
+      room.visual.circle(x, y, { radius: built ? 0.1 : 0.15, fill: color, opacity: opacity*(built ? 0.25 : 0.7) });
     });
     const label = `#${pod.order} (${pod.x},${pod.y})${pod.score >= 0 ? '+' : ''}${pod.score}`;
     room.visual.text(label, pod.x, pod.y+0.15, { font: 0.45, color, opacity: 0.95, backgroundColor: '#000000', backgroundPadding: 0.05 });

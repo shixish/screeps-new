@@ -298,6 +298,8 @@ export function drawSpawnCirculationPlan(room:Room){
   const drawTiles = (tiles:number[], color:string)=>{
     tiles.forEach(packed=>{
       const x = unpackRoadPosX(packed), y = unpackRoadPosY(packed);
+      //Built (or unbuildable) tiles get a small faint dot, outstanding ones the bright planned dot. The
+      //exit road and pod drawers copy this split so no overlay ever paints "to build" over a road.
       const built = isCirculationRoadBuilt(room, packed);
       room.visual.circle(x, y, { radius: built ? 0.1 : 0.2, fill: color, opacity: built ? 0.15 : 0.45 });
     });
