@@ -6,6 +6,7 @@ import {
   findNearSpawnStorageTile,
   getCirculationExtensionSlots,
   getSpawnCirculationTiles,
+  isHighPriorityBuild,
   isLowPriorityBuild,
   nearSpawnStorageSlots,
   placeNearSpawnStorage,
@@ -73,8 +74,13 @@ describe("near spawn storage geometry", () => {
     });
   });
 
-  it("marks storage, and only storage, as low priority to build", () => {
+  it("marks roads high priority and storage low priority for Basics build order", () => {
+    globals.STRUCTURE_ROAD = "road";
     globals.STRUCTURE_STORAGE = "storage";
+    assert.isTrue(isHighPriorityBuild("road" as StructureConstant));
+    ["extension", "storage", "container", "tower", "spawn", "rampart"].forEach(structureType => {
+      assert.isFalse(isHighPriorityBuild(structureType as StructureConstant));
+    });
     assert.isTrue(isLowPriorityBuild("storage" as StructureConstant));
     ["extension", "road", "container", "tower", "spawn", "rampart"].forEach(structureType => {
       assert.isFalse(isLowPriorityBuild(structureType as StructureConstant));

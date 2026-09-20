@@ -79,11 +79,13 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     //Weight towards building next to the spawn when placing small diamonds for things like towers and storage
     const structureMatrix = diamondSize === 0 ? getStructureCostMatrix(this.home, 4, STRUCTURE_SPAWN) : getStructureCostMatrix(this.home, 4);
     const [x, y] = findDiamondPlacement(this.home, diamondSize, structureMatrix);
-    for (const [dx, dy] of diamondCoordinates(x, y, diamondSize)){
-      this.home.createConstructionSite(dx, dy, structureType);
-    }
+    //Ring roads before the interior structure sites so Basics (roads-first in startBuilding) pave the
+    //ring instead of racing the extensions/tower/etc. on the same tick the diamond is queued.
     for (const [rx, ry] of diamondRingCoordinates(x, y, diamondSize+1)){
       this.home.createConstructionSite(rx, ry, STRUCTURE_ROAD);
+    }
+    for (const [dx, dy] of diamondCoordinates(x, y, diamondSize)){
+      this.home.createConstructionSite(dx, dy, structureType);
     }
   }
 
@@ -302,8 +304,9 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
       case 0:{
         /*
           Storage first in the queue so the site exists a tick or two after RCL4 and couriers can start
-          filling it the moment it's finished. Queue order is not build order: Basics rank storage below
-          every other site (see BasicCreep.startBuilding), so the extensions below still go up first.
+          filling it the moment it's finished. Queue order is not build order: Basics rank roads first,
+          then everything else, and storage last (see BasicCreep.startBuilding), so roads and extensions
+          still go up before the 30k buffer.
         */
         this.buildQueue.push(STRUCTURE_STORAGE);
 
