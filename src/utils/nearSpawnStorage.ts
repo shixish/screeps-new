@@ -28,9 +28,10 @@ import { spawnCirculationDiagonals, spawnCirculationOuterRing, spawnCirculationP
       and their arms) alone while anything ordinary is free, and prefer the tile with the most road
       neighbours.
 
-  Storage is also the one structure Basics build last (isLowPriorityBuild, used by BasicCreep). The site
-  goes down early so couriers can start dumping into it the tick it finishes, but 30,000 energy of
-  buffer must never outrank the extensions, roads and containers that raise the room's throughput.
+  Basics build in three tiers (see BasicCreep.startBuilding): roads first (isHighPriorityBuild), then
+  everything else that isn't storage, then storage last (isLowPriorityBuild). The storage site still
+  goes down early so couriers can dump into it the tick it finishes, but 30,000 energy of buffer must
+  never outrank the roads and extensions that raise the room's throughput.
 */
 
 //How far from the spawn the search looks, Manhattan. 4 reaches the +-(2,2) pockets - one lattice step
@@ -45,7 +46,8 @@ type Coord = [number, number];
 
 const ORTHOGONAL:Coord[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
-/* Build order: storage is the one site Basics leave for last. See BasicCreep.startBuilding. */
+/* Build order tiers used by BasicCreep.startBuilding: roads first, storage last. */
+export const isHighPriorityBuild = (structureType:StructureConstant)=>structureType === STRUCTURE_ROAD;
 export const isLowPriorityBuild = (structureType:StructureConstant)=>structureType === STRUCTURE_STORAGE;
 
 /* The circulation lanes, packed: the tiles storage must never take. */

@@ -472,6 +472,17 @@ describe("extension pod construction", () => {
     assert.isTrue(isExtensionPodBuilt(room as any, { x: 25, y: 25 }));
   });
 
+  it("creates ring road sites before extension sites so builders see roads first", () => {
+    const { room, sites } = fakeRoom("W1N4", plan([{ order: 0, x: 25, y: 25 }]));
+    placeExtensionPodSites(room as any, { x: 25, y: 25 });
+    const firstExtension = sites.findIndex(site => site.structureType === "extension");
+    const lastRoad = sites.map(site => site.structureType).lastIndexOf("road");
+    assert.isAbove(firstExtension, -1);
+    assert.isAbove(lastRoad, -1);
+    //Every road site must be pushed before any extension site.
+    assert.isBelow(lastRoad, firstExtension);
+  });
+
   it("skips tiles that already carry the right structure or site", () => {
     const { room, sites, structures } = fakeRoom("W1N4", plan([{ order: 0, x: 25, y: 25 }]));
     structures.push({ x: 25, y: 25, structureType: "extension" }, { x: 27, y: 25, structureType: "road" });

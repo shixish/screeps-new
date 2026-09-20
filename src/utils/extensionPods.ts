@@ -524,12 +524,21 @@ export function getNextExtensionPod(plan?:ExtensionPodPlanMemory){
 }
 
 /*
-  The one function here that touches the world. Extension sites on the 5 cross tiles, road sites on the
-  8 ring tiles, skipping anything that already has the right structure or site. Returns how many
-  extension tiles still need a site, so 0 means the pod is fully placed - the caller marks it built and
-  the next queue pop moves on to the next pod.
+  The one function here that touches the world. Road sites on the 8 ring tiles first, then extension
+  sites on the 5 cross tiles, skipping anything that already has the right structure or site. Roads go
+  down first so the same tick's builders (BasicCreep.startBuilding prioritises STRUCTURE_ROAD) can start
+  paving before the extensions appear as competing sites. Returns how many extension tiles still need a
+  site, so 0 means the pod is fully placed - the caller marks it built and the next queue pop moves on
+  to the next pod.
 */
 export function placeExtensionPodSites(room:Room, pod:{ x:number, y:number }){
+  //Ring roads first. Shared with neighbouring pods, so most are already placed by the time a pod in
+  //the middle of the cluster comes up - but the first pods of a ring must pave before their crosses.
+  getPodRoadTiles(pod.x, pod.y).forEach(packed=>{
+    if (getRoadTileState(room, packed) !== RoadTileState.Missing) return;
+    room.createConstructionSite(unpackRoadPosX(packed), unpackRoadPosY(packed), STRUCTURE_ROAD);
+  });
+
   let remaining = 0;
   getPodExtensionTiles(pod.x, pod.y).forEach(packed=>{
     if (getPodExtensionState(room, packed) !== PodExtensionState.Missing) return;
@@ -538,13 +547,6 @@ export function placeExtensionPodSites(room:Room, pod:{ x:number, y:number }){
     //queue's retry/backoff bring us back. Anything else means the tile is blocked, and getPodExtensionState
     //will report it Satisfied on the next pass so it can't stall the pod.
     if (result !== OK) remaining++;
-  });
-
-  //Ring roads are shared with the neighbouring pods, so most of these are already placed by the time a
-  //pod in the middle of the cluster comes up.
-  getPodRoadTiles(pod.x, pod.y).forEach(packed=>{
-    if (getRoadTileState(room, packed) !== RoadTileState.Missing) return;
-    room.createConstructionSite(unpackRoadPosX(packed), unpackRoadPosY(packed), STRUCTURE_ROAD);
   });
 
   return remaining;
