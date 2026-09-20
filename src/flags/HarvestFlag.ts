@@ -1,6 +1,6 @@
 import { Cohort } from "utils/Cohort";
 import { CreepPriority, CreepRoleName, FlagType, USERNAME } from "utils/constants";
-import { canBootstrapCourier, canSpawnStaticMiners, canSpawnNextStaticMiner, couriersRequiredForNextStaticMiner, isBalancedHaulBody } from "utils/earlyEconomy";
+import { canBootstrapCourier, canSpawnStaticMiners, canSpawnNextStaticMiner, couriersRequiredForNextStaticMiner, getRoadTileState, isBalancedHaulBody, packRoadPos, RoadTileState } from "utils/earlyEconomy";
 import { getBestContainerLocation } from "utils/map";
 import { random } from "utils/random";
 import { RemoteFlag, RemoteFlagMemory } from "./_RemoteFlag";
@@ -366,6 +366,9 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
       if (this.domestic) return; //HomeFlag places the domestic roads.
       path.path.forEach(step=>{
         const room = Game.rooms[step.roomName];
+        //Routes reuse existing lanes (the cost matrix makes roads cheap), so most steps are already
+        //paved or already queued - placing and painting those again is just noise on top of a road.
+        if (getRoadTileState(room, packRoadPos(step.x, step.y)) !== RoadTileState.Missing) return;
         room.createConstructionSite(step.x, step.y, STRUCTURE_ROAD);
         room.visual.circle(step.x, step.y);
       });

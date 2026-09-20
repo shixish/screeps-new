@@ -1,6 +1,6 @@
 import { Cohort } from "utils/Cohort";
 import { CreepPriority, CreepRoleName } from "utils/constants";
-import { areSourcesStaticallyMined, drawExitRoadPlan, ensureEarlyRoadPlan, ensureExitRoadPlan, getSourceSaturation, isPriorityRoadWorkComplete, placeEarlyRoadSites, promoteNearbyExitRoadSites } from "utils/earlyEconomy";
+import { areSourcesStaticallyMined, cleanupRedundantRoadSites, drawExitRoadPlan, ensureEarlyRoadPlan, ensureExitRoadPlan, getRoadTileState, getSourceSaturation, isPriorityRoadWorkComplete, packRoadPos, placeEarlyRoadSites, promoteNearbyExitRoadSites, RoadTileState } from "utils/earlyEconomy";
 import { syncExitRoadFlags } from "utils/exitRoadFlags";
 import { syncExtensionPodFlags } from "utils/extensionPodFlags";
 import { drawExtensionPodPlan, ensureExtensionPodPlan, getNextExtensionPod, placeExtensionPodSites, refreshExtensionPodPlan } from "utils/extensionPods";
@@ -82,6 +82,8 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     //Ring roads before the interior structure sites so Basics (roads-first in startBuilding) pave the
     //ring instead of racing the extensions/tower/etc. on the same tick the diamond is queued.
     for (const [rx, ry] of diamondRingCoordinates(x, y, diamondSize+1)){
+      //Rings overlap with the lattice lanes and with each other, so most of a ring is usually paved already.
+      if (getRoadTileState(this.home, packRoadPos(rx, ry)) !== RoadTileState.Missing) continue;
       this.home.createConstructionSite(rx, ry, STRUCTURE_ROAD);
     }
     for (const [dx, dy] of diamondCoordinates(x, y, diamondSize)){
@@ -249,12 +251,15 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
           const [ container ] = source.containers;
           const sourceRoadPath = getSpawnRoadPath(spawn, container?.pos || source.pos);
           sourceRoadPath.forEach(step=>{
+            //The path prefers tiles that are already roads, so most steps need nothing placed on them.
+            if (getRoadTileState(this.home, packRoadPos(step.x, step.y)) !== RoadTileState.Missing) return;
             this.home.createConstructionSite(step.x, step.y, STRUCTURE_ROAD);
           });
         });
         if (this.home.controller){
           const controllerRoadPath = getSpawnRoadPath(spawn, this.home.controller.pos);
           controllerRoadPath.forEach(step=>{
+            if (getRoadTileState(this.home, packRoadPos(step.x, step.y)) !== RoadTileState.Missing) return;
             this.home.createConstructionSite(step.x, step.y, STRUCTURE_ROAD);
           });
         }
@@ -356,6 +361,7 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
 
       const controllerRoadPath = getSpawnRoadPath(spawn, mineralContainerPos);
       controllerRoadPath.forEach(step=>{
+        if (getRoadTileState(this.home, packRoadPos(step.x, step.y)) !== RoadTileState.Missing) return;
         this.home.createConstructionSite(step.x, step.y, STRUCTURE_ROAD);
       });
     }
@@ -546,6 +552,14 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
       if (podPlan && podPlan.roadTiles.length > 0){
         placeEarlyRoadSites(this.home, podPlan.roadTiles);
       }
+
+      /*
+        Sweep road sites that ended up on a tile that already has a road. Every placer above skips those
+        tiles, so this only ever catches the odd one out (a site placed the tick a road completed, a
+        road rebuilt under a site), but such a site can never be built and would hold a site slot forever.
+        Self-throttled to ROAD_SITE_CLEANUP_INTERVAL.
+      */
+      cleanupRedundantRoadSites(this.home);
     }
 
     //The building placement logic is heavy on CPU so only try to place one thing per tick.

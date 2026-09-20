@@ -136,6 +136,40 @@ export function markRoadTileBlocked(room:Room, packed:number){
 }
 
 /*
+  Is there a road *structure* standing on this tile? Narrower than getRoadTileState, which also reports
+  Satisfied for walls, rim tiles, blocked tiles and foreign structures - the plan drawers and the
+  redundant site sweep only ever care about "this tile is already paved", not about why it isn't work.
+*/
+export const hasBuiltRoad = (room:Room, x:number, y:number)=>(
+  room.lookForAt(LOOK_STRUCTURES, x, y).some(structure=>structure.structureType === STRUCTURE_ROAD)
+);
+
+//How often the redundant road site sweep runs. One find per pass, and there's nothing to find most ticks.
+export const ROAD_SITE_CLEANUP_INTERVAL = 10;
+
+/*
+  Removes road construction sites sitting on a tile that already has a built road. The server normally
+  refuses such a site (createConstructionSite returns ERR_INVALID_TARGET on a paved tile), so this is
+  belt-and-braces: a site placed the same tick a road finished, a site that survived a road being
+  rebuilt under it, or anything a hand-placed site left behind. Those sites can never be built, so they
+  burn a construction site slot forever and make the room look like it still has road work outstanding.
+
+  Throttled like the flag syncs - pass force to run it now (the tests do).
+  Returns how many sites were removed.
+*/
+export function cleanupRedundantRoadSites(room:Room, force = false){
+  if (!force && Game.time % ROAD_SITE_CLEANUP_INTERVAL !== 0) return 0;
+  let removed = 0;
+  room.find(FIND_MY_CONSTRUCTION_SITES).forEach(site=>{
+    if (site.structureType !== STRUCTURE_ROAD) return;
+    if (!hasBuiltRoad(room, site.pos.x, site.pos.y)) return;
+    if (site.remove() === OK) removed++;
+  });
+  if (removed) console.log(`[${room.name}] removed ${removed} road construction site(s) standing on built roads`);
+  return removed;
+}
+
+/*
   Places road construction sites for every planned tile that doesn't have one yet.
   Returns how many tiles still need a site, so 0 means this batch of road work is fully placed.
   A limit of 0 places nothing and just counts the outstanding tiles.
@@ -145,6 +179,8 @@ export function markRoadTileBlocked(room:Room, packed:number){
   isPriorityRoadWorkComplete to false forever and soft-locks every gate hanging off it.
 */
 export function placeEarlyRoadSites(room:Room, positions:number[], limit = MAX_EARLY_ROAD_SITES){
+  //Everything here hangs off getRoadTileState: a tile with a road (Satisfied) or a road site (Pending)
+  //is never touched again, so no placer built on this can ever double up a site on a paved tile.
   let remaining = 0, placed = 0;
   for (const packed of positions){
     if (getRoadTileState(room, packed) !== RoadTileState.Missing) continue;
@@ -477,7 +513,12 @@ export function drawExitRoadPlan(room:Room){
     const color = EXIT_ROAD_VISUAL_COLORS[route.order % EXIT_ROAD_VISUAL_COLORS.length];
     const points = route.path.map(packed=>[unpackRoadPosX(packed), unpackRoadPosY(packed)] as [number, number]);
     room.visual.poly(points, { stroke: color, strokeWidth: 0.18, opacity: 0.6, lineStyle: 'dashed' });
-    points.forEach(([x, y])=>room.visual.circle(x, y, { radius: 0.16, fill: color, opacity: 0.5 }));
+    //A tile that's already paved isn't outstanding work: draw it small and faint (same built-vs-planned
+    //split drawSpawnCirculationPlan uses) so the overlay reads as "what's left", not "build all of this".
+    points.forEach(([x, y])=>{
+      const built = hasBuiltRoad(room, x, y);
+      room.visual.circle(x, y, { radius: built ? 0.1 : 0.16, fill: color, opacity: built ? 0.15 : 0.5 });
+    });
     const [endX, endY] = points[points.length-1];
     const label = `${getExitRoadDirectionLabel(route.exit)} #${route.order} (${route.path.length} tiles)`;
     room.visual.text(label, endX, endY-0.3, { font: 0.45, color, opacity: 0.9, backgroundColor: '#000000', backgroundPadding: 0.1 });
