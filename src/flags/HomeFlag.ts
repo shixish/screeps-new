@@ -2,6 +2,7 @@ import { Cohort } from "utils/Cohort";
 import { CreepPriority, CreepRoleName } from "utils/constants";
 import { areSourcesStaticallyMined, BasicFleetRequest, cleanupRedundantRoadSites, countBodiesAtCost, drawExitRoadPlan, ensureEarlyRoadPlan, ensureExitRoadPlan, getBasicFleetRequest, getIdleBasicFleetSize, getRoadTileState, getRoomCreepMemories, getSourceSaturation, idleFillerRank, isDroneHarvestPhase, isPriorityRoadWorkComplete, packRoadPos, placeEarlyRoadSites, promoteNearbyExitRoadSites, RoadTileState, surgeBuilderRank } from "utils/earlyEconomy";
 import { syncExitRoadFlags } from "utils/exitRoadFlags";
+import { processFatigueHeat } from "utils/fatigueHeat";
 import { syncExtensionPodFlags } from "utils/extensionPodFlags";
 import { drawExtensionPodPlan, ensureExtensionPodPlan, getNextExtensionPod, placeExtensionPodSites, refreshExtensionPodPlan } from "utils/extensionPods";
 import { placeNearSpawnStorage } from "utils/nearSpawnStorage";
@@ -600,6 +601,14 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
         Self-throttled to ROAD_SITE_CLEANUP_INTERVAL.
       */
       cleanupRedundantRoadSites(this.home);
+
+      /*
+        Fatigue heatmap, observe-only: sample every fatigued creep onto the tile it's standing on, fade
+        the map uniformly, and draw the numbers in the room. It places no construction sites - paving off
+        these counters comes later, once a threshold has been read off the overlay on a real room. Kept
+        next to the road planners because that's what it will eventually feed.
+      */
+      processFatigueHeat(this.home);
     }
 
     //The building placement logic is heavy on CPU so only try to place one thing per tick.

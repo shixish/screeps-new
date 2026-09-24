@@ -172,6 +172,8 @@ declare global {
     exitRoads?: import('utils/earlyEconomy').ExitRoadPlanMemory;
     spawnCirculation?: import('utils/spawnCirculation').SpawnCirculationMemory;
     extensionPods?: import('utils/extensionPods').ExtensionPodPlanMemory;
+    //Sparse packed-position -> accumulated fatigue map. Observe-only traffic heatmap, see utils/fatigueHeat.
+    fatigueHeat?: import('utils/fatigueHeat').FatigueHeatMap;
 
     // sources: {
     //   [id:string]:any
