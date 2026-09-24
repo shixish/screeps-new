@@ -1,6 +1,6 @@
 import { Cohort } from "utils/Cohort";
 import { CreepPriority, CreepRoleName } from "utils/constants";
-import { areSourcesStaticallyMined, cleanupRedundantRoadSites, drawExitRoadPlan, ensureEarlyRoadPlan, ensureExitRoadPlan, getRoadTileState, getSourceSaturation, isPriorityRoadWorkComplete, packRoadPos, placeEarlyRoadSites, promoteNearbyExitRoadSites, RoadTileState } from "utils/earlyEconomy";
+import { areSourcesStaticallyMined, BasicFleetRequest, cleanupRedundantRoadSites, countBodiesAtCost, drawExitRoadPlan, ensureEarlyRoadPlan, ensureExitRoadPlan, getBasicFleetRequest, getIdleBasicFleetSize, getRoadTileState, getRoomCreepMemories, getSourceSaturation, idleFillerRank, isDroneHarvestPhase, isPriorityRoadWorkComplete, packRoadPos, placeEarlyRoadSites, promoteNearbyExitRoadSites, RoadTileState, surgeBuilderRank } from "utils/earlyEconomy";
 import { syncExitRoadFlags } from "utils/exitRoadFlags";
 import { syncExtensionPodFlags } from "utils/extensionPodFlags";
 import { drawExtensionPodPlan, ensureExtensionPodPlan, getNextExtensionPod, placeExtensionPodSites, refreshExtensionPodPlan } from "utils/extensionPods";
@@ -463,7 +463,8 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
       couriers) and the drone pool stops growing - surplus workers go into construction below instead.
     */
     const saturation = getSourceSaturation(this.homeAudit, this.cohorts.drones);
-    if (!saturation.saturated && !areSourcesStaticallyMined(this.homeAudit)){
+    const droneHarvestPhase = isDroneHarvestPhase(saturation.saturated, areSourcesStaticallyMined(this.homeAudit));
+    if (droneHarvestPhase){
       const neededWorkParts = saturation.work - saturation.workUsed;
       /*
         Prefer the body whose WORK count lands closest to the throughput we're still missing - but only
@@ -480,22 +481,53 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
       if (drone) return drone;
     }
 
-    //Stage 2: the sources are covered, so surplus workers go into construction and then the controller.
+    //Stage 2: the sources are covered, so the Basic fleet stops tracking the harvest and starts tracking
+    //construction. While stage 1 is still asking for drones we never get here with a request to make.
 
     // const optimalScoutParts = 1;
     // const neededScoutParts = optimalScoutParts - (this.cohorts.scouts.counts[MOVE] || 0);
     // const scout = neededScoutParts > 0 && this.findSpawnableCreep(CreepRoleName.Scout, body=>0, { cohort: this.cohorts.scouts });
     // if (scout) return scout;
 
-    const optimalBuilderParts = this.getOptimalBuilderParts(this.home!);
-    const neededBuilderParts = optimalBuilderParts - (this.cohorts.builders.counts[WORK] || 0);
-    //Same deal as the drones: `needed % WORK` ranks a 1 WORK body a perfect match, so the tier floor is
-    //what stops a room that can afford a real builder from answering with a T1 Basic.
-    const builder = neededBuilderParts > 0 && this.findSpawnableCreep(CreepRoleName.Basic, body=>(
-      body.counts[WORK] > 0 &&
-      neededBuilderParts % body.counts[WORK]
-    ), { cohort: this.cohorts.builders });
-    if (builder) return builder;
+    /*
+      The Basic fleet is sized by construction need, not by a WORK shortfall (see getBasicFleetRequest
+      in earlyEconomy for the why). Two states, one count:
+
+        - sites outstanding: CONSTRUCTION_SURGE_BASICS bodies at the biggest tier this room can buy
+        - nothing to build: IDLE_BASIC_FLEET_SIZE cheap fillers, and the surge bodies are left to TTL
+          out rather than being replaced - nothing is suicided or recycled here
+
+      Counted room-wide off getRoomCreepMemories (every live Basic plus one in a spawn, so a pending
+      replacement isn't requested again next tick) rather than per cohort: a Basic builds and repairs
+      the same way whichever cohort asked for it, and the room-wide number is what canBootstrapCourier
+      gates on too. The max-tier yardstick is getMaxAffordableBodyCost, the same number the tier floor
+      is derived from, so "at max tier" and "above the floor" can't drift apart.
+    */
+    const basicMemories = getRoomCreepMemories(this.homeAudit, CreepRoleName.Basic);
+    const basicFleetRequest = getBasicFleetRequest({
+      droneHarvestPhase,
+      constructionSites: this.home!.find(FIND_MY_CONSTRUCTION_SITES).length,
+      basics: basicMemories.length,
+      maxTierBasics: countBodiesAtCost(basicMemories, this.getMaxAffordableBodyCost(CreepRoleName.Basic)),
+      idleFleetSize: getIdleBasicFleetSize(this.homeAudit.sources.length),
+    });
+
+    if (basicFleetRequest === BasicFleetRequest.ConstructionSurge){
+      //Max tier: no ranking preference, and the PR #28 floor stays in place underneath it.
+      const builder = this.findSpawnableCreep(CreepRoleName.Basic, surgeBuilderRank, { cohort: this.cohorts.builders });
+      if (builder) return builder;
+    }
+
+    if (basicFleetRequest === BasicFleetRequest.IdleFiller){
+      /*
+        The cheap steady state. allowMinTier lifts the Basic tier floor for this path only - here a small
+        body is the point, not an accident of the ranking. The fillers join the builders cohort (not the
+        drones) so they can't inflate seatsUsed in getSourceSaturation and talk the room out of drones if
+        the harvest ever falls back to Basics.
+      */
+      const filler = this.findSpawnableCreep(CreepRoleName.Basic, idleFillerRank, { cohort: this.cohorts.builders }, { allowMinTier: true });
+      if (filler) return filler;
+    }
 
     return null;
   }

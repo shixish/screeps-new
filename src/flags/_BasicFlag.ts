@@ -109,12 +109,18 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
     Courier, the tiers below it are off the table entirely, so a ranking that happens to prefer a small
     body (closest WORK match, smallest CARRY, needed % parts) can't spawn a T1 into a 500+ capacity room.
     The emergency lifts the floor - a small creep now beats no creep ever.
+
+    `allowMinTier` is the one deliberate exception: the caller doesn't want a big body at all. The floor
+    exists because the *shortfall* rankings prefer small bodies as a side effect; it has nothing to say
+    about a caller that has decided cheap is the point (HomeFlag's idle fillers - a room with nothing
+    left to build shouldn't pay 1200 energy per creep to repair roads, see getBasicFleetRequest). Nobody
+    else passes it, so the Courier floor is untouched.
   */
-  findSpawnableCreep(roleName:CreepRoleName, distanceFilter?:true|((body:CreepBody)=>number|false), attributes?:Partial<SpawnableCreep>):SpawnableCreep|null{
+  findSpawnableCreep(roleName:CreepRoleName, distanceFilter?:true|((body:CreepBody)=>number|false), attributes?:Partial<SpawnableCreep>, options?:{ allowMinTier?:boolean }):SpawnableCreep|null{
     const config = CreepRoles[roleName].config;
     const emergency = distanceFilter === true || isTierFloorEmergency(this.homeAudit, roleName);
     const energyAvailable = emergency ? this.homeAudit.room.energyAvailable : this.homeAudit.room.energyCapacityAvailable;
-    const tierFloor = emergency ? 0 : getRoleTierFloor(roleName, config.tiers, energyAvailable);
+    const tierFloor = emergency || options?.allowMinTier ? 0 : getRoleTierFloor(roleName, config.tiers, energyAvailable);
     //if no distance function is provided then just find the most expensive tier to use
     const tier = pickAffordableTier(config.tiers, energyAvailable, typeof distanceFilter === 'function' ? distanceFilter : undefined, tierFloor);
     return tier ? {
