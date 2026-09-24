@@ -4,11 +4,16 @@ import {
   EXTENSION_POD_LATTICE,
   EXTENSION_POD_MAX,
   EXTENSION_POD_PHASES,
+  EXTENSION_POD_PLAN_VERSION,
   EXTENSION_POD_RING_MIN,
   EXTENSION_POD_SCORE_WEIGHTS,
   ExtensionPodPlanMemory,
   PodTileRole,
   classifyPodTile,
+  cleanupStaleExtensionPodRoadSites,
+  countPodParallelRoads,
+  getPodNetworkRingTiles,
+  getPodParallelRingTiles,
   getPodCentresForPhase,
   getPodCornerNeighbours,
   getPodEdgeNeighbours,
@@ -19,6 +24,7 @@ import {
   isExtensionPodBuilt,
   isPodCentre,
   placeExtensionPodSites,
+  planExtensionPods,
   PodExtensionState,
   refreshExtensionPodPlan,
   scoreExtensionPod
@@ -233,7 +239,7 @@ describe("extension pod lattice", () => {
 });
 
 describe("extension pod scoring", () => {
-  const base = { ringRoadTiles: 0, ringPlannedTiles: 0, ringSwampTiles: 0, spawnDistance: 10, sourceDistance: 20 };
+  const base = { ringRoadTiles: 0, ringPlannedTiles: 0, ringParallelRoads: 0, ringSwampTiles: 0, spawnDistance: 10, sourceDistance: 20 };
 
   it("prefers the edge-adjacent pod over an isolated one at the same distance", () => {
     const isolated = scoreExtensionPod({ ...base, edgeNeighbours: 0 });
@@ -256,6 +262,75 @@ describe("extension pod scoring", () => {
       scoreExtensionPod({ ...base, edgeNeighbours: 0, ringRoadTiles: 2 }),
       scoreExtensionPod({ ...base, edgeNeighbours: 0, ringPlannedTiles: 2 })
     );
+  });
+
+  it("prices a ring tile beside a road above a ring tile on one, per contact", () => {
+    assert.isBelow(
+      scoreExtensionPod({ ...base, edgeNeighbours: 1, ringParallelRoads: 4 }),
+      scoreExtensionPod({ ...base, edgeNeighbours: 1 })
+    );
+    //A rung costs more than reusing a tile earns, or an overlapping phase could be outbid by a laddering
+    //one that happens to touch the road in a couple of places.
+    assert.isAtLeast(EXTENSION_POD_SCORE_WEIGHTS.parallelRoad, EXTENSION_POD_SCORE_WEIGHTS.roadReuse);
+    assert.isAbove(EXTENSION_POD_SCORE_WEIGHTS.parallelRoad, EXTENSION_POD_SCORE_WEIGHTS.plannedRoad);
+    //...but tessellation still outranks it per unit, so the cluster never breaks up to dodge a rung.
+    assert.isAbove(EXTENSION_POD_SCORE_WEIGHTS.adjacent, EXTENSION_POD_SCORE_WEIGHTS.parallelRoad);
+  });
+
+  it("stamps the plan version the parallel-road scoring needs", () => {
+    //Bumped to 3 with the parallel penalty: every v2 plan was chosen blind to it, so it must replan.
+    assert.equal(EXTENSION_POD_PLAN_VERSION, 3);
+  });
+});
+
+/*
+  The geometry the screenshot was full of: an exit road running down a diagonal, and a lattice phase that
+  either lands its pod rings on it or one tile beside it. x+y === 52 is a road line of the phase whose
+  centres include (25,25) - the pod's whole north-east ring edge sits on it - and is off-lattice for the
+  phase one step over, whose centre (26,25) puts five ring tiles alongside it instead.
+*/
+const DIAGONAL_ROAD = new Set(
+  Array.from({ length: 13 }, (_, i) => packRoadPos(20 + i, 32 - i))
+);
+
+describe("extension pod lattice phase snapping", () => {
+  it("counts no parallel contact for the pod whose ring edge is the road", () => {
+    assert.deepEqual(
+      sortPacked(getPodNetworkRingTiles(25, 25, DIAGONAL_ROAD)),
+      pack([[27, 25], [26, 26], [25, 27]])
+    );
+    //Zero, and that is the point of using orthogonal contacts: the road keeps going diagonally past
+    //(27,25) and (25,27), which Chebyshev adjacency would have scored as a duplicate road.
+    assert.equal(countPodParallelRoads(25, 25, DIAGONAL_ROAD), 0);
+    assert.isEmpty(getPodParallelRingTiles(25, 25, DIAGONAL_ROAD));
+  });
+
+  it("counts the off-by-one pod's whole ladder", () => {
+    assert.isEmpty(getPodNetworkRingTiles(26, 25, DIAGONAL_ROAD));
+    //Five ring tiles run alongside the road without ever reaching it, each of them wedged between two
+    //of its tiles at once - ten rungs for zero reuse. That is the ladder from the screenshot.
+    assert.deepEqual(
+      sortPacked(getPodParallelRingTiles(26, 25, DIAGONAL_ROAD)),
+      pack([[28, 25], [27, 26], [27, 24], [25, 26], [26, 27]])
+    );
+    assert.equal(countPodParallelRoads(26, 25, DIAGONAL_ROAD), 10);
+  });
+
+  it("scores the overlapping pod above the parallel one, even when the parallel one is closer", () => {
+    const flat = { ringRoadTiles: 0, ringPlannedTiles: 0, ringParallelRoads: 0, ringSwampTiles: 0, spawnDistance: 10, sourceDistance: 20 };
+    const podInput = (x: number, y: number, extra: Partial<typeof flat> = {}) => ({
+      ...flat,
+      edgeNeighbours: 1,
+      ringPlannedTiles: getPodNetworkRingTiles(x, y, DIAGONAL_ROAD).length,
+      ringParallelRoads: countPodParallelRoads(x, y, DIAGONAL_ROAD),
+      ...extra
+    });
+
+    const overlapping = scoreExtensionPod(podInput(25, 25));
+    assert.isAbove(overlapping, scoreExtensionPod(podInput(26, 25)));
+    //And it still wins when the ladder is handed a real distance advantage - five tiles of plain closer
+    //to both the spawn and the sources. Distance used to be exactly what let the wrong phase through.
+    assert.isAbove(overlapping, scoreExtensionPod(podInput(26, 25, { spawnDistance: 0, sourceDistance: 10 })));
   });
 });
 
@@ -509,5 +584,172 @@ describe("extension pod construction", () => {
     refreshExtensionPodPlan(room as any, podPlan);
     assert.isTrue(podPlan.pods[0].built);
     assert.equal(getNextExtensionPod(podPlan)?.order, 1);
+  });
+});
+
+/*
+  A room with a built diagonal road, a pod plan that reuses it, and a pile of road construction sites -
+  the state a version bump lands in. Only construction sites carry a remove(), so the test can't even
+  express demolishing a structure.
+*/
+function cleanupFakeRoom(plannedTiles: number[], builtRoads: number[], siteTiles: { packed: number; structureType?: string }[]) {
+  const removed: number[] = [];
+  const structures = builtRoads.map(packed => ({
+    structureType: "road",
+    pos: { x: unpackRoadPosX(packed), y: unpackRoadPosY(packed) }
+  }));
+  const sites = siteTiles.map(({ packed, structureType }) => ({
+    structureType: structureType ?? "road",
+    pos: { x: unpackRoadPosX(packed), y: unpackRoadPosY(packed) },
+    remove: () => { removed.push(packed); return globals.OK; }
+  }));
+  const room = {
+    name: "W1N4",
+    memory: { exitRoads: { plannedTiles } },
+    find: (type: number) => (type === globals.FIND_STRUCTURES ? structures : type === globals.FIND_CONSTRUCTION_SITES ? sites : [])
+  };
+  return { room, removed };
+}
+
+describe("extension pod replan cleanup", () => {
+  beforeEach(() => {
+    globals.FIND_STRUCTURES = 107;
+    globals.FIND_CONSTRUCTION_SITES = 111;
+    globals.STRUCTURE_ROAD = "road";
+    globals.OK = 0;
+  });
+
+  it("cancels the road sites laddering the network and nothing else", () => {
+    const road = [...DIAGONAL_ROAD];
+    const podPlan = plan([{ order: 0, x: 25, y: 25 }]);
+    podPlan.roadTiles = getPodRoadTiles(25, 25);
+    const rung = packRoadPos(27, 26); //Off the new lattice, wedged between two road tiles: the zig-zag.
+    const onPlan = packRoadPos(26, 24); //A ring tile of the new plan - this one is the work we want done.
+    const loner = packRoadPos(10, 10); //Unclaimed but touching nothing: somebody's shortcut, left alone.
+    const extension = packRoadPos(26, 27); //A second rung by geometry, but not a road: never a candidate.
+    const { room, removed } = cleanupFakeRoom([], road, [
+      { packed: rung }, { packed: onPlan }, { packed: loner }, { packed: extension, structureType: "extension" }
+    ]);
+
+    assert.equal(cleanupStaleExtensionPodRoadSites(room as any, podPlan), 1);
+    assert.deepEqual(removed, [rung]);
+  });
+
+  it("keeps a site another layer planned, even when it runs beside a road", () => {
+    const rung = packRoadPos(27, 26);
+    const podPlan = plan([{ order: 0, x: 25, y: 25 }]);
+    podPlan.roadTiles = getPodRoadTiles(25, 25);
+    //The exit/early/circulation layers own their routes: the pod planner adapts to them, never the reverse.
+    const { room, removed } = cleanupFakeRoom([rung], [...DIAGONAL_ROAD], [{ packed: rung }]);
+    assert.equal(cleanupStaleExtensionPodRoadSites(room as any, podPlan), 0);
+    assert.isEmpty(removed);
+  });
+
+  it("does not let two rungs of the same ladder justify each other", () => {
+    //Neither site is on a built or planned road, so with no third road nearby there is nothing to be
+    //parallel *to* - sites are deliberately excluded from the reference set.
+    const podPlan = plan([]);
+    const { room, removed } = cleanupFakeRoom([], [], [{ packed: packRoadPos(10, 10) }, { packed: packRoadPos(10, 11) }]);
+    assert.equal(cleanupStaleExtensionPodRoadSites(room as any, podPlan), 0);
+    assert.isEmpty(removed);
+  });
+});
+
+/*
+  A whole-planner room: 50x50 of plain, a spawn, one source, a controller, and one planned exit road
+  running down a diagonal. Enough surface for planExtensionPods, which is the only place the 8 phases are
+  actually compared against each other.
+*/
+function plannerRoom(plannedTiles: number[], spawn: [number, number], source: [number, number], controller: [number, number]) {
+  const at = ([x, y]: [number, number]) => ({ pos: { x, y, roomName: "W1N4" } });
+  const room = {
+    name: "W1N4",
+    memory: { exitRoads: { plannedTiles, routes: [], planned: 1 } } as any,
+    controller: at(controller),
+    getTerrain: () => ({ get: () => 0 }),
+    find: (type: number) => (type === globals.FIND_SOURCES ? [at(source)] : []),
+    lookForAt: () => []
+  };
+  return { room, spawn: at(spawn) };
+}
+
+describe("extension pod phase selection", () => {
+  beforeEach(() => {
+    globals.FIND_SOURCES = 105;
+    globals.FIND_MINERALS = 116;
+    globals.FIND_STRUCTURES = 107;
+    globals.FIND_CONSTRUCTION_SITES = 111;
+    globals.LOOK_STRUCTURES = "structure";
+    globals.LOOK_CONSTRUCTION_SITES = "constructionSite";
+    globals.STRUCTURE_ROAD = "road";
+    globals.STRUCTURE_RAMPART = "rampart";
+    globals.TERRAIN_MASK_WALL = 1;
+    globals.TERRAIN_MASK_SWAMP = 2;
+    globals.OK = 0;
+    globals.Game = { time: 1000, flags: {} };
+    globals.PathFinder = {
+      CostMatrix: class {
+        data = new Uint8Array(2500);
+        get(x: number, y: number) { return this.data[y * 50 + x]; }
+        set(x: number, y: number, value: number) { this.data[y * 50 + x] = value; }
+      }
+    };
+  });
+
+  it("anchors the lattice on the exit road instead of one tile beside it", () => {
+    //The road an exit route would leave behind: a clean diagonal across the room, x+y === 52.
+    const exitRoad = Array.from({ length: 25 }, (_, i) => packRoadPos(14 + i, 38 - i));
+    const { room, spawn } = plannerRoom(exitRoad, [25, 25], [40, 12], [10, 40]);
+
+    const podPlan = planExtensionPods(room as any, spawn as any);
+    assert.isNotEmpty(podPlan.pods);
+
+    const network = new Set(exitRoad);
+    const ring = new Set(podPlan.roadTiles);
+    const overlap = [...ring].filter(packed => network.has(packed));
+    const parallel = podPlan.pods.reduce(
+      (out, pod) => out.concat(getPodParallelRingTiles(pod.x, pod.y, network)), [] as number[]);
+
+    //Snapped: pod rings run *on* the exit road, and not one ring tile is laid alongside it.
+    assert.isAbove(overlap.length, 2, "the plan should reuse at least a whole diamond edge of the exit road");
+    assert.isEmpty(parallel, "no pod ring may run parallel to the exit road");
+    //A road line of the chosen lattice is (x-ax)+(y-ay) === 2 (mod 4), so this is the same claim as a
+    //phase id: the anchor has to be one the road diagonal belongs to.
+    assert.equal(((52 - podPlan.anchorX - podPlan.anchorY) % 4 + 4) % 4, 2);
+    assert.equal(podPlan.version, EXTENSION_POD_PLAN_VERSION);
+  });
+
+  it("snaps to a staircase route too, where the pre-v3 weights laddered", () => {
+    /*
+      Real exit routes are rarely a clean diagonal. PathFinder returns a staircase - a sideways step
+      every other tile - and a staircase belongs to two lattice diagonals at once, which is exactly the
+      ambiguity the old weights lost: they took the phase that read 7 reused tiles and one ring tile laid
+      alongside the route. The overlap term settles it at 10 reused and no ladder.
+    */
+    const staircase: number[] = [];
+    for (let step = 0; step < 10; step++){
+      staircase.push(packRoadPos(27 + step, 27 + step), packRoadPos(28 + step, 27 + step));
+    }
+    const { room, spawn } = plannerRoom(staircase, [25, 25], [45, 45], [10, 10]);
+    const podPlan = planExtensionPods(room as any, spawn as any);
+
+    const network = new Set(staircase);
+    const overlap = podPlan.roadTiles.filter(packed => network.has(packed));
+    const parallel = podPlan.pods.reduce(
+      (out, pod) => out.concat(getPodParallelRingTiles(pod.x, pod.y, network)), [] as number[]);
+    assert.isEmpty(parallel);
+    assert.isAtLeast(overlap.length, 8);
+  });
+
+  it("puts extensions near the source without buying that with a parallel ring", () => {
+    const exitRoad = Array.from({ length: 25 }, (_, i) => packRoadPos(14 + i, 38 - i));
+    const { room, spawn } = plannerRoom(exitRoad, [25, 25], [40, 12], [10, 40]);
+    const podPlan = planExtensionPods(room as any, spawn as any);
+
+    //The source pull is still on - the cluster leans towards it rather than sprawling the other way.
+    const meanX = podPlan.pods.reduce((sum, pod) => sum + pod.x, 0) / podPlan.pods.length;
+    const meanY = podPlan.pods.reduce((sum, pod) => sum + pod.y, 0) / podPlan.pods.length;
+    assert.isAbove(meanX, 25);
+    assert.isBelow(meanY, 25);
   });
 });
