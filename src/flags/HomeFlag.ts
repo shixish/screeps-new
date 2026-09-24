@@ -465,7 +465,13 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
     const saturation = getSourceSaturation(this.homeAudit, this.cohorts.drones);
     if (!saturation.saturated && !areSourcesStaticallyMined(this.homeAudit)){
       const neededWorkParts = saturation.work - saturation.workUsed;
-      //Prefer the body whose WORK count lands closest to the throughput we're still missing.
+      /*
+        Prefer the body whose WORK count lands closest to the throughput we're still missing - but only
+        among the tiers the room hasn't outgrown. On its own this ranking picks the 1 WORK T1 body
+        whenever the last seat is nearly covered, which is how a room with its extensions up kept
+        spawning 300 energy drones; the tier floor in findSpawnableCreep is what keeps those off the
+        table (lifted only for the emergency bootstrap above).
+      */
       const drone = this.findSpawnableCreep(CreepRoleName.Basic, body=>(
         body.counts[WORK] > 0 &&
         body.counts[CARRY] > 0 && //Drones have to be able to haul the energy home themselves
@@ -483,6 +489,8 @@ export class HomeFlag extends BasicFlag<HomeFlagMemory> {
 
     const optimalBuilderParts = this.getOptimalBuilderParts(this.home!);
     const neededBuilderParts = optimalBuilderParts - (this.cohorts.builders.counts[WORK] || 0);
+    //Same deal as the drones: `needed % WORK` ranks a 1 WORK body a perfect match, so the tier floor is
+    //what stops a room that can afford a real builder from answering with a T1 Basic.
     const builder = neededBuilderParts > 0 && this.findSpawnableCreep(CreepRoleName.Basic, body=>(
       body.counts[WORK] > 0 &&
       neededBuilderParts % body.counts[WORK]

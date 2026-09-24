@@ -36,8 +36,10 @@ export class UpgradeFlag extends BasicFlag<UpgradeFlagMemory> {
     const energyPerTickForHaul = Math.max(upgraderEnergyPerTick, 2); //at least keep a trickle flowing
     const optimalCourierParts = Math.ceil((roundTrip*energyPerTickForHaul)/50); //can carry 50 energy per carry part
     const neededCourierParts = optimalCourierParts - (controllerAnchor.couriers.counts[CARRY] || 0);
+    //Ranked on how close the body lands to the haul we're missing; the tier floor keeps the room off the
+    //courier bodies it has outgrown, so a short controller run can't answer with a T1 (see earlyEconomy).
     const courier = neededCourierParts > 0 && this.findSpawnableCreep(CreepRoleName.Courier, body=>(
-      body.counts[CARRY] > 0 && neededCourierParts % body.counts[CARRY]
+      body.counts[CARRY] > 0 && Math.abs(neededCourierParts - body.counts[CARRY])
     ), { anchor: controllerAnchor, cohort: controllerAnchor.couriers });
     if (courier) return courier;
 
