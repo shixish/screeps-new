@@ -22,6 +22,14 @@ import { computeWalkCostMap, tileIndex, UNREACHABLE_COST } from "./spawnPlacemen
       EXTENSION_POD_PHASES the lattice is anchored on. Rotations add nothing: L maps to itself under a
       90 degree turn about a centre.
 
+  Which of those 8 phases wins is the whole game, because the phases differ by one tile and the road
+  network is already there. Anchor the lattice right and pod rings land *on* the exit roads and the spawn
+  circulation lanes - roads somebody else is already paying for. Anchor it one tile off and the same rings
+  run parallel to them: two diagonals a tile apart joined by rungs, every tile of it built twice and
+  repaired forever. scoreExtensionPod prices both sides of that (roadReuse/plannedRoad up, parallelRoad
+  down) and growPhase adds an undiscounted lattice-wide overlap term, so phase selection snaps the
+  tessellation onto the existing grid instead of beside it.
+
   Everything here is plan-only in the same sense as the exit roads: planExtensionPods runs once per room
   and writes centres into room.memory.extensionPods, drawExtensionPodPlan paints it every tick, and
   placeExtensionPodSites is the one function that touches the world - called from HomeFlag when the
@@ -185,6 +193,83 @@ export const getExtensionPodReservedTiles = (room:Room, spawn:StructureSpawn)=>(
 );
 
 /*
+  The room's road network as three packed sets, collected in one pass instead of a lookForAt per ring
+  tile per candidate per phase (8 phases x ~288 centres x 8 ring tiles was 18k lookups).
+
+    built   - road structures standing right now. A ring tile here is a road we never have to pay for.
+    sites   - road construction sites. Same deal one step earlier, and the set replan cleanup may cancel.
+    planned - what another layer promised: exit routes, early roads, spawn circulation lanes.
+
+  `all` is the union, and it is what "parallel to a road" is measured against: it makes no difference to
+  a zig-zag whether the road beside it is standing or only planned, the second road still gets built.
+*/
+export interface PodRoadNetwork{
+  built: Set<number>;
+  sites: Set<number>;
+  planned: Set<number>;
+  all: Set<number>;
+}
+
+export function makePodRoadNetwork(built:number[], sites:number[], planned:number[]):PodRoadNetwork{
+  return {
+    built: new Set(built),
+    sites: new Set(sites),
+    planned: new Set(planned),
+    all: new Set(built.concat(sites, planned)),
+  };
+}
+
+export function getPodRoadNetwork(room:Room):PodRoadNetwork{
+  const built:number[] = [], sites:number[] = [];
+  room.find(FIND_STRUCTURES).forEach(structure=>{
+    if (structure.structureType === STRUCTURE_ROAD) built.push(packRoadPos(structure.pos.x, structure.pos.y));
+  });
+  room.find(FIND_CONSTRUCTION_SITES).forEach(site=>{
+    if (site.structureType === STRUCTURE_ROAD) sites.push(packRoadPos(site.pos.x, site.pos.y));
+  });
+  return makePodRoadNetwork(built, sites, getPlannedRoadTiles(room));
+}
+
+/*
+  Orthogonal neighbours only, and that choice is the whole trick.
+
+  Every road tile of the lattice has both offsets odd (a diagonal road) or both even (an axis road), and
+  an orthogonal step flips exactly one parity - which always lands on an extension tile. So *no two
+  lattice road tiles are ever orthogonally adjacent*: if a ring tile is orthogonally touching a road, that
+  road is off-phase. It runs alongside the ring instead of on it, and the pair becomes the zig-zag ladder
+  - two diagonals one tile apart, joined by useless rungs - that this term exists to price out.
+
+  Chebyshev adjacency would fire on the good case too: a road the ring genuinely sits on carries straight
+  on diagonally past the ring's corner tile, which is a continuation, not a duplicate.
+*/
+const ORTHOGONAL_NEIGHBOURS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
+
+const countParallelContacts = (packed:number, network:ReadonlySet<number>)=>{
+  //A tile *on* the network is overlap, the outcome we're paying for - it can never also be parallel to it.
+  if (network.has(packed)) return 0;
+  const x = unpackRoadPosX(packed), y = unpackRoadPosY(packed);
+  return ORTHOGONAL_NEIGHBOURS.reduce((count, [dx, dy])=>count + (network.has(packRoadPos(x+dx, y+dy)) ? 1 : 0), 0);
+};
+
+/*
+  Contacts, not tiles: a ring tile pinched between two off-phase roads is twice as wrong as one merely
+  brushing past a single road, and the ladders in the screenshot are exactly the pinched case.
+*/
+export const countPodParallelRoads = (x:number, y:number, network:ReadonlySet<number>)=>(
+  getPodRoadTiles(x, y).reduce((count, packed)=>count + countParallelContacts(packed, network), 0)
+);
+
+/* The ring tiles that duplicate a road rather than reuse it. Packed, so phases can union them. */
+export const getPodParallelRingTiles = (x:number, y:number, network:ReadonlySet<number>)=>(
+  getPodRoadTiles(x, y).filter(packed=>countParallelContacts(packed, network) > 0)
+);
+
+/* The ring tiles that land on a road somebody is already building or has promised. The union to maximise. */
+export const getPodNetworkRingTiles = (x:number, y:number, network:ReadonlySet<number>)=>(
+  getPodRoadTiles(x, y).filter(packed=>network.has(packed))
+);
+
+/*
   The placement mask, as PodTileUse values. Walls and the two-tile rim are Blocked (structures can't go
   there at all), harvest/mineral/controller surroundings and everything in `reserved` are RoadOnly, and
   anything solid that already stands in the room is Blocked - except roads, which are RoadOnly because a
@@ -229,6 +314,8 @@ export interface ExtensionPodScoreWeights{
   adjacent: number;
   roadReuse: number;
   plannedRoad: number;
+  parallelRoad: number;
+  phaseOverlap: number;
   swampRoad: number;
   spawnDistance: number;
   sourceDistance: number;
@@ -241,17 +328,31 @@ export interface ExtensionPodScoreWeights{
   The swamp term is deliberately asymmetric: an extension costs the same on swamp as on plain, a road
   costs 5x to build *and* 5x to repair. So a phase that lands its 3/8 road tiles on plain and its 5/8
   extension tiles on swamp is strictly cheaper, and only the ring tiles are penalised here.
+
+  `parallelRoad` is the phase-snapping term, and it is the reason the road weights below are as heavy as
+  they are. Which of the 8 phases we anchor on decides whether a pod ring lands *on* the exit road
+  diagonal or one tile beside it, and one tile beside it is the worst case in the room: two parallel
+  diagonals plus the rungs between them, every tile of it paid for twice in build energy and forever in
+  decay repair. Before this term a parallel phase scored within a rounding error of an overlapping one and
+  routinely won on source distance - the ladders in the screenshot. Priced at 6 per contact, a pod that
+  runs a whole ring edge alongside a road (~5 contacts, -30) can no longer be bought back by a couple of
+  tiles of walk-cost advantage, while a pod that reuses that same road edge (3 tiles, +12..+15) wins outright.
 */
 /*
   Plan version stamp. Increment to force all existing pod plans to replan on deploy - used when the scoring
   weights or placement rules change enough that old plans are wrong.
+
+  v3: parallel-road penalty + phase-level overlap term. Every v2 plan was chosen without either, so the
+  lattice it anchored on is very likely the off-by-one phase that ladders the exit roads.
 */
-export const EXTENSION_POD_PLAN_VERSION = 2;
+export const EXTENSION_POD_PLAN_VERSION = 3;
 
 export const EXTENSION_POD_SCORE_WEIGHTS:ExtensionPodScoreWeights = {
-  adjacent: 6,
-  roadReuse: 3,
-  plannedRoad: 2,
+  adjacent: 8,
+  roadReuse: 5,
+  plannedRoad: 4,
+  parallelRoad: 6,
+  phaseOverlap: 4,
   swampRoad: 2,
   spawnDistance: 1.5,
   sourceDistance: 2.5,
@@ -261,6 +362,7 @@ export interface ExtensionPodScoreInput{
   edgeNeighbours: number; //Accepted +-(2,2) neighbours, 0..4. Drives the tessellation.
   ringRoadTiles: number; //Ring tiles that already have a road or a road construction site.
   ringPlannedTiles: number; //Ring tiles sitting on another layer's planned road.
+  ringParallelRoads: number; //Orthogonal contacts between an off-network ring tile and a road: zig-zag rungs.
   ringSwampTiles: number; //Ring tiles on swamp - 5x the build and repair bill.
   spawnDistance: number; //Walk cost spawn -> centre. The filler's round trip.
   sourceDistance: number; //Mean walk cost source -> centre. The courier's round trip.
@@ -271,6 +373,7 @@ export function scoreExtensionPod(input:ExtensionPodScoreInput, weights = EXTENS
     weights.adjacent*input.edgeNeighbours +
     weights.roadReuse*input.ringRoadTiles +
     weights.plannedRoad*input.ringPlannedTiles -
+    weights.parallelRoad*input.ringParallelRoads -
     weights.swampRoad*input.ringSwampTiles -
     weights.spawnDistance*input.spawnDistance -
     weights.sourceDistance*input.sourceDistance
@@ -282,14 +385,11 @@ interface PodCandidate{
   y: number;
   centre: number; //packRoadPos of (x,y), the candidate's key.
   roadTiles: number[];
+  networkTiles: number[]; //Ring tiles on the existing/planned network. Unioned into the phase overlap term.
+  parallelTiles: number[]; //Ring tiles beside it instead of on it. Unioned into the same term, negatively.
   seed: boolean; //Ring touches an existing or planned road, so this pod may start a cluster.
   base: Omit<ExtensionPodScoreInput, 'edgeNeighbours'>;
 }
-
-const hasRoad = (room:Room, x:number, y:number)=>(
-  room.lookForAt(LOOK_STRUCTURES, x, y).some(structure=>structure.structureType === STRUCTURE_ROAD) ||
-  room.lookForAt(LOOK_CONSTRUCTION_SITES, x, y).some(site=>site.structureType === STRUCTURE_ROAD)
-);
 
 /*
   Every pod of one phase that clears the mask, with the parts of its score that don't depend on which
@@ -301,7 +401,7 @@ function collectPodCandidates(
   matrix:CostMatrix,
   anchorX:number,
   anchorY:number,
-  plannedTiles:number[],
+  network:PodRoadNetwork,
   spawnCosts:number[],
   sourceCosts:number[][],
 ):Map<number, PodCandidate>{
@@ -316,18 +416,26 @@ function collectPodCandidates(
     }
 
     const roadTiles = getPodRoadTiles(x, y);
-    let usableRing = 0, ringRoadTiles = 0, ringPlannedTiles = 0, ringSwampTiles = 0, seed = false;
+    const networkTiles:number[] = [], parallelTiles:number[] = [];
+    let usableRing = 0, ringRoadTiles = 0, ringPlannedTiles = 0, ringParallelRoads = 0, ringSwampTiles = 0, seed = false;
     roadTiles.forEach(packed=>{
       const rx = unpackRoadPosX(packed), ry = unpackRoadPosY(packed);
       if (matrix.get(rx, ry) >= PodTileUse.RoadOnly) usableRing++;
       if (terrain.get(rx, ry) === TERRAIN_MASK_SWAMP) ringSwampTiles++;
-      if (hasRoad(room, rx, ry)){
+      if (network.built.has(packed) || network.sites.has(packed)){
         ringRoadTiles++;
         seed = true;
       }
-      if (plannedTiles.includes(packed)){
+      if (network.planned.has(packed)){
         ringPlannedTiles++;
         seed = true;
+      }
+      if (network.all.has(packed)) networkTiles.push(packed);
+      //Off the network but touching it orthogonally: this tile is a second road running beside the first.
+      const contacts = countParallelContacts(packed, network.all);
+      if (contacts > 0){
+        ringParallelRoads += contacts;
+        parallelTiles.push(packed);
       }
     });
     if (usableRing < EXTENSION_POD_RING_MIN) return;
@@ -342,8 +450,10 @@ function collectPodCandidates(
       x, y,
       centre: packRoadPos(x, y),
       roadTiles,
+      networkTiles,
+      parallelTiles,
       seed,
-      base: { ringRoadTiles, ringPlannedTiles, ringSwampTiles, spawnDistance, sourceDistance },
+      base: { ringRoadTiles, ringPlannedTiles, ringParallelRoads, ringSwampTiles, spawnDistance, sourceDistance },
     });
   });
 
@@ -353,6 +463,8 @@ function collectPodCandidates(
 interface GrownPhase{
   pods: { x:number, y:number, score:number }[];
   phaseScore: number;
+  overlapTiles: number; //Distinct ring tiles the whole phase lands on the existing/planned network.
+  parallelTiles: number; //Distinct ring tiles the whole phase lays beside it instead.
 }
 
 /*
@@ -362,6 +474,12 @@ interface GrownPhase{
 
   The phase score discounts by acceptance order, so the choice of phase is dominated by the pods that
   actually get built at CL3-CL5. A plan that is wonderful at RCL8 and bad at RCL3 is a bad plan.
+
+  On top of that sum sits one undiscounted term over the whole cluster: phaseOverlap * (distinct ring
+  tiles on the network - distinct ring tiles parallel to it). The discount is right for build order and
+  wrong for phase choice - a lattice is snapped or it isn't, and the 12th pod's ladder costs the same
+  energy as the 1st pod's. Counting *distinct* tiles is what makes this a lattice-wide measure rather
+  than the per-pod terms a second time: a ring edge shared by two pods is one road, so it scores once.
 */
 function growPhase(candidates:Map<number, PodCandidate>, weights:ExtensionPodScoreWeights, max = EXTENSION_POD_MAX):GrownPhase|null{
   const accepted:{ x:number, y:number, score:number }[] = [];
@@ -384,20 +502,27 @@ function growPhase(candidates:Map<number, PodCandidate>, weights:ExtensionPodSco
     return best ? { candidate: best, score: bestScore } : null;
   };
 
+  const overlap = new Set<number>(), parallel = new Set<number>();
+  const accept = (candidate:PodCandidate, score:number)=>{
+    accepted.push({ x: candidate.x, y: candidate.y, score });
+    acceptedCentres.add(candidate.centre);
+    candidate.networkTiles.forEach(packed=>overlap.add(packed));
+    candidate.parallelTiles.forEach(packed=>parallel.add(packed));
+  };
+
   const seed = pick(candidate=>candidate.seed, ()=>0);
   if (!seed) return null;
-  accepted.push({ x: seed.candidate.x, y: seed.candidate.y, score: seed.score });
-  acceptedCentres.add(seed.candidate.centre);
+  accept(seed.candidate, seed.score);
 
   while (accepted.length < max){
     const next = pick(candidate=>countAcceptedNeighbours(candidate) > 0, countAcceptedNeighbours);
     if (!next) break;
-    accepted.push({ x: next.candidate.x, y: next.candidate.y, score: next.score });
-    acceptedCentres.add(next.candidate.centre);
+    accept(next.candidate, next.score);
   }
 
-  const phaseScore = accepted.reduce((sum, pod, index)=>sum + pod.score/(index+1), 0);
-  return { pods: accepted, phaseScore };
+  const discounted = accepted.reduce((sum, pod, index)=>sum + pod.score/(index+1), 0);
+  const phaseScore = discounted + weights.phaseOverlap*(overlap.size - parallel.size);
+  return { pods: accepted, phaseScore, overlapTiles: overlap.size, parallelTiles: parallel.size };
 }
 
 /*
@@ -439,7 +564,7 @@ export function planExtensionPods(room:Room, spawn:StructureSpawn, opts:Extensio
   const max = opts.max ?? EXTENSION_POD_MAX;
   const weights = opts.weights ?? EXTENSION_POD_SCORE_WEIGHTS;
   const reserved = opts.reserved ?? getExtensionPodReservedTiles(room, spawn);
-  const plannedTiles = getPlannedRoadTiles(room);
+  const network = getPodRoadNetwork(room);
   const matrix = buildPodPlacementMatrix(room, reserved);
 
   const terrain = room.getTerrain();
@@ -448,7 +573,7 @@ export function planExtensionPods(room:Room, spawn:StructureSpawn, opts:Extensio
   const sourceCosts = room.find(FIND_SOURCES).map(source=>computeWalkCostMap(source.pos, getTerrainAt));
 
   const grownPhases = EXTENSION_POD_PHASES.map(([anchorX, anchorY])=>{
-    const candidates = collectPodCandidates(room, matrix, anchorX, anchorY, plannedTiles, spawnCosts, sourceCosts);
+    const candidates = collectPodCandidates(room, matrix, anchorX, anchorY, network, spawnCosts, sourceCosts);
     return growPhase(candidates, weights, max);
   });
   const bestPhase = grownPhases.reduce((best, grown, phase)=>{
@@ -461,7 +586,10 @@ export function planExtensionPods(room:Room, spawn:StructureSpawn, opts:Extensio
   //falls back to findDiamondPlacement instead of re-running this every tick.
   const phase = bestPhase < 0 ? 0 : bestPhase;
   const [anchorX, anchorY] = EXTENSION_POD_PHASES[phase];
-  const grown:GrownPhase = grownPhases[bestPhase] ?? { pods: [], phaseScore: 0 };
+  const grown:GrownPhase = grownPhases[bestPhase] ?? { pods: [], phaseScore: 0, overlapTiles: 0, parallelTiles: 0 };
+  //The two numbers that say whether the lattice snapped: ring tiles shared with the road network vs ring
+  //tiles laid alongside it. A healthy plan reuses several and ladders none.
+  console.log(`[${room.name}] extension pods phase ${phase} (${anchorX},${anchorY}): ${grown.pods.length} pods, ${grown.overlapTiles} road tiles reused, ${grown.parallelTiles} parallel`);
 
   const pods = orderPods(grown.pods, spawnCosts).map((pod, order)=>({
     id: `pod-${order}`,
@@ -491,6 +619,43 @@ export function invalidateExtensionPodPlan(room:Room){
   delete room.memory.extensionPods;
 }
 
+/*
+  Cleanup after a replan, deliberately timid.
+
+  A new plan can anchor on a different phase, which strands whatever the old one already put on the map.
+  Nothing standing is ever touched: an extension is 3000 energy of sunk cost and a built road is still a
+  road even on the wrong diagonal, so demolishing either to chase a better plan costs more than the
+  better plan saves. Flags need no help here - syncExtensionPodFlags drags every pod flag to its new
+  centre and removes the ones the shorter plan dropped.
+
+  That leaves *road construction sites*, which are pure future spend and free to cancel. One is removed
+  only when all three hold:
+    - the new plan doesn't want it (not in roadTiles), and
+    - no other layer wants it (not an exit route, early road or circulation lane), and
+    - it is orthogonally touching a road the network already has or will have.
+  The third condition is the zig-zag test from countPodParallelRoads: an unclaimed site beside an
+  existing road is a rung of the ladder the replan exists to remove. An unclaimed site *not* beside one
+  is somebody's shortcut we don't understand, and it stays.
+*/
+export function cleanupStaleExtensionPodRoadSites(room:Room, plan:ExtensionPodPlanMemory){
+  const network = getPodRoadNetwork(room);
+  //Sites are excluded from the reference set on purpose: two rungs of the same ladder must not justify
+  //each other. Only roads that exist or are promised count as the thing a site could be running beside.
+  const reference = new Set<number>(plan.roadTiles);
+  network.built.forEach(packed=>reference.add(packed));
+  network.planned.forEach(packed=>reference.add(packed));
+
+  let removed = 0;
+  room.find(FIND_CONSTRUCTION_SITES).forEach(site=>{
+    if (site.structureType !== STRUCTURE_ROAD) return;
+    const packed = packRoadPos(site.pos.x, site.pos.y);
+    if (reference.has(packed)) return; //Claimed by the new plan or another layer.
+    if (countParallelContacts(packed, reference) === 0) return;
+    if (site.remove() === OK) removed++;
+  });
+  return removed;
+}
+
 /* Plan once per room, same sticky-memory shape as the early/exit road plans. */
 export function ensureExtensionPodPlan(room:Room, spawn:StructureSpawn){
   const existing = room.memory.extensionPods;
@@ -499,7 +664,15 @@ export function ensureExtensionPodPlan(room:Room, spawn:StructureSpawn){
     console.log(`[${room.name}] extension pod plan version mismatch (${existing.version ?? 'none'} != ${EXTENSION_POD_PLAN_VERSION}), replanning`);
     invalidateExtensionPodPlan(room);
   }
-  return room.memory.extensionPods || (room.memory.extensionPods = planExtensionPods(room, spawn));
+  if (room.memory.extensionPods) return room.memory.extensionPods;
+
+  const plan = room.memory.extensionPods = planExtensionPods(room, spawn);
+  //Runs on the first plan too, not just replans: the pre-lattice diamond placer left the same kind of
+  //off-grid road sites behind, and a site queued against the old lattice is exactly what we don't want
+  //builders spending the next few hundred ticks on.
+  const cancelled = cleanupStaleExtensionPodRoadSites(room, plan);
+  if (cancelled) console.log(`[${room.name}] cancelled ${cancelled} off-lattice road site${cancelled === 1 ? '' : 's'} left beside the new pod rings`);
+  return plan;
 }
 
 /*

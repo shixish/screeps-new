@@ -109,9 +109,12 @@ export function findOrphanExtensionPodFlags(roomName:string, desiredNames:string
 export const EXTENSION_POD_FLAG_SYNC_INTERVAL = 25;
 
 export function syncExtensionPodFlags(room:Room, force = false){
-  if (!force && Game.time % EXTENSION_POD_FLAG_SYNC_INTERVAL !== 0) return;
   const plan = getExtensionPodPlan(room);
   if (!plan) return;
+  //A replan moves every centre at once, so reconcile on the tick it happens instead of leaving up to a
+  //whole interval of flags sitting on the abandoned lattice. plan.planned is the tick the planner ran,
+  //and HomeFlag ensures the plan before it syncs, so this fires in the same tick as the replan.
+  if (!force && plan.planned !== Game.time && Game.time % EXTENSION_POD_FLAG_SYNC_INTERVAL !== 0) return;
   refreshExtensionPodPlan(room, plan); //Colours are only useful if `built` is current.
 
   const standing = room.find(FIND_FLAGS).reduce((out, flag)=>{
