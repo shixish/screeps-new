@@ -828,3 +828,94 @@ export function needsCourierTierUpgrade(courierMemories:{counts:Partial<CreepPar
   if (countBodiesAtCost(courierMemories, maxCourierTierCost) >= required) return false;
   return courierMemories.length < required + COURIER_TIER_UPGRADE_HEADROOM;
 }
+
+/*
+  Basic fleet sizing, once the specialists own the harvest.
+
+  A Basic is the room's generic worker: it builds, repairs, tops the extensions up and dumps leftovers
+  into the controller. Only the *building* part scales with anything - and it scales with outstanding
+  construction, not with the size of the room. Sizing the fleet off a WORK shortfall instead (the old
+  getOptimalBuilderParts path) meant a room with its roads and containers finished kept paying 500-1200
+  energy a body, every 1500 ticks, for creeps whose whole day was walking energy 5 tiles into a
+  container the couriers already fill. So there are exactly two states:
+
+    - construction outstanding: a surge of CONSTRUCTION_SURGE_BASICS bodies at the biggest tier the
+      room can buy. Construction is a one-off pile of work; finishing it sooner is worth the energy,
+      and one 6 WORK body builds as fast as six T1s for a sixth of the spawn time and CPU.
+    - nothing to build: IDLE_BASIC_FLEET_SIZE cheap fillers, and nothing else. The surge bodies are
+      simply not replaced when they die, so the fleet drains back down to the fillers on its own -
+      no suicides, no recycling path that doesn't exist yet.
+
+  Both counts are of Basics the *room* owns (getRoomCreepMemories: every live Basic plus one in a
+  spawn), not of a cohort. A Basic is a Basic wherever it was requested from, and the room-wide number
+  is also what canBootstrapCourier gates on, so the two can't disagree about how many exist.
+*/
+
+//Cheap idle fillers kept in circulation with nothing left to build: repair, light hauling, and the
+//bodies that answer isTierFloorEmergency if the room ever loses everything else.
+export const IDLE_BASIC_FLEET_SIZE = 2;
+
+//Bodies added on top of that while construction sites are outstanding.
+export const CONSTRUCTION_SURGE_BASICS = 2;
+
+export enum BasicFleetRequest{
+  None = 'none',
+  IdleFiller = 'idleFiller', //Cheapest body that can work and carry - deliberately below the tier floor.
+  ConstructionSurge = 'constructionSurge', //Biggest body the room can buy, tier floor intact.
+}
+
+/*
+  The idle steady state never drops the room below one Basic per source: canBootstrapCourier (and with
+  it the whole static miner plan) will not pass until every source has a Basic on it, so a two-Basic
+  floor in a three-source room would soft-lock the room out of its own specialists.
+*/
+export function getIdleBasicFleetSize(sourceCount:number){
+  return Math.max(IDLE_BASIC_FLEET_SIZE, sourceCount);
+}
+
+/*
+  The drone-harvest phase: while the room's own Basics *are* the harvest plan, fleet size is the
+  saturation gate's business and this policy stays out of it. Same two conditions HomeFlag's stage 1
+  uses (and it hands them straight to this function) so the two can never disagree and stall the
+  early game on a two-creep idle cap.
+*/
+export function isDroneHarvestPhase(saturated:boolean, staticallyMined:boolean){
+  return !saturated && !staticallyMined;
+}
+
+export interface BasicFleetState{
+  droneHarvestPhase:boolean; //isDroneHarvestPhase - drones still own the request.
+  constructionSites:number; //Sites in the home room (FIND_MY_CONSTRUCTION_SITES).
+  basics:number; //Every Basic the room owns, including one currently in a spawn.
+  maxTierBasics:number; //How many of those are at the biggest tier the room's capacity buys.
+  idleFleetSize:number; //getIdleBasicFleetSize.
+}
+
+/* What (if anything) the room should ask for right now. See the BasicFleetRequest comment above. */
+export function getBasicFleetRequest({ droneHarvestPhase, constructionSites, basics, maxTierBasics, idleFleetSize }:BasicFleetState):BasicFleetRequest{
+  if (droneHarvestPhase) return BasicFleetRequest.None;
+  if (constructionSites > 0){
+    /*
+      Surge. Count only the bodies at the top tier: the point of the surge is build throughput, and the
+      T1s left over from the bootstrap contribute 1 WORK each. Topping the idle floor up with a surge
+      body rather than a filler is deliberate too - there is work for it, and the tier floor (PR #28)
+      says a room that can afford a big Basic shouldn't be buying small ones while it has a use for them.
+    */
+    if (maxTierBasics < CONSTRUCTION_SURGE_BASICS || basics < idleFleetSize) return BasicFleetRequest.ConstructionSurge;
+    return BasicFleetRequest.None;
+  }
+  //Nothing to build: top the cheap fillers up and let the surge bodies expire.
+  return basics < idleFleetSize ? BasicFleetRequest.IdleFiller : BasicFleetRequest.None;
+}
+
+/*
+  Rankings handed to findSpawnableCreep for the two states. Every Basic tier has WORK and CARRY, but
+  both jobs need both (build/repair with WORK, fetch the energy with CARRY), so say so rather than
+  relying on the tier list never changing.
+*/
+
+/* Surge: no preference between affordable tiers, so pickAffordableTier keeps the most expensive one. */
+export const surgeBuilderRank = (body:CreepBody)=>body.counts[WORK] > 0 && body.counts[CARRY] > 0 ? 0 : false;
+
+/* Idle filler: rank by cost so the cheapest body wins. Only works with the tier floor lifted. */
+export const idleFillerRank = (body:CreepBody)=>body.counts[WORK] > 0 && body.counts[CARRY] > 0 ? body.cost : false;
