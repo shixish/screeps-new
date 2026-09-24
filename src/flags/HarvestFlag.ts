@@ -124,17 +124,22 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
     CARRY parts, the smallest Courier tier has 3, every tier is rejected and no courier is ever
     requested - so no miner, no harvest coverage, no upgrader, and a spawn that sits full forever.
 
-    So: skip the sizing entirely and ask for the cheapest real courier body. Once a miner is actually
-    filling the container, getRequestedCourier's normal sizing grows the fleet from there.
+    So: skip the sizing entirely. Unsized is not the same as cheap though, which is what the old
+    `smallest body wins` ranking quietly made it - a room whose first extensions were already up kept
+    bootstrapping 300 energy couriers, and those undersized bodies then sat in the fleet for 1500 ticks
+    holding back everything needsCourierTierUpgrade guards. Rank the biggest balanced haul body first
+    instead, so the bootstrap lands on the best tier the room can afford (the tier floor in
+    findSpawnableCreep enforces the same thing from the other side, and both step aside for the
+    emergency bootstrap, where only what's standing in the spawn right now is affordable).
+    Once a miner is actually filling the container, getRequestedCourier's normal sizing takes over.
   */
   getBootstrapCourier(sourceAnchor:CreepSourceAnchor, onlyIfUncovered = true){
     //Spread the bootstrap couriers over the sources first; the room-wide count is the real cap.
     if (onlyIfUncovered && (sourceAnchor.couriers.counts[CARRY] ?? 0) > 0) return null;
     const courierType = this.domestic ? CreepRoleName.Courier : CreepRoleName.RemoteCourier;
     return this.findSpawnableCreep(courierType, body=>(
-      body.counts[CARRY] > 0 &&
-      body.counts[MOVE] > 0 && //It has to be able to walk to the container on its own.
-      body.counts[CARRY] //Smallest body wins - this is a bootstrap, not a haul plan.
+      isBalancedHaulBody(body) && //CARRY to haul with, a MOVE each so it walks to the container on its own.
+      -body.counts[CARRY] //Biggest balanced body wins - the lowest distance ranks first.
     ), { anchor: sourceAnchor, cohort: sourceAnchor.couriers, priority: CreepPriority.High });
   }
 
@@ -159,8 +164,15 @@ export class HarvestFlag extends RemoteFlag<HarvestFlagMemory> {
 
     const courierType = this.domestic ? CreepRoleName.Courier : CreepRoleName.RemoteCourier;
     return this.findSpawnableCreep(courierType, body=>(
-      neededCourierParts >= body.counts[CARRY] &&
-      neededCourierParts % body.counts[CARRY]
+      isBalancedHaulBody(body) &&
+      /*
+        Rank on how close the body lands to the haul we're still missing. This used to reject outright
+        anything carrying more than the shortfall, which on a small shortfall left the 300 tier as the
+        only candidate the room was allowed to build - so a room at 500 capacity answered "2 CARRY
+        short" with another T1 courier. Overshooting by a couple of CARRY parts costs far less than a
+        third undersized body on the road, and the tier floor forbids that body anyway.
+      */
+      Math.abs(neededCourierParts - body.counts[CARRY])
     ), { anchor: sourceAnchor, cohort: sourceAnchor.couriers, priority: CreepPriority.Normal });
   }
 

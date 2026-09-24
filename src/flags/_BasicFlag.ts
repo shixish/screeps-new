@@ -1,6 +1,6 @@
 import { CreepRoles } from "managers/creeps";
 import { CreepPriority, CreepRoleName, FlagType } from "utils/constants";
-import { couriersRequiredForNextStaticMiner, getMaxAffordableTierCost, getRoomCreepMemories, isBalancedHaulBody, needsCourierTierUpgrade } from "utils/earlyEconomy";
+import { couriersRequiredForNextStaticMiner, getMaxAffordableTierCost, getRoleTierFloor, getRoomCreepMemories, isBalancedHaulBody, isTierFloorEmergency, needsCourierTierUpgrade, pickAffordableTier } from "utils/earlyEconomy";
 import { getRoomAudit } from "utils/tickCache";
 
 if (!Memory.flags) Memory.flags = {} as Memory['flags']; //Flags object isn't initialized by default
@@ -95,20 +95,28 @@ export abstract class BasicFlag<AbstractFlagMemory extends BasicFlagMemory = Bas
   //   } as SpawnableCreep : null;
   // }
 
+  /*
+    The central tier picker. `distanceFilter` ranks the tiers this room can afford (smallest number wins,
+    false rejects a tier); passing `true` instead is the emergency form - no ranking, and the budget is
+    the energy standing in the room right now rather than its capacity.
+
+    Two budgets, two meanings. energyCapacityAvailable is what the room can buy once the haulers have
+    topped the extensions up, which is the right yardstick for a creep that is going to live 1500 ticks.
+    energyAvailable is what is in the spawn this instant, and is only the right yardstick when there is
+    nothing left alive to do the topping up (see isTierFloorEmergency).
+
+    On top of that, the generic economy roles get a tier floor: once the room can buy a bigger Basic or
+    Courier, the tiers below it are off the table entirely, so a ranking that happens to prefer a small
+    body (closest WORK match, smallest CARRY, needed % parts) can't spawn a T1 into a 500+ capacity room.
+    The emergency lifts the floor - a small creep now beats no creep ever.
+  */
   findSpawnableCreep(roleName:CreepRoleName, distanceFilter?:true|((body:CreepBody)=>number|false), attributes?:Partial<SpawnableCreep>):SpawnableCreep|null{
     const config = CreepRoles[roleName].config;
-    const energyAvailable = distanceFilter === true ? this.homeAudit.room.energyAvailable : this.homeAudit.room.energyCapacityAvailable;
-    const distanceFilterFn = typeof distanceFilter === 'function' ? distanceFilter : ()=>0; //if no distance function is provided then just find the most expensive tier to use
-    const { tier } = config.tiers.reduce((out, currentTier)=>{
-      if (currentTier.body.cost > energyAvailable) return out;
-      const distance = distanceFilterFn(currentTier.body);
-      if (distance === false) return out; //false means this is an invalid tier
-      if (out.distance === false || distance <= out.distance){ //distance of 0 indicates a perfect match
-        out.tier = currentTier;
-        out.distance = distance;
-      }
-      return out;
-    }, { tier: null, distance: false } as { tier: CreepTier|null, distance:number|false });
+    const emergency = distanceFilter === true || isTierFloorEmergency(this.homeAudit, roleName);
+    const energyAvailable = emergency ? this.homeAudit.room.energyAvailable : this.homeAudit.room.energyCapacityAvailable;
+    const tierFloor = emergency ? 0 : getRoleTierFloor(roleName, config.tiers, energyAvailable);
+    //if no distance function is provided then just find the most expensive tier to use
+    const tier = pickAffordableTier(config.tiers, energyAvailable, typeof distanceFilter === 'function' ? distanceFilter : undefined, tierFloor);
     return tier ? {
       role: roleName,
       tier: tier,

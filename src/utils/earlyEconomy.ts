@@ -710,6 +710,91 @@ export function getMaxAffordableTierCost(tiers:CreepTier[], energyCapacityAvaila
   }, 0);
 }
 
+/*
+  The tier floor: the bodies a room has outgrown.
+
+  Basic and Courier are the room's generic economy creeps - a Basic works with its WORK parts, a Courier
+  hauls with its CARRY parts - so a smaller body is never "the right size for this job", it is just less
+  creep for the same spawn slot, the same CPU and the same 1500 ticks of life. The flag-side filters that
+  pick a tier are about *how many* of them the room still needs (WORK missing, CARRY missing), and several
+  of them happen to rank a small body first: getBootstrapCourier took the smallest CARRY outright, and the
+  `needed % parts` / `|needed - parts|` rankings land on the 300 tier whenever the shortfall is small.
+  That is how a room sitting at 500+ capacity kept rolling T1 Basics and T1 couriers long after its
+  extensions were up. So for these roles the tier is decided by what the room can buy, not by the
+  shortfall that asked for the creep - the shortfall only decides whether to ask at all.
+*/
+export const TIER_FLOOR_ROLES:CreepRoleName[] = [CreepRoleName.Basic, CreepRoleName.Courier, CreepRoleName.RemoteCourier];
+
+export const roleHasTierFloor = (role:CreepRoleName)=>TIER_FLOOR_ROLES.includes(role);
+
+/*
+  The cheapest body of a role the room is still allowed to spawn: the most expensive tier its energy
+  capacity buys. 0 (no floor at all) for every other role - a static miner or a seated upgrader really is
+  sized to the job - and for a capacity that can't afford any tier, where the affordability check already
+  does the rejecting.
+*/
+export function getRoleTierFloor(role:CreepRoleName, tiers:CreepTier[], energyCapacityAvailable:number){
+  if (!roleHasTierFloor(role)) return 0;
+  return getMaxAffordableTierCost(tiers, energyCapacityAvailable);
+}
+
+/*
+  Can anything alive actually refill the spawn and its extensions? It takes CARRY to hold the energy and
+  MOVE to walk it over; the 0-MOVE statics (a miner sat on its container, the seated upgrader) are tugged
+  into place and never leave, so a room down to nothing but statics can never raise energyAvailable up to
+  energyCapacityAvailable on its own.
+*/
+export function canRefillSpawn(roomAudit:RoomAudit){
+  return roomAudit.creeps.some(creep=>{
+    const counts = creep.memory.counts;
+    return (counts?.[CARRY] ?? 0) > 0 && (counts?.[MOVE] ?? 0) > 0;
+  });
+}
+
+/*
+  Emergency bootstrap - the only thing that lifts the tier floor.
+
+  Both conditions have to hold: the room has none of this role left, AND nothing alive could fill the
+  extensions. A body priced off energyCapacityAvailable then waits in the spawn queue forever for energy
+  no creep is left to deliver (SpawnController just holds until energyAvailable covers the tier), so the
+  room is dead. Only there do we fall back to what is in the spawn right now and take whatever body that
+  buys - an undersized Basic or Courier is what gets the fleet back to something that can pay for a
+  proper one. While any hauler is still walking, capacity is a number the room will reach, so the floor
+  stands and a momentary dip in energyAvailable can't talk us into a T1.
+
+  HomeFlag's zero-creep path asks for the same budget explicitly (findSpawnableCreep(..., true)).
+*/
+export function isTierFloorEmergency(roomAudit:RoomAudit, role:CreepRoleName){
+  if (!roleHasTierFloor(role)) return false;
+  if ((roomAudit.creepCountsByRole[role] ?? 0) > 0) return false;
+  return !canRefillSpawn(roomAudit);
+}
+
+/*
+  The tier picker behind BasicFlag.findSpawnableCreep, kept here as a pure function so the spawn rules
+  can be tested without the game globals.
+
+  `distanceFilter` ranks the affordable tiers - smallest number wins, 0 is a perfect match, false rejects
+  a tier outright. Ties keep the later (more expensive) tier. Anything below `tierFloor` is dropped before
+  the ranking ever sees it, which is what stops a ranking that prefers small bodies from picking one the
+  room has outgrown.
+*/
+export function pickAffordableTier(tiers:CreepTier[], energyAvailable:number, distanceFilter?:(body:CreepBody)=>number|false, tierFloor = 0){
+  const rank = distanceFilter ?? (()=>0); //No ranking means "just take the most expensive one we can afford".
+  const { tier } = tiers.reduce((out, currentTier)=>{
+    if (currentTier.body.cost > energyAvailable) return out;
+    if (currentTier.body.cost < tierFloor) return out; //A body this room has outgrown - see getRoleTierFloor.
+    const distance = rank(currentTier.body);
+    if (distance === false) return out; //false means this is an invalid tier
+    if (out.distance === false || distance <= out.distance){ //distance of 0 indicates a perfect match
+      out.tier = currentTier;
+      out.distance = distance;
+    }
+    return out;
+  }, { tier: null, distance: false } as { tier: CreepTier|null, distance:number|false });
+  return tier;
+}
+
 /* Body cost rebuilt from the part counts stored on a creep's memory (Memory.creeps[name].counts). */
 export function getBodyCostFromCounts(counts:Partial<CreepPartsCounts>){
   return PARTS.reduce((cost, part)=>cost + (counts[part] ?? 0)*PART_COST[part], 0);
